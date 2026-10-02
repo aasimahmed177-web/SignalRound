@@ -11,6 +11,8 @@
 
 import type { DeepDiveResult } from "@fireround/core";
 import { awaitDeepDive } from "@fireround/core";
+import { schema } from "@fireround/core/db";
+import { eq } from "drizzle-orm";
 import { start } from "workflow/api";
 import { db } from "@/lib/db";
 import { companiesWithDossier, DEEP_DIVE_CREDITS, finishCompanyDive, reverifyDossier, startCompanyDive } from "@/lib/deepdive";
@@ -156,6 +158,13 @@ export async function startDiveStep(
   "use step";
   if (!dossierCheckAvailable()) return { skipped: "no model is configured to check the dossier" };
   const handle = await db();
+  // A company folded into another after it was queued: the survivor carries the dossier.
+  const [exists] = await handle
+    .select({ id: schema.companies.id })
+    .from(schema.companies)
+    .where(eq(schema.companies.id, companyId))
+    .limit(1);
+  if (!exists) return { skipped: "company merged into another" };
   if (!force) {
     // A checked dossier a newer round has outdated is dived again; only a current one stands.
     if ((await dossierStates(handle, [companyId])).get(companyId) === "verified") return { skipped: "already checked and current" };

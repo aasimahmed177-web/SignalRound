@@ -123,6 +123,13 @@ export interface CorroborateRecordOptions extends CorroborationOptions {
   rates?: Awaited<ReturnType<typeof fetchRates>> | null;
 }
 
+/** The round was merged into another, or removed, after the lane picked it up: nothing left to corroborate. */
+export class RecordGone extends Error {
+  constructor() {
+    super("Record not found.");
+  }
+}
+
 export async function corroborateRecord(
   handle: Db,
   client: Firecrawl,
@@ -131,7 +138,7 @@ export async function corroborateRecord(
 ): Promise<CorroborateOutcome> {
   const { rows } = await listRounds(handle, { ids: [roundId], includeReview: true, certainty: "all", limit: 1 });
   const row = rows[0];
-  if (!row) throw new Error("Record not found.");
+  if (!row) throw new RecordGone();
 
   const tiers = opts.tiers ?? { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
   const domains = await handle

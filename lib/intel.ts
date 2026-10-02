@@ -8,7 +8,7 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, gte, inArray, max, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
-import { corroborateRecord } from "./corroborate.ts";
+import { corroborateRecord, RecordGone } from "./corroborate.ts";
 import type { CoveragePlan } from "./coverage.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
 import { GAP_FILL_CREDITS, researchRound } from "./gapfill.ts";
@@ -68,7 +68,11 @@ export async function corroborateForPlan(
   // list's week or a page's byline is not the announcement, and such a row is not delivered on one list.
   const targets = [...new Set([...ids.insertedIds, ...corroborationTargets(plan, ids), ...(await unstatedDays(handle, ids.changedIds))])];
   await pool(targets, 10, async (id) => {
-    const outcome = await corroborateRecord(handle, client, id, { broad: true });
+    const outcome = await corroborateRecord(handle, client, id, { broad: true }).catch((error: unknown) => {
+      if (error instanceof RecordGone) return null;
+      throw error;
+    });
+    if (!outcome) return;
     tally.corroborated += 1;
     tally.corroboration_rejected += outcome.rejected;
     tally.newsroom_pages += outcome.newsroom;
@@ -107,7 +111,11 @@ export async function corroborateUnstated(
   const targets = ids;
   const tally: CorroborationTally = { corroborated: 0, corroboration_rejected: 0, corroboration_credits: 0, newsroom_pages: 0 };
   await pool(targets, 10, async (id) => {
-    const outcome = await corroborateRecord(handle, client, id, { broad: true });
+    const outcome = await corroborateRecord(handle, client, id, { broad: true }).catch((error: unknown) => {
+      if (error instanceof RecordGone) return null;
+      throw error;
+    });
+    if (!outcome) return;
     tally.corroborated += 1;
     tally.corroboration_rejected += outcome.rejected;
     tally.newsroom_pages += outcome.newsroom;

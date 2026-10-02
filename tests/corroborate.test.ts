@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, it } from "vitest";
 import { corroborateRecord } from "../lib/corroborate.ts";
-import { corroborationTargets } from "../lib/intel.ts";
+import { corroborateUnstated, corroborationTargets } from "../lib/intel.ts";
 import { listRounds, persistRecords } from "../lib/persist.ts";
 import { linksToDrop, pruneCorroborationSources, type StoredLink } from "../lib/prune-corroboration.ts";
 import { record, testDb } from "./helpers.ts";
@@ -360,6 +360,17 @@ async function seedReviewRow(handle: Awaited<ReturnType<typeof testDb>>) {
   if (!row) throw new Error("seed failed");
   return row;
 }
+
+describe("a round merged away mid-lane", () => {
+  it("is skipped, and the rest of the batch is corroborated", async () => {
+    const handle = await testDb();
+    await persistRecords(handle, [record({ company_name: "Acme", company_domain: "acme.com" })], "series-a-b", "run-1");
+    const [row] = (await listRounds(handle, { includeReview: true, certainty: "all" })).rows;
+    const { client } = fakeClient({});
+    const tally = await corroborateUnstated(handle, client, ["gone:series_a:2026-09-02", row.id]);
+    expect(tally.corroborated).toBe(1);
+  });
+});
 
 describe("corroborateRecord", () => {
   it("searches explicitly for an official closing and upgrades the accepted unconfirmed round", async () => {
