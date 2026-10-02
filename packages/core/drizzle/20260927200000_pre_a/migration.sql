@@ -1,0 +1,1 @@
+ALTER TYPE "stage" ADD VALUE IF NOT EXISTS 'pre_a';

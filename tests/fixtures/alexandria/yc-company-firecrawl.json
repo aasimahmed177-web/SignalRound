@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "scrape_id": "01a0cacc-60e5-72db-a08c-8e87f9c418be",
+  "data": {
+    "alexandria": [
+      {
+        "provider": "ycombinator-com",
+        "capability": "companies/company",
+        "creditsCost": 5,
+        "data": {
+          "observed_at_ms": 1790108787721,
+          "records": [
+            {
+              "batch_name": "Summer 2022",
+              "founders": [
+                {
+                  "active": true,
+                  "bio": "CEO at Firecrawl",
+                  "linkedin_url": "https://www.linkedin.com/in/caleb-peffer/",
+                  "name": "Caleb Peffer",
+                  "title": "Founder/CEO",
+                  "twitter_url": null
+                },
+                {
+                  "active": true,
+                  "bio": "Cofounder @ Firecrawl",
+                  "linkedin_url": "https://www.linkedin.com/in/eric-ciarla/",
+                  "name": "Eric Ciarla",
+                  "title": "Founder",
+                  "twitter_url": "https://x.com/ericciarla"
+                },
+                {
+                  "active": true,
+                  "bio": "Founder and CTO @ Firecrawl",
+                  "linkedin_url": "https://www.linkedin.com/in/nicolas-silberstein-camara/",
+                  "name": "Nicolas Silberstein Camara",
+                  "title": "Founder",
+                  "twitter_url": "https://twitter.com/nickscamara_"
+                }
+              ],
+              "id": 27152,
+              "location": "San Francisco",
+              "long_description": "Firecrawl is the easiest way to turn the web into data AI agents can use. One API call converts any URL into clean, LLM-ready markdown or structured data - the boring-hard problem everyone building with LLMs eventually hits, solved.\r\n\r\nThis is a place for people who want to work at the frontier: an AI company building the infrastructure other AI companies run on, not one bolting AI onto an existing product. We move fast, go deep, and are building the tools superintelligence will rely on to gather data from the web.",
+              "name": "Firecrawl",
+              "one_liner": "The web data API for searching and scraping. 🔥",
+              "slug": "firecrawl",
+              "tags": ["Artificial Intelligence", "Developer Tools", "Open Source"],
+              "team_size": 3,
+              "website": "https://www.firecrawl.dev",
+              "ycdc_status": "Active",
+              "year_founded": 2024
+            }
+          ],
+          "source_url": "https://www.ycombinator.com/companies/firecrawl"
+        },
+        "workflow": { "version": "0.4.1", "digest": "sha256:68e6c197ae2b2a1f18f3a7282458bafcb13d8c12930415fdff555e29c0dd5598" },
+        "records": 1,
+        "upstreamStatus": 200,
+        "alexandriaId": "34701bfba29c9c5e901fa3c0ac57942bda1368ac84aae8831afd222c4b66be6d",
+        "providerRequestId": "35340028-3e52-493c-a99c-5657509a934e",
+        "workflowRunId": "35340028-3e52-493c-a99c-5657509a934e"
+      }
+    ],
+    "creditsCost": 5
+  }
+}

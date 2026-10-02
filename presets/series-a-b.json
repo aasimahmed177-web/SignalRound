@@ -1,0 +1,83 @@
+{
+  "slug": "series-a-b",
+  "name": "Series A and B",
+  "description": "Companies that just announced a Series A or Series B funding round.",
+  "order": 10,
+  "queries": [
+    "announces \"Series A\" funding round led by",
+    "announces \"Series B\" funding round led by",
+    "\"Series A\" raises million led by",
+    "\"Series B\" raises million led by",
+    "\"Series A\" secures OR closes OR lands funding",
+    "\"Series B\" secures OR closes OR lands funding",
+    "\"pre-Series A\" OR \"pre-Series B\" OR \"Pre-A\" raises",
+    "\"Series A\" OR \"Series B\" funding announcement"
+  ],
+  "goal": "Alert when a startup announces a new Series A or Series B funding round. Ignore seed and pre-seed rounds, Series C and later, debt facilities, grants, funds raised by venture firms, rounds that are only rumored or in talks and not yet closed, and opinion or analysis pieces that do not report a specific new round.",
+  "stages": ["series_a", "series_b", "bridge"],
+  "sources": ["news", "web"],
+  "excludeDomains": [
+    "x.com",
+    "twitter.com",
+    "facebook.com",
+    "instagram.com",
+    "youtube.com",
+    "reddit.com",
+    "linkedin.com",
+    "tiktok.com",
+    "pinterest.com"
+  ],
+  "includeDomains": [],
+  "limit": 10,
+  "xAccounts": [],
+  "watchSites": [
+    "https://techcrunch.com/category/venture/",
+    "https://news.crunchbase.com/sections/venture/",
+    "https://www.eu-startups.com/category/fundin/",
+    "https://tech.eu/category/investment/",
+    "https://www.prnewswire.com/news-releases/financial-services-latest-news/financing-agreements-list/",
+    "https://www.axios.com/pro/all-deals",
+    "https://www.prnewswire.com/news-releases/financial-services-latest-news/venture-capital-list/",
+    "https://entrackr.com/news",
+    "https://www.thecaptable.co.uk/",
+    "https://www.uktech.news/funding",
+    "https://www.maddyness.com/?s=l%C3%A8ve",
+    "https://betakit.com/",
+    "https://techfundingnews.com/category/funding/"
+  ],
+  "watchQueries": [
+    "\"has raised\" million led by",
+    {
+      "q": "raises million funding led by",
+      "includeDomains": [
+        "businesswire.com",
+        "globenewswire.com",
+        "prnewswire.com",
+        "accessnewswire.com",
+        "einpresswire.com",
+        "newswire.com"
+      ]
+    },
+    "\"raises $\" million funding led by",
+    "\"emerges from stealth\" million funding",
+    "\"in equity\" led by million",
+    "secures million funding round",
+    {
+      "q": "closes OR secures OR completes funding OR financing million",
+      "includeDomains": [
+        "businesswire.com",
+        "globenewswire.com",
+        "prnewswire.com",
+        "accessnewswire.com",
+        "einpresswire.com",
+        "newswire.com"
+      ]
+    }
+  ],
+  "monitor": {
+    "searchWindow": "24h",
+    "maxResults": 50,
+    "schedule": "daily at 9am",
+    "timezone": "UTC"
+  }
+}

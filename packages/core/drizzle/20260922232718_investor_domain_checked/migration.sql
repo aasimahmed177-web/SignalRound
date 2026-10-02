@@ -1,0 +1,1 @@
+ALTER TABLE "investors" ADD COLUMN "domain_checked_at" timestamp with time zone;

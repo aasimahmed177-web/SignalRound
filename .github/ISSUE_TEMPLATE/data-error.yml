@@ -1,0 +1,26 @@
+name: Data error
+description: A round, company, or investor on fireround.dev (or your instance) is wrong
+labels: ["data"]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Page
+      description: The Fireround page or API record that is wrong.
+      placeholder: https://fireround.dev/companies/firecrawl.dev
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+      description: The field and what it should say, for example "the lead is Nexus, not Y Combinator" or "this is a debt facility, not a round".
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: A page that states the correct fact. The company's own announcement is best.
+    validations:
+      required: true

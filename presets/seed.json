@@ -1,0 +1,81 @@
+{
+  "slug": "seed",
+  "name": "Seed and pre-seed",
+  "description": "Companies that just announced a seed, pre-seed, or angel round.",
+  "order": 20,
+  "queries": [
+    "announces \"seed funding\" round led by",
+    "\"seed funding\" secures OR closes OR lands",
+    "\"seed round\" raises million led by",
+    "\"pre-seed round\" led by announces",
+    "\"pre-seed\" raises led by",
+    "\"emerges from stealth\" seed funding",
+    "\"funding round\" \"seed\" OR \"pre-seed\" OR \"angel\" million startup",
+    "startup funding roundup this week raised seed pre-seed"
+  ],
+  "goal": "Alert when a startup announces a new seed, pre-seed, or angel funding round. Ignore Series A and later, debt facilities, grants, accelerator batch announcements that name no round, funds raised by venture firms, rounds that are only rumored or in talks and not yet closed, and opinion or analysis pieces that do not report a specific new round.",
+  "stages": ["pre_seed", "seed"],
+  "sources": ["news", "web"],
+  "excludeDomains": [
+    "x.com",
+    "twitter.com",
+    "facebook.com",
+    "instagram.com",
+    "youtube.com",
+    "reddit.com",
+    "linkedin.com",
+    "tiktok.com",
+    "pinterest.com"
+  ],
+  "includeDomains": [],
+  "limit": 10,
+  "xAccounts": [],
+  "watchSites": [
+    "https://www.finsmes.com/",
+    "https://www.thesaasnews.com/",
+    "https://entrackr.com/snippets",
+    "https://yourstory.com/category/funding",
+    "https://inc42.com/buzz/",
+    "https://www.wamda.com/news",
+    "https://thebridge.jp/en/",
+    "https://latamlist.com/category/startup-news/funding/",
+    "https://www.startupdaily.net/topic/funding/",
+    "https://e27.co/news/"
+  ],
+  "watchQueries": [
+    {
+      "q": "startup raises million seed OR \"Series A\" OR \"Series B\" OR round",
+      "includeDomains": [
+        "latamlist.com",
+        "contxto.com",
+        "startupdaily.net",
+        "smartcompany.com.au",
+        "betakit.com",
+        "e27.co",
+        "techfundingnews.com"
+      ]
+    },
+    {
+      "q": "raises funding",
+      "includeDomains": [
+        "techcabal.com",
+        "techpoint.africa",
+        "disruptafrica.com",
+        "thecondia.com",
+        "weetracker.com",
+        "wamda.com",
+        "magnitt.com"
+      ]
+    },
+    "startup raises crore funding round",
+    "startup raises funding Brazil OR Mexico OR Colombia OR Chile OR Argentina",
+    "startup raises funding Singapore OR Indonesia OR Vietnam OR Philippines OR Japan",
+    "Saudi OR UAE OR Egypt OR Nigeria OR Kenya startup raises funding"
+  ],
+  "monitor": {
+    "searchWindow": "24h",
+    "maxResults": 50,
+    "schedule": "daily at 9am",
+    "timezone": "UTC"
+  }
+}

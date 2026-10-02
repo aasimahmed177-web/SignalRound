@@ -1,0 +1,1 @@
+ALTER TABLE "company_requests" ADD COLUMN IF NOT EXISTS "brand" jsonb;

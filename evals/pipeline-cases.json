@@ -1,0 +1,1089 @@
+{
+  "provenance": "Hand-labeled excerpts from 42 linked pages read on 2026-09-27. Fixture JSON extraction is authored test input, not captured Firecrawl output. Source typography uses ASCII hyphens.",
+  "cases": [
+    {
+      "id": "fore-d2",
+      "url": "https://fore.bio/fore-biotherapeutics-announces-closing-of-upsized-67-4-million-series-d-2-extension-financing-and-highlights-recent-plixorafenib-achievements/",
+      "markdown": "# FORE Biotherapeutics Announces Closing of Upsized $67.4 Million Series D-2 Extension Financing\nPress Release July 7, 2026\nPHILADELPHIA: FORE Biotherapeutics today announced the closing of an upsized Series D-2 extension financing of $67.4 million, bringing the total Series D-2 amount raised to $110 million. The financing was co-led by SR One, Medicxi, and SymBiosis.",
+      "extract": {
+        "company_name": "FORE Biotherapeutics",
+        "round_type_as_written": "Series D-2 extension",
+        "amount_as_written": "$110 million",
+        "valuation_as_written": null,
+        "lead_investors": ["SR One", "Medicxi", "SymBiosis"],
+        "announced_date": "2026-07-07",
+        "evidence_quote": "FORE Biotherapeutics today announced the closing of an upsized Series D-2 extension financing of $67.4 million, bringing the total Series D-2 amount raised to $110 million."
+      },
+      "expected": {
+        "company": "FORE Biotherapeutics",
+        "stage": "series_d_plus",
+        "new_money": 67.4,
+        "round_total": 110,
+        "valuation": null,
+        "date": "2026-07-07",
+        "lead": ["SR One", "Medicxi", "SymBiosis"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "positron-c",
+      "url": "https://www.prnewswire.com/news-releases/positron-ai-raises-875-million-at-a-5-billion-valuation-to-bring-its-next-generation-inference-silicon-to-market-302874601.html",
+      "markdown": "# Positron AI Raises $875 Million at a $5 Billion Valuation\nSep 10, 2026\nPositron AI today announced an $875 million Series C financing at a $5 billion post-money valuation. The round was co-led by NEA, Atreides Management, Valor Equity Partners, Andra Capital, Dylan Patel's SemiAnalysis Capital and Jim Clark.\nThe financing was raised in two tranches. The Series C, $375 million at a $3.5 billion pre-money valuation, was co-led by NEA, Andra Capital, Atreides Management, Valor Equity Partners, and Dylan Patel's SemiAnalysis Capital. The Series C-1, up to $500 million, was led by NEA and Jim Clark.",
+      "extract": {
+        "company_name": "Positron AI",
+        "round_type_as_written": "Series C",
+        "amount_as_written": "$875 million",
+        "valuation_as_written": "$5 billion",
+        "lead_investors": ["NEA", "Atreides Management", "Valor Equity Partners", "Andra Capital", "SemiAnalysis Capital", "Jim Clark"],
+        "announced_date": "2026-09-10",
+        "evidence_quote": "Positron AI today announced an $875 million Series C financing at a $5 billion post-money valuation."
+      },
+      "expected": {
+        "company": "Positron AI",
+        "stage": "series_c",
+        "new_money": 875,
+        "round_total": 875,
+        "valuation": 5000,
+        "date": "2026-09-10",
+        "lead": ["NEA", "Atreides Management", "Valor Equity Partners", "Andra Capital", "SemiAnalysis Capital", "Jim Clark"],
+        "publish": false,
+        "valuation_basis": "post"
+      }
+    },
+    {
+      "id": "cyera-extension",
+      "url": "https://www.securityweek.com/cyera-raises-400-million-at-12-billion-valuation",
+      "markdown": "# Cyera Raises $400 Million at $12+ Billion Valuation\nSeptember 22, 2026\nData security company Cyera has received an additional $400 million in funding, bringing the company’s valuation to more than $12 billion. The new investment came from Goldman Sachs Alternatives as an extension of the Series G funding round announced in June. The company has raised a total of more than $2.7 billion.",
+      "extract": {
+        "company_name": "Cyera",
+        "round_type_as_written": "Series G extension",
+        "amount_as_written": "$400 million",
+        "valuation_as_written": "$12 billion",
+        "lead_investors": [],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "Data security company Cyera has received an additional $400 million in funding, bringing the company’s valuation to more than $12 billion."
+      },
+      "expected": {
+        "company": "Cyera",
+        "stage": "series_d_plus",
+        "new_money": 400,
+        "round_total": null,
+        "valuation": 12000,
+        "date": "2026-09-22",
+        "lead": [],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "planetscale-b",
+      "url": "https://techcrunch.com/2021/06/23/planetscale-raises-30m-series-b-for-its-database-service/",
+      "markdown": "# PlanetScale raises $30M Series B for its database service\nJune 23, 2021\nPlanetScale, the company behind the open-source Vitess database clustering system for MySQL, today announced that it has raised a $30 million Series B funding round led by Insight Partners, with participation from a16z and SignalFire. With this, the company has now raised a total of $55 million.",
+      "extract": {
+        "company_name": "PlanetScale",
+        "round_type_as_written": "Series B",
+        "amount_as_written": "$30 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Insight Partners"],
+        "announced_date": "2021-06-23",
+        "evidence_quote": "PlanetScale, the company behind the open-source Vitess database clustering system for MySQL, today announced that it has raised a $30 million Series B funding round led by Insight Partners, with participation from a16z and SignalFire."
+      },
+      "expected": {
+        "company": "PlanetScale",
+        "stage": "series_b",
+        "new_money": 30,
+        "round_total": 30,
+        "valuation": null,
+        "date": "2021-06-23",
+        "lead": ["Insight Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "tldraw-seed",
+      "url": "https://tldraw.dev/blog/announcing-tldraws-seed-round",
+      "markdown": "# Announcing tldraw's $2.7M seed\nNov 30, 2022\nToday I’m announcing tldraw’s $2.7 million seed round led by Lux Capital and including the support of Amplify Partners, Sabrina Hahn, Guillermo Rauch of Vercel, Liu Jiang, NP-Hard Ventures, Soleio, Badrul Farooqi, Michael Stoppelman, Tom Preston-Werner, Adam Wiggins of Muse, Brian Lovin of Campsite, David Khourshid of Stately.ai, Cristóbal Valenzuela of Runway ML, Johannes Schickling of Prisma, Brian Shultz of Tango, Shin Kim of Eraser, Jeff Weinstein and Chase Davis.",
+      "extract": {
+        "company_name": "tldraw",
+        "round_type_as_written": "seed",
+        "amount_as_written": "$2.7 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Lux Capital"],
+        "announced_date": "2022-11-30",
+        "evidence_quote": "Today I’m announcing tldraw’s $2.7 million seed round led by Lux Capital and including the support of Amplify Partners, Sabrina Hahn, Guillermo Rauch of Vercel, Liu Jiang, NP-Hard Ventures, Soleio, Badrul Farooqi, Michael Stoppelman, Tom Preston-Werner, Adam Wiggins of Muse, Brian Lovin of Campsite, David Khourshid of Stately.ai, Cristóbal Valenzuela of Runway ML, Johannes Schickling of Prisma, Brian Shultz of Tango, Shin Kim of Eraser, Jeff Weinstein and Chase Davis."
+      },
+      "expected": {
+        "company": "tldraw",
+        "stage": "seed",
+        "new_money": 2.7,
+        "round_total": 2.7,
+        "valuation": null,
+        "date": "2022-11-30",
+        "lead": ["Lux Capital"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "tldraw-seed-extension",
+      "url": "https://tldraw.dev/blog/tldraw-raised-another-2m",
+      "markdown": "# tldraw raised another $2M\nNov 22, 2023\nGood news for all friends of tldraw: we’ve raised another two million dollars of venture capital from Amplify Partners, Lux Capital, and Preston-Werner Ventures. This was an insiders’ extension, raised exclusively from participants in tldraw’s $2.7m seed.",
+      "extract": {
+        "company_name": "tldraw",
+        "round_type_as_written": "seed extension",
+        "amount_as_written": "$2M",
+        "valuation_as_written": null,
+        "lead_investors": [],
+        "announced_date": "2023-11-22",
+        "evidence_quote": "Good news for all friends of tldraw: we’ve raised another two million dollars of venture capital from Amplify Partners, Lux Capital, and Preston-Werner Ventures."
+      },
+      "expected": {
+        "company": "tldraw",
+        "stage": "seed",
+        "new_money": 2,
+        "round_total": 4.7,
+        "valuation": null,
+        "date": "2023-11-22",
+        "lead": [],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "tldraw-a",
+      "url": "https://tldraw.dev/blog/announcing-tldraw-series-a",
+      "markdown": "# tldraw raises $10M to build the infinite canvas for developers\nApr 9, 2025\nToday I'm excited to share that tldraw has raised a $10M Series A led by Lux Capital and Definition. This round follows our first year of sales, which generated $1M in revenue through license deals with ClickUp, Padlet, and more.",
+      "extract": {
+        "company_name": "tldraw",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$10M",
+        "valuation_as_written": null,
+        "lead_investors": ["Lux Capital", "Definition"],
+        "announced_date": "2025-04-09",
+        "evidence_quote": "Today I'm excited to share that tldraw has raised a $10M Series A led by Lux Capital and Definition."
+      },
+      "expected": {
+        "company": "tldraw",
+        "stage": "series_a",
+        "new_money": 10,
+        "round_total": 10,
+        "valuation": null,
+        "date": "2025-04-09",
+        "lead": ["Lux Capital", "Definition"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "resend-a",
+      "url": "https://resend.com/blog/series-a",
+      "markdown": "# Resend raises $18M Series A\nDec 4, 2024\nResend just raised an $18M Series A led by Andreessen Horowitz.\nExisting investors like Y Combinator and Basecase are expanding their initial investments.",
+      "extract": {
+        "company_name": "Resend",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$18M",
+        "valuation_as_written": null,
+        "lead_investors": ["Andreessen Horowitz"],
+        "announced_date": "2024-12-04",
+        "evidence_quote": "Resend just raised an $18M Series A led by Andreessen Horowitz."
+      },
+      "expected": {
+        "company": "Resend",
+        "stage": "series_a",
+        "new_money": 18,
+        "round_total": 18,
+        "valuation": null,
+        "date": "2024-12-04",
+        "lead": ["Andreessen Horowitz"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "corgi-forbes",
+      "url": "https://www.forbes.com/sites/richardnieva/2026/09/26/corgi-5-billion-valuation/",
+      "markdown": "# Corgi Is Now Worth $5 Billion Thanks To Four Funding Rounds In Five Months\nSep 26, 2026\nAnother few weeks, another fundraise by Corgi, the AI insurance company. Just like clockwork, the company has closed another round that pushed the 2-year old company’s valuation up to $5 billion, according to two people familiar with the fundraise.",
+      "extract": {
+        "company_name": "Corgi",
+        "round_type_as_written": "Series B extension",
+        "amount_as_written": null,
+        "valuation_as_written": "$5 billion",
+        "lead_investors": [],
+        "announced_date": "2026-09-26",
+        "evidence_quote": "Just like clockwork, the company has closed another round that pushed the 2-year old company’s valuation up to $5 billion, according to two people familiar with the fundraise."
+      },
+      "expected": {
+        "company": "Corgi",
+        "stage": "series_b",
+        "new_money": null,
+        "round_total": null,
+        "valuation": 5000,
+        "date": null,
+        "lead": [],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "corgi-derivative",
+      "url": "https://runtimewire.com/article/corgi-64m-series-b-extension-5-billion-valuation",
+      "markdown": "# Forbes reports Corgi's $64M extension at $5B; CB Insights lists a September $16.2M round\nPublished Sep 26th, 2026\nFor co-founders Nico Laqua and Emily Yuan, Corgi's financing record now has two distinct entries that the available reporting does not reconcile. Forbes reported on September 26th that Corgi had closed a $64 million Series B extension at a $5 billion valuation, citing two people familiar with the financing. Clear Street confirmed its participation; Forbes named Haun Ventures and Standard Capital as other new investors.\nThe difference follows a rapid run of May financings. Corgi announced a $160 million Series B at a $1.3 billion valuation on May 7th, led by TCV. On May 28th, it announced a $106 million Series B1 at a $2.6 billion valuation, also led by TCV, according to Corgi's release.",
+      "extract": {
+        "company_name": "Corgi",
+        "round_type_as_written": "Series B extension",
+        "amount_as_written": "$64 million",
+        "valuation_as_written": "$5 billion",
+        "lead_investors": [],
+        "announced_date": null,
+        "evidence_quote": "Forbes reported on September 26th that Corgi had closed a $64 million Series B extension at a $5 billion valuation, citing two people familiar with the financing.",
+        "is_background": true
+      },
+      "expected": {
+        "company": "Corgi",
+        "stage": "series_b",
+        "new_money": 64,
+        "round_total": null,
+        "valuation": 5000,
+        "date": null,
+        "lead": [],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "axya-split",
+      "url": "https://betakit.com/axya-closes-17-million-series-a-to-modernize-manufacturing-procurement/",
+      "markdown": "Axya closes $17-million Series A to modernize manufacturing procurement | BetaKit\n\n# Axya closes $17-million Series A to modernize manufacturing procurement \n\n By Josh Scott September 24, 2026 \n\nMcRock, Yamaha, CIBC back Axya’s plan to help manufacturers automate sourcing and purchasing.\n\nMontréal-based supply chain software startup Axya has secured $17 million CAD in equity and debt Series A funding to automate procurement for manufacturers with the help of AI.\n\nThe round consisted of $12 million in equity primary capital and $5 million in venture debt from CIBC Innovation Banking. The equity portion was led by Toronto’s McRock Capital, with support from Yamaha Motor Ventures and existing backers like the Business Development Bank of Canada’s Industrial Innovation Venture Fund and Montréal’s Real Ventures.\n\n> “Manufacturers building complex products lose time and money because procurement still runs on email, spreadsheets, and ERPs that don’t talk to suppliers.”\n> \n> Félix Bélisle-Dockrill, Axya\n\nAxya plans to use this capital to expand its platform, grow its 40-person team to 55 by the end of 2026, and deepen its presence outside of Canada.“This round is about scale,” Axya co-founder and CEO Félix Bélisle-Dockrill told BetaKit over email. \n\nBélisle-Dockrill said the company is deepening its AI capabilities for risk detection, optimization, and automated workflows, while growing its sales, customer success, and engineering teams. It’s also building a stronger US presence while expanding its enterprise resource planning (ERP) partnerships.\n\nHe said Axya raised money on “fundamentals, not hype,” including “strong retention, customers who expand every year, healthy margins, and a business operating close to break-even.” He noted that McRock and Yamaha deeply understand the industrial customers it serves. He did not share Axya’s Series A valuation, but claimed it was “a meaningful up round” that brings the company’s total funding to $22.4 million.\n\nAxya was founded in 2019 by Bélisle-Dockrill, who has a background in mechanical engineering and previously worked in supplier quality for two major aerospace manufacturers. The company (formerly GRAD4) has developed an AI-powered procurement platform for large manufacturing firms. Axya’s offering integrates with manufacturers’ existing enterprise resource planning software and permits suppliers to connect via their existing channels.\n\nFélix Bélisle-Dockrill. Image courtesy Axya.\n\n“Manufacturers building complex products lose time and money because procurement still runs on email, spreadsheets, and ERPs that don’t talk to suppliers,” Bélisle-Dockrill said. “Axya plugs into the ERP they already use and applies AI to purchase orders, quotes, and supplier communication, so the same team can do more and production stays on schedule.”\n\nAxya caters to GE Aerospace, MDA Space, and other enterprise and mid-market manufacturing customers. The company also boasts more than 80,000 suppliers in its network.\n\nBélisle-Dockrill claimed the startup’s annual recurring revenue (ARR) is in the “multi-million-dollar” range, noting it currently manages hundreds of millions of dollars monthly through its platform.\n\nAxya’s Series A round comes more than four years after the company closed $5.4 million in seed funding across a $1.5-million initial round and $3.9-million extension.\n\nMcRock partner Udit Bhatnagar, who is joining Axya’s board as part of the round, said in a statement that the venture capital firm sees “an",
+      "extract": {
+        "company_name": "Axya",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$17 million CAD",
+        "valuation_as_written": null,
+        "lead_investors": ["McRock Capital"],
+        "announced_date": "2026-09-24",
+        "evidence_quote": "Montréal-based supply chain software startup Axya has secured $17 million CAD in equity and debt Series A funding to automate procurement for manufacturers with the help of AI."
+      },
+      "expected": {
+        "company": "Axya",
+        "stage": "series_a",
+        "new_money": 12,
+        "currency": "CAD",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["McRock Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "nscale-convertible",
+      "url": "https://www.nscale.com/press-releases/pre-ipo-convertible-financing",
+      "markdown": "Nscale Raises $3.36 Billion in Pre-IPO Convertible Financing | Nscale\n\n# Nscale Raises $3.36 Billion in Pre-IPO Convertible Financing\n\nSeptember 25, 2026\n\nLondon, U.K., 25 September, 2026 - Nscale Limited, the full-stack AI cloud platform, today announced its $3.36bn raise via convertible loan notes, led by Third Point. The convertible funding round was also supported by new and existing investors including NVIDIA, funds managed by Apollo, Citadel, Hudson Bay Capital, Abu Dhabi Investment Council, and 8090 Industries. Other investors that participated in the financing include Davidson Kempner Capital Management, Qube Research & Technologies (QRT), Context Capital Management, Longaeva Partners L.P., Wellington Management, Castleknight, Ghisallo Capital Management, LionTree Investment Fund, L.P., Javelin Venture Partners, and Irving Investors.\n\nNscale’s full stack AI cloud platform serves hyperscalers, frontier model labs, AI natives, and enterprises building and scaling AI. With over $103bn in total contracted value (TCV), this capital will further accelerate expansion of Nscale’s vertically integrated AI cloud platform - from behind-the-meter power plants to liquid cooled AI data centers and large-scale GPU clusters - to support accelerating demand for AI cloud services.\n\n> \"This marks a milestone for Nscale as we continue scaling our full-stack AI infrastructure to meet unprecedented global demand,\" said Josh Payne, Founder and CEO of Nscale. \"With the backing of these world-class investors, we are strongly positioned to accelerate our data center buildouts globally.\"\n\nThe financing consists of an initial $2.36bn tranche at closing and an additional $1bn commitment from NVIDIA with funding expected in mid-November, 2026. The loan notes are convertible into ordinary shares (or non-voting shares in the case of NVIDIA) automatically upon completion of Nscale’s initial public offering.\n\nGoldman Sachs & Co. LLC acted as placement agent for Nscale in connection with this capital raise.\n\nAbout Nscale\n\nNscale Limited (Nscale) is a full-stack AI cloud platform. We bring together software, compute, and power in a vertically integrated offering - from a unified cloud platform for running AI training and inference, to the data centers and low-cost power that make it possible. Our mission is to build the engine of superintelligence and enhance access to the benefits of advanced AI for enterprises, governments, and the communities that depend on them.\n\nFor more information, visit www.nscale.com\n\nForward-Looking Statements & Offering Disclosure\n\nThis press release contains forward-looking statements regarding the proposed convertible loan note financing, the expected closing of tranches, and the intended use of proceeds. These statements are based on current expectations and involve risks and uncertainties that could cause actual results to differ materially. The Notes and any underlying securities have not been registered under the Securities Act of 1933 or state securities laws, and may not be offered or sold in the United States absent registration or an applicable exemption. This release is for informational purposes only and does not constitute an offer to sell or a solicitation of an offer to buy any securities.\n\nPress contact: press@nscale.com\n\nIR contact: IR@nscale.com",
+      "extract": {
+        "company_name": "Nscale",
+        "round_type_as_written": "convertible loan notes",
+        "amount_as_written": "$3.36bn",
+        "valuation_as_written": null,
+        "lead_investors": ["Third Point"],
+        "announced_date": "2026-09-25",
+        "evidence_quote": "London, U.K., 25 September, 2026 - Nscale Limited, the full-stack AI cloud platform, today announced its $3.36bn raise via convertible loan notes, led by Third Point. The convertible funding round was also supported by new and existing investors including NVIDIA, funds managed by Apollo, Citadel, Hudson Bay Capital, Abu Dhabi Investment Council, and 8090 Industries. Other investors that participated in the financing include Davidson Kempner Capital Management, Qube Research & Technologies (QRT), Context Capital Management, Longaeva Partners L.P., Wellington Management, Castleknight, Ghisallo Capital Management, LionTree Investment Fund, L.P., Javelin Venture Partners, and Irving Investors."
+      },
+      "expected": {
+        "company": "Nscale",
+        "stage": "convertible",
+        "new_money": null,
+        "currency": "USD",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-25",
+        "lead": ["Third Point"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "hifi-a",
+      "url": "https://www.hifi.com/blog/hifi-raises-usd37m-series-a-to-build-the-infrastructure-for-tokenized-money",
+      "markdown": "HIFI raises $37M Series A to build the infrastructure for tokenized money · HIFI\n\n# HIFI raises $37M Series A to build the infrastructure for tokenized money\n\nZach Walsh September 24, 2026\n\nToday we're announcing that HIFI has raised a $37 million Series A led by Left Lane Capital.\n\nWe chose Left Lane because they back entrepreneurs who take on hard problems in complex markets, and they pair that conviction with real operating support, working alongside founders on the decisions that matter most as a company scales. Matt Miller joins our board as part of the round, and we're grateful to have him and the Left Lane team with us for what comes next.\n\nBefore getting into where we're going, I want to share what we believe and what we've built so far.\n\n### Money is becoming software\n\nFor most of their history, stablecoins were a tool for crypto markets, mainly a way to hold dollars between trades. Over the past two years, that has changed considerably. Stablecoins are becoming money in their own right: a dollar that can move anywhere in the world in seconds, settle at any hour, and be written directly into software. Businesses are using them to pay suppliers and contractors, treasurers are using them to manage cash, and institutions are beginning to use them to settle obligations with one another. More than a quarter of a trillion dollars now circulates in this form, and the GENIUS Act gave payment stablecoins a federal legal framework in July 2025.\n\nWe think the more important change is still ahead. Dollars are only the first asset to be tokenized, and Treasuries, money market funds, receivables, credit, and eventually most securities are likely to follow. When cash and assets exist in the same programmable form, they can interact directly, without a chain of institutions exchanging messages and reconciling records afterward. A company's cash can earn yield over a weekend and still be available for Monday's payroll. Collateral can be pledged, substituted, and returned within a single trading session. A loan can be repaid and its lien released in the same transaction. None of these are new financial ideas, but each has historically required enough coordination and delay that it was available only to the largest institutions, and only during business hours. Tokenization makes them cheaper to offer and available to far more people.\n\nIn 1968, the New York Stock Exchange closed on Wednesdays because trading volume had outgrown the back offices processing it, and firms needed a day each week to catch up on paperwork. The problem was ultimately solved not by trading faster, but by rebuilding the infrastructure underneath trading. Stock certificates were immobilized in a central depository, which later became part of DTCC, and securities began moving as ledger entries rather than paper.\n\nWe are at a similar point now. The ledger for tokenized money runs continuously, but very little of the infrastructure around it was built with that in mind.\n\n### What we've built\n\nMo Afifi and I started HIFI in New York in 2022 to build that missing infrastructure. Companies use HIFI to create entirely new financial products using stablecoins and tokenized money.\n\nHIFI now processes more than $7 billion a year, and usage among our existing customers has grown more than fourfold over the past six months. Together, the companies building on HIFI have onboarded more than 10,000 businesses and 200,000 individuals.\n\nSome of our most instructive work has been with instit",
+      "extract": {
+        "company_name": "HIFI",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$37 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Left Lane Capital"],
+        "announced_date": "2026-09-24",
+        "evidence_quote": "Today we're announcing that HIFI has raised a $37 million Series A led by Left Lane Capital."
+      },
+      "expected": {
+        "company": "HIFI",
+        "stage": "series_a",
+        "new_money": 37,
+        "currency": "USD",
+        "round_total": 37,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Left Lane Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "bighat-c",
+      "url": "https://www.bighatbio.com/news/bighat-biosciences-announces-75-million-series-c-financing",
+      "markdown": "BigHat Biosciences\n\nDFJ Growth & Premji Invest co-led financing with proceeds supporting advancement of BigHat's clinical-stage pipeline and growth of its innovative platform for rapid data generation to power frontier intelligence for protein design\n\nSAN MATEO, CALIFORNIA - September 24, 2026: BigHat Biosciences, a clinical-stage, AI-driven protein therapeutics platform company, today announced the completion of a $75 million Series C financing, bringing its total funding raised to date to $223 million. The round was co-led by DFJ Growth & Premji Invest with participation from Catalio Capital Management, LG Technology Ventures, Sigmas Group, and existing investors including 8VC, Alexandria Venture Investments, Amgen Ventures, Andreessen Horowitz (a16z), Discovery Ventures, GRIDS Capital, Intermountain Ventures, Eli Lilly and Company, Merck Global Health Innovation Fund, Quadrille Capital, and Section 32.\n\nBigHat has built an autonomous AI and experimental platform that generates proprietary, fit-for-purpose biological data at scale to drive today’s leading frontier models for therapeutic design. The financing will support continued growth of BigHat's leading platform for rapid data generation to power frontier intelligence for protein design, as well as advancement of the company's pipeline of AI-designed therapeutics, including BHB810 and BHB299, to key clinical readouts. \n\n“Our mission is to design transformative therapeutics by combining frontier AI with the autonomous generation of gold-standard biological data,” said Peyton Greenside, co-founder and CEO of BigHat. “This financing will help us advance both sides of that mission: our pipeline of BigHat-designed therapeutics, beginning with BHB810, one of the first AI-designed biologics to reach the clinic, and our leading platform for AI-designed biologics. We look forward to continuing to form partnerships with major technology and life sciences companies and are thrilled to partner with a group of investors who share our vision. With their support, we can continue to scale our platform and pipeline to deliver better medicines to patients more quickly.”\n\n“BigHat has uniquely enabled reinforcement learning for molecular design with a platform optimized for industry-leading speed, at the scale today's frontier models need,” said Justin Kao, Partner at DFJ Growth. “This integrated learning loop is a powerful advantage, enabling BigHat to rapidly design and optimize therapeutics with the properties needed for clinical development. The strength of the platform is reflected in both BigHat’s partnerships with pharmaceutical and tech companies and its growing pipeline of next-generation therapeutics. We're excited to support BigHat as it scales its platform and advances these programs toward patients.”\n\nSince the company’s $80 million Series B financing in 2022, BigHat has demonstrated the versatility of its platform both within the internal BigHat pipeline and via external partnerships, and across a range of protein engineering challenges. The company has applied its integrated AI and experimental capabilities across diverse modalities, therapeutic areas and molecular design objectives while generating the gold-standard datasets needed to train and improve AI models. \n\nRecent achievements include:\n\n- Advanced first program into the clinic: Dosed the first patient in a Phase 1 trial evaluating lead program, BHB810, a novel CDH17-directed antibody-drug conjugate (ADC) for gastric cancer and",
+      "extract": {
+        "company_name": "BigHat Biosciences",
+        "round_type_as_written": "Series C",
+        "amount_as_written": "$75 million",
+        "valuation_as_written": null,
+        "lead_investors": ["DFJ Growth", "Premji Invest"],
+        "announced_date": "2026-09-24",
+        "evidence_quote": "SAN MATEO, CALIFORNIA - September 24, 2026: BigHat Biosciences, a clinical-stage, AI-driven protein therapeutics platform company, today announced the completion of a $75 million Series C financing, bringing its total funding raised to date to $223 million. The round was co-led by DFJ Growth & Premji Invest with participation from Catalio Capital Management, LG Technology Ventures, Sigmas Group, and existing investors including 8VC, Alexandria Venture Investments, Amgen Ventures, Andreessen Horowitz (a16z), Discovery Ventures, GRIDS Capital, Intermountain Ventures, Eli Lilly and Company, Merck Global Health Innovation Fund, Quadrille Capital, and Section 32."
+      },
+      "expected": {
+        "company": "BigHat Biosciences",
+        "stage": "series_c",
+        "new_money": 75,
+        "currency": "USD",
+        "round_total": 75,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["DFJ Growth", "Premji Invest"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "hubble-c",
+      "url": "https://hubble.com/news/hubble-network-opens-satellite-coverage-to-all-bluetooth-devices-raises-200-million-series-c-at-1.6-billion-valuation",
+      "markdown": "Solutions\n\nPricing\n\nPress\n\nCareers\n\nContact Us\n\nDocs Sign in\n\nBack to Press\n\nSep 23, 2026\n\n# Hubble Network Opens Satellite Coverage to All Bluetooth Devices, Raises $200 Million Series C at $1.6 Billion Valuation\n\n## Any Bluetooth® LE device can now reach orbit\n\nThe Hubble satellite network is open to everyone. We've raised a $200 million Series C to build it out.\n\nIf your product has a Bluetooth® LE radio, satellites hundreds of kilometers up can hear it starting today. No dedicated modem. No new hardware. Pull the Hubble SDK, flash a firmware update, and your device is on the network.\n\nThe round is led by Smith Point Capital, with Seraphim, Carthona Capital, Earthshot Ventures, Y Combinator, and RPM Ventures. It brings total funding to $300 million at a $1.6 billion valuation, one year after our [$ 70 million Series B](https://hubble.com/news/hubble-network-raises-70m-series-b-to-scale-global-bluetooth-to-satellite-connectivity).\n\n### Why it matters\n\nCellular covers about 15% of the Earth's landmass. Everywhere else, tracking anything has meant dedicated satellite hardware at $25 or more per device. So only the most valuable assets get tracked. Everything else goes dark, and theft and loss cost the average mid-sized business $13 million a year.\n\nHubble turns the Bluetooth® LE radio already inside your device into a global beacon for location and sensor data. On a new design, connectivity adds under 50 cents to the bill of materials, roughly a tenth the cost of a cellular modem and a fiftieth the cost of a satellite one.\n\nUntil now, tracking ended at the pallet. At under 50 cents per Bluetooth radio, it can follow every item.\n\n### Where the network stands\n\n- 6 satellites in low Earth orbit, on track for 60 by 2030.\n- 100M+ gateways on the Terrestrial Network, across 170 countries and 3M+ square miles.\n- 500,000+ devices active today, more than 10x a year ago.\n\n### Who's building on it\n\nSamsara (NYSE: IOT) is extending visibility to crews working past the edge of reliable coverage. \"Hubble gives us a way to extend visibility beyond the reach of traditional networks without adding new hardware,\" said David Gal, VP of Product and Engineering, Connected Equipment at Samsara.\n\nOver the past year we partnered with Texas Instruments to send location and sensor data without gateways, GPS, or cellular; with InPlay to pair a sub-$1 chip with our gateways for item-level tracking at RFID economics; and with Reelables to put printable smart labels on cargo. Muon Space is building our next-generation satellites on its MuSat XL platform.\n\n### The road ahead\n\n\"When we said we'd connect Bluetooth chips to satellites, most of the industry said the physics wouldn't allow it,\" said Alex Haro, CEO and co-founder. \"Today we're turning that early skepticism into a global opportunity.\"\n\nKeith Block, founder and CEO of Smith Point Capital, put it plainly: Hubble has \"built the foundational infrastructure that the physical world is missing.\"\n\nThe new capital goes to the constellation, and to driving the cost of connectivity down until anything on Earth can report where it is and how it's doing.\n\nRead Bloomberg's coverage of the announcement →\n\n##### **Start building → ** Hubble Dash\n\nFREE TO START\n\nStart building on Hubble\n\nCreate a free account to prototype device connectivity on the terrestrial network. Open the sandbox in minutes.\n\nGet Started for Free\n\nBack to Press\n\n© 2026 Hubble Network\n\nThe Bluetooth® word mark and logos are registered trademarks owned ",
+      "extract": {
+        "company_name": "Hubble Network",
+        "round_type_as_written": "Series C",
+        "amount_as_written": "$200 million",
+        "valuation_as_written": "$1.6 billion",
+        "lead_investors": ["Smith Point Capital"],
+        "announced_date": "2026-09-23",
+        "evidence_quote": "The Hubble satellite network is open to everyone. We've raised a $200 million Series C to build it out."
+      },
+      "expected": {
+        "company": "Hubble Network",
+        "stage": "series_c",
+        "new_money": 200,
+        "currency": "USD",
+        "round_total": 200,
+        "valuation": 1600,
+        "date": "2026-09-23",
+        "lead": ["Smith Point Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "biolevate-a",
+      "url": "https://www.biolevate.com/news/series-a-2026",
+      "markdown": "PRESS RELEASE · 22 SEPTEMBER 2026\n\n# Biolevate Raises €30 Million Series A & Opens Boston Office to Meet Surging Demand\n\nFunding will accelerate international expansion, deepen product capabilities, and scale deployments with leading life sciences organisations\n\nThe Series A is co-led by RAISE France and Orange Ventures, following Biolevate’s €6 million Seed round in November 2024\n\nBiolevate now has more than a dozen enterprise customers in production and has increased ARR by 20x over the last twelve months\n\nParis, 22 September 2026 - Biolevate, the company building knowledge-driven automation for life sciences operations, today announced a €30 million Series A funding round co-led by RAISE France - the investment vehicle of French entrepreneur Aymar Hénin, and Orange Ventures, with participation from MSD Global Health Innovation Fund (MGHIF), Station F and existing investor EQT Ventures.\n\nThe funding accelerates Biolevate’s ambition to become the evidence-grade automation layer for regulated life sciences operations globally, and coincides with its expansion into the United States via a new office in Boston, establishing a presence at the heart of the global pharmaceutical ecosystem.\n\nFounded in Paris by a team of ex-Dataiku engineers and AI researchers, Biolevate addresses one of the most significant productivity challenges facing the life sciences industry today. With the global pharmaceutical market expected to exceed USD 1.7 trillion by 2030, companies face growing pressure to bring differentiated therapies to market faster. While frontier AI is accelerating drug discovery and development, it is also intensifying route-to-market bottlenecks that delay patient access and hinder commercial growth.\n\nTo address these bottlenecks, Biolevate has developed a hyperspecialised, enterprise-grade agentic platform powered by frontier AI research that transforms complex scientific and regulatory knowledge into evidence-grade, auditable workflows. Unlike general-purpose AI systems, the platform keeps outputs grounded in source evidence at every stage, enabling life sciences organisations to deploy AI confidently in regulated environments while preserving human oversight.\n\nInitially built to accelerate regulatory approval workflows, Biolevate’s platform now spans the full life sciences value chain, including research, clinical trials, health technology assessments, regulatory dossiers, drug discovery and drug development. Capable of running 100,000 agents concurrently, Biolevate delivers tangible impact for customers, accelerating systematic literature reviews and research synthesis by 16x, and delivering an 80% efficiency gain in regulatory intelligence and compliance.\n\nSince its seed round in 2024, Biolevate has established partnerships with major organisations across the life sciences ecosystem, including Sanofi, regulators, and technology leaders such as NVIDIA and Microsoft. The company now has more than a dozen enterprise customers in production and has increased annual recurring revenue (ARR) by 20x over the last twelve months. The business has also doubled headcount over the past 12 months to 50 employees and expects to grow its workforce by a further 100% over the coming year. In parallel, Biolevate has drafted seven patent applications across multiple therapeutic areas, two of which have already been filed in Europe.\n\nAs part of the Series A investment, French entrepreneur Aymar Hénin has been appointed Chairman of Biolevate’s Board of ",
+      "extract": {
+        "company_name": "Biolevate",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "€30 million",
+        "valuation_as_written": null,
+        "lead_investors": ["RAISE France", "Orange Ventures"],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "Paris, 22 September 2026 - Biolevate, the company building knowledge-driven automation for life sciences operations, today announced a €30 million Series A funding round co-led by RAISE France - the investment vehicle of French entrepreneur Aymar Hénin, and Orange Ventures, with participation from MSD Global Health Innovation Fund (MGHIF), Station F and existing investor EQT Ventures."
+      },
+      "expected": {
+        "company": "Biolevate",
+        "stage": "series_a",
+        "new_money": 30,
+        "currency": "EUR",
+        "round_total": 30,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["RAISE France", "Orange Ventures"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "ipid-a",
+      "url": "https://ipid.tech/news/ipid-raises-16m-series-a-foundation-capital-citi-hsbc",
+      "markdown": "IPID Raises $16M as Instant Payments Expose a Growing Global Blind Spot | IPID News\n\nSeptember 24, 2026\n\n# IPID Raises $16M as Instant Payments Expose a Growing Global Blind Spot\n\n‍ Foundation Capital leads the Series A, with participation from Citi and HSBC\n\nNEW YORK, SINGAPORE, Sept. 24 - IPID, the payment intelligence company helping institutions know who they are paying, today announced a $16 million Series A led by Foundation Capital, with participation from strategic investors Citi and HSBC. The round also includes existing investors QED Investors, Monk’s Hill Ventures and Quona Capital. \n\nDigital payments have become faster and more seamless, but the information needed to evaluate them has not always kept pace. Institutions still do not always know who is receiving a payment or have enough information to assess risk before it is sent. The burden often falls on the sender to confirm the recipient, even when that sender may be the target of a scam. According to LSEG, Authorized Push Payment fraud alone is projected to cause $331 billion in global losses by 2027. \n\nIPID is a leading global provider of bank account verification, supporting major financial institutions across more than 50 countries. It will soon expand its platform by applying its expertise in fragmented payment markets to U.S. payments and digital assets, giving institutions the intelligence to make the right decision before funds move. \n\n> “Every payment starts with a decision, but institutions are often making that decision with incomplete information,” said Damien Dugauquier, co-founder and CEO of IPID. “We started by solving bank account verification globally. We are now building the broader decision intelligence that institutions need before funds move - across countries, payment rails and forms of value. The future of payments will not be defined simply by moving money faster. It will be defined by making better decisions before money moves.” \n\n> “IPID has rapidly become the global standard for bank account verification and intelligence. It’s quite a feat for something like this to develop outside of a bank consortium and makes IPID uniquely well-positioned to help financial institutions and payors globally fight fraud and streamline payment operations,” said Zach Noorani, Partner at Foundation Capital. \n\nPayments are becoming faster and more automated as real-time payments scale, new rails emerge and AI agents begin to initiate transactions. But the information institutions need before executing a payment remains fragmented across markets, providers and rails. IPID is tackling that blind spot by helping institutions know who is behind the receiving account before a payment becomes final. \n\n> “In an increasingly digital and interconnected financial landscape, it is critical to have payment validation that is instantaneous and highly secure. Our strategic alignment with IPID is further deepened through our participation in their Series A raise. We are excited at IPID’s ability to deliver a globally consistent, high-performance experience that helps our clients continue to optimize their international operations with confidence,” said Bis Chatterjee, Global Head, Partnerships and Innovation for Citi’s Services. \n\n> Tom Simpson, Global Head of Currency Clearing & North America Regional Head of Cross Border Payments, Global Payment Solutions, HSBC, said: “HSBC's arrangement with IPID helps us extend beneficiary validation beyond local scheme requirements and provid",
+      "extract": {
+        "company_name": "IPID",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$16 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Foundation Capital"],
+        "announced_date": "2026-09-24",
+        "evidence_quote": "NEW YORK, SINGAPORE, Sept. 24 - IPID, the payment intelligence company helping institutions know who they are paying, today announced a $16 million Series A led by Foundation Capital, with participation from strategic investors Citi and HSBC. The round also includes existing investors QED Investors, Monk’s Hill Ventures and Quona Capital."
+      },
+      "expected": {
+        "company": "IPID",
+        "stage": "series_a",
+        "new_money": 16,
+        "currency": "USD",
+        "round_total": 16,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Foundation Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "zeliq-seed-extension",
+      "url": "https://tech.eu/2026/09/22/zeliq-raises-eur7m-to-build-an-agentic-revenue-workspace/",
+      "markdown": "Zeliq raises €7M to build an agentic revenue workspace - Tech.eu\n\n# Zeliq raises €7M to build an agentic revenue workspace\n\n Zeliq’s new funding will support the development of its AI-native sales platform, expansion of its AI agent suite, growth of its product and technology teams, and further expansion across Europe. \n\n Tamara Djurickovic 35 minutes ago \n\n \n\nSales prospecting platform Zeliq has raised a €7 million seed extension led by The Moon Venture, with participation from Julien Jean (JJCapinvest) and Sylvestre Blavet (Freelance.com). Existing investors Ora Global and Cleo Ventures also participated, alongside several business angels and family offices. The round brings Zeliq’s total funding to €21 million in less than three years.\n\nZeliq provides a platform for sales teams to manage and automate their activities from a single interface, bringing together prospect identification, data enrichment and multichannel outreach.\n\nThe company is targeting the fragmented technology stacks used by sales teams, which often rely on separate tools for different parts of the sales process. Zeliq is developing an AI-native platform designed to bring salespeople and AI agents into the same environment, while keeping strategy and decision-making under human control.\n\nIts platform is aimed at mid-market sales teams and centralises more than 450 million contact and company records that are enriched in real time. It also manages outreach across email and phone and learns from each team’s data.\n\n> For ten years, sales teams have been stacking SaaS tools. The result is more complexity, more time spent switching between tools and less time spent selling. The next generation of sales platforms will be built around AI agents capable of executing end-to-end, but always under human supervision. The best salespeople will not be replaced by AI, they will work with it,\n\nsaid Dorian Ciavarella, CEO and co-founder of Zeliq.\n\nAlongside the funding, Zeliq has launched the beta version of Zelia, its AI agent, following more than a year of development and tens of thousands of user tests. Zelia can search for, enrich and contact prospects based on instructions from salespeople, while also providing guidance on their day-to-day work.\n\nThe AI agent can scan the web for buying signals from prospects to help salespeople determine when to contact them. Through an MCP connector, Zelia can also work within the LLMs and other tools used by sales teams.\n\nZeliq will use the new funding to accelerate the development of its AI infrastructure and its Agentic Revenue Workspace, where sales and marketing teams retain control of strategy while AI agents handle operational tasks. \n\nThe company also plans to launch its first full suite of AI sales agents, double its product and technology teams over the next year, continue its European expansion and deepen partnerships with CRM providers.\n\nComments",
+      "extract": {
+        "company_name": "Zeliq",
+        "round_type_as_written": "seed extension",
+        "amount_as_written": "€7 million",
+        "valuation_as_written": null,
+        "lead_investors": ["The Moon Venture"],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "Sales prospecting platform Zeliq has raised a €7 million seed extension led by The Moon Venture, with participation from Julien Jean (JJCapinvest) and Sylvestre Blavet (Freelance.com). Existing investors Ora Global and Cleo Ventures also participated, alongside several business angels and family offices. The round brings Zeliq’s total funding to €21 million in less than three years."
+      },
+      "expected": {
+        "company": "Zeliq",
+        "stage": "seed",
+        "new_money": 7,
+        "currency": "EUR",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["The Moon Venture"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "chamelio-a",
+      "url": "https://www.prnewswire.com/news-releases/chamelio-raises-26m-series-a-to-replace-legacy-clm-with-ai-native-in-house-legal-operations-302886011.html",
+      "markdown": "Chamelio Raises $26M Series A to Replace Legacy CLM with AI-Native In-House Legal Operations\n\n# Chamelio Raises $26M Series A to Replace Legacy CLM with AI-Native In-House Legal Operations\n\n Chamelio \n\nSep 22, 2026, 09:00 ET\n\nPowered by agentic AI, Chamelio's platform is primed to replace outdated legacy contract lifecycle management systems and empower legal teams to embrace AI-powered operations. Since its s eed round five months ago, Chamelio's ARR has grown 4x\n\nNEW YORK, Sept. 22, 2026 /PRNewswire/ -- Chamelio, the AI-native platform for in-house legal teams, today announced a $26 million Series A round led by Entrée Capital, with participation from existing investors Work-Bench and Emerge Ventures. Bright Pixel Capita l also participated. Chamelio boasts hundreds of customers, including Wiz, monday.com, Socure, AppsFlyer, and Wonderful.ai. The company will use the new funding to further develop its proprietary legal action model, grow its legal engineering and product teams and invest further in onboarding technology.\n\n \n\n L-R: Three Chamelio Co-Founders Alex Zilberman, CEO, Gil Banyas, COO and Gal Lellouche CTO \n\nIn-house legal departments are overworked and understaffed, with workload demands surging, while budgets and headcount are not keeping pace. An Association of Corporate Counsel surve y from this year found that budget and resource constraints were a key barrier to success. Meanwhile, only 32% of legal departments expect to add attorney headcount this year, according to CLOC's 2026 State of the Industry Report. Most in-house legal teams are still relying on legacy Contract Lifecycle Management (CLM) software built to store contracts, not analyze or act on them, with the painstaking additional work falling on the same number of overburdened teams.\n\nThe legal sector has adopted AI faster than almost any other profession. Deloitte predicts in three years, 30% of a legal team will be AI agents, and one in five will be hybrid lawyer-engineers. This role bridges the gap between technology and legal expertise. Chamelio enables the legal teams of today to delegate the tedious manual labor of contract review to autonomous agents, laying the groundwork for a completely different in-house composition of the future, consisting of both lawyers and AI agents.\n\nChamelio is an AI-native legal platform for in-house teams that manages and executes the full contract lifecycle, from drafting and negotiation to approvals, obligations, and ongoing legal workflows. Unlike traditional contract management systems built primarily to store documents and manage processes, Chamelio is trained on legal actions and can perform the work itself. It drafts from a company's own contracts, reviews and negotiates terms, routes requests, manages obligations, and executes multistep legal workflows. Customers can deploy it autonomously for routine, low-risk work or keep a lawyer in the loop where oversight is needed. By handling routine tasks and decisions independently and escalating only the edge cases that require human judgment, Chamelio shifts the in-house lawyer's role from labor-intensive execution to strategic oversight and judgment.\n\nChamelio also allows legal teams to easily build their own agents which support and interact with multiple functions across the organization, from procurement to finance, product to people, compliance to sales, helping scale and amplify legal capabilities for enterprise in the AI era.\n\n\"The mistake in legal AI has been assu",
+      "extract": {
+        "company_name": "Chamelio",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$26 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Entrée Capital"],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "NEW YORK, Sept. 22, 2026 /PRNewswire/ -- Chamelio, the AI-native platform for in-house legal teams, today announced a $26 million Series A round led by Entrée Capital, with participation from existing investors Work-Bench and Emerge Ventures. Bright Pixel Capita l also participated. Chamelio boasts hundreds of customers, including Wiz, monday.com, Socure, AppsFlyer, and Wonderful.ai. The company will use the new funding to further develop its proprietary legal action model, grow its legal engineering and product teams and invest further in onboarding technology."
+      },
+      "expected": {
+        "company": "Chamelio",
+        "stage": "series_a",
+        "new_money": 26,
+        "currency": "USD",
+        "round_total": 26,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Entrée Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "lightfield-a",
+      "url": "https://www.prnewswire.com/news-releases/lightfield-raises-47-million-series-a-to-build-the-crm-for-companies-that-run-on-agents-302874024.html",
+      "markdown": "Lightfield Raises $47 Million Series A to Build the CRM for Companies that Run on Agents\n\n# Lightfield Raises $47 Million Series A to Build the CRM for Companies that Run on Agents\n\n Lightfield \n\nSep 09, 2026, 12:00 ET\n\nMore than 5,000 companies have signed up for Lightfield since launch in November, deploying AI agents that build pipeline, work deals, and manage customers from a shared, living record of their business.\n\nSAN FRANCISCO, Sept. 9, 2026 /PRNewswire/ -- Lightfield today announced a $47 million Series A led by Andreessen Horowitz, including participation from Maverick Capital, Coatue, Audacious, Alumni Ventures, Greylock, and Lightspeed Venture Partners.\n\nCRM was designed for people to type into, not for agents to work from. For forty years, customer relationships have been translated into fields, stages, and notes - a record of whatever someone had time to enter, stored in a structure agents can't reason from.\n\nAgents can now do the work those systems were built to track, but they cannot do that work reliably from data entered by hand. When layered onto legacy CRMs like Salesforce or HubSpot, agents inherit incomplete fields, stale close dates, and notes written from memory after the call - and produce work companies cannot verify or trust. Solving this requires a new system of record designed for deep understanding, not AI features added to the old one.\n\nLightfield builds a comprehensive record from every customer interaction, captured as it happens, and structured so agents can understand what is true and predict what happens next. Every person and every agent at a company works from the same accurate, current picture of every customer: what they said, who said it, and how it changed the state of the business. Knowledge that once lived in one person's head or one team's tool becomes the context the whole company operates on.\n\n\"Agents don't fail because the models aren't capable. They fail because the data they work with is incomplete, inaccurate, and missing the structure needed for comprehension,\" said Keith Peiris, cofounder and CEO of Lightfield. \"Lightfield builds a world model of the business from every customer interaction, so every person and every agent works from the same understanding of what's true and what happens next.\"\n\nAdopted by more than 5,000 companies in under a year\n\nSince launching in November 2025, more than 5,000 companies have signed up for Lightfield, from high-growth early-stage startups to scaling companies with hundreds of users on the CRM.\n\n\"Building a system of record is one of the hardest things to do in software, because you have to earn a customer's trust before they'll hand you the data that runs their business,\" said Joe Schmidt IV, Partner at Andreessen Horowitz. \"This team earned it with thousands of companies in under a year.\"\n\nA CRM built for agents to understand your business\n\nFour technical differentiators separate Lightfield from legacy CRM.\n\nA record that updates itself. Lightfield ingests every customer interaction - email, calendar, calls, Slack, LinkedIn - and structures it into the record on its own.\n\nA world model of the business. Lightfield connects every interaction to the people, deals, and accounts it touches, and preserves how each one changed over time. The result is a business world model that agents can reason and predict from, not a table of fields.\n\nAn agent harness for reliable work. Agents operate through a standardized SDK, run analysis in a code sandbox, and are",
+      "extract": {
+        "company_name": "Lightfield",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$47 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Andreessen Horowitz"],
+        "announced_date": "2026-09-09",
+        "evidence_quote": "SAN FRANCISCO, Sept. 9, 2026 /PRNewswire/ -- Lightfield today announced a $47 million Series A led by Andreessen Horowitz, including participation from Maverick Capital, Coatue, Audacious, Alumni Ventures, Greylock, and Lightspeed Venture Partners."
+      },
+      "expected": {
+        "company": "Lightfield",
+        "stage": "series_a",
+        "new_money": 47,
+        "currency": "USD",
+        "round_total": 47,
+        "valuation": null,
+        "date": "2026-09-09",
+        "lead": ["Andreessen Horowitz"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "euno-a",
+      "url": "https://www.prnewswire.com/news-releases/euno-raises-23-million-series-a-to-build-the-ai-context-brain-for-the-enterprise-302872947.html",
+      "markdown": "Euno Raises $23 Million Series A to Build the AI Context Brain for the Enterprise\n\n# Euno Raises $23 Million Series A to Build the AI Context Brain for the Enterprise\n\n Euno \n\nSep 09, 2026, 08:59 ET\n\nRound led by N47; The AI context platform continuously researches and reconstructs the knowledge behind enterprise data, allowing Fortune 500 customers to turn context into a compounding advantage and deploy AI into production within weeks. \n\nSUNNYVALE, Calif., Sept. 9, 2026 /PRNewswire/ -- Euno, the enterprise AI-native context platform, today announced $23 million in Series A funding led by N47, with participation from existing investors 10D and technology founders including Yinon Kostika, co-founder of Wiz; Yotam Segev, co-founder and CEO of Cyera; Ofir Ehrlich, co-founder and CEO of Eon; Rotem Weiss, founder of Tavily; and Mark Nelson, former CEO and president of Tableau. The round brings Euno's total funding to $29 million, driving the company's continued growth and expansion with Fortune 500 clients.\n\n \n\n Euno founders Eyal Firstenberg (left) and Sarah Levy. Credit: Zohar Shitrit \n\nEuno's AI context platform continuously learns how organizations build, use, and govern their data, giving AI agents the organizational intelligence they need to navigate enterprise data and act reliably. Acting as the AI brain behind enterprise data, Euno enables customers to move a wide range of AI initiatives from pilot to production in weeks.\n\nEnterprise AI systems depend on trusted data to make decisions and take action. But agents need to understand what that data means, what to trust, how the business uses it, how they should use it, and how it connects across the organization. As enterprises move toward autonomous, cross-domain agentic workflows, they need a new foundation: context that learns with the organization, sustains trust as knowledge evolves, and gives every agent the organizational intelligence it needs to act reliably, while generating its own context feedback loops.\n\nEuno replaces human-maintained context with a live, AI-native brain that understands how data flows, what it means, and how it is used across the organization, then learns how agents interact with that context as they reason and act across complex, multi-domain workflows. Euno gives each agent exactly the slice of context its task and decision require, while continuously encoding what it learns back into the organization's context platform, building the foundation for a sustainable, compounding AI advantage.\n\n\"Models keep getting better and cheaper, but the long-term AI moat for enterprises will increasingly come from the accumulated record of how work gets done,\" said Sarah Levy, co-founder and CEO of Euno. \"Competitors may have access to the same frontier models, but they cannot easily replicate the proprietary context and experience an enterprise has accumulated through its own operations.\"\n\nAt the core of Euno's research is how to best capture institutional knowledge, including whether it can be inferred from operational signals rather than manually curated and maintained. Through its studies, Euno has found that much of what determines the data to use and trust, and how to use it, is encoded in patterns across continuously evolving metadata graphs. By analyzing these patterns, Euno can infer that knowledge, then continuously refine it through agent feedback as the organizational context evolves. These findings shaped Euno's architecture, enabling its customers to put A",
+      "extract": {
+        "company_name": "Euno",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$23 million",
+        "valuation_as_written": null,
+        "lead_investors": ["N47"],
+        "announced_date": "2026-09-09",
+        "evidence_quote": "SUNNYVALE, Calif., Sept. 9, 2026 /PRNewswire/ -- Euno, the enterprise AI-native context platform, today announced $23 million in Series A funding led by N47, with participation from existing investors 10D and technology founders including Yinon Kostika, co-founder of Wiz; Yotam Segev, co-founder and CEO of Cyera; Ofir Ehrlich, co-founder and CEO of Eon; Rotem Weiss, founder of Tavily; and Mark Nelson, former CEO and president of Tableau. The round brings Euno's total funding to $29 million, driving the company's continued growth and expansion with Fortune 500 clients."
+      },
+      "expected": {
+        "company": "Euno",
+        "stage": "series_a",
+        "new_money": 23,
+        "currency": "USD",
+        "round_total": 23,
+        "valuation": null,
+        "date": "2026-09-09",
+        "lead": ["N47"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "kastle-a",
+      "url": "https://www.prnewswire.com/news-releases/kastle-raises-24m-series-a-led-by-insight-partners-to-build-the-ai-workforce-for-banking-operations-302881290.html",
+      "markdown": "Kastle Raises $24M Series A Led by Insight Partners to Build the AI Workforce for Banking Operations\n\n# Kastle Raises $24M Series A Led by Insight Partners to Build the AI Workforce for Banking Operations\n\n Kastle \n\nSep 17, 2026, 09:00 ET\n\nThe new funding positions Kastle to help enterprises deploy reliable AI across existing infrastructure, giving banks and lenders a faster, safer path to realizing the full value of AI without replacing critical core systems\n\nSAN FRANCISCO, Sept. 17, 2026 /PRNewswire/ -- Kastle, the AI workforce platform transforming consumer lending, today announced it has raised $24 million in Series A funding. The round was led by Insight Partners, with continued participation from existing investors Y Combinator and Commerce Ventures. Fifth Wall and a group of prominent founders and financial services executives also joined the round as new investors.\n\nKastle is building the AI workforce for financial services, beginning with consumer lending - an industry where enormous volumes of essential work still move through legacy systems, manual processes, and operational teams. The company is already powering work across some of the largest enterprises and banks in the world. Its AI agents have processed more than $1.8 billion in transactions, establishing Kastle as an emerging category leader in consumer lending and demonstrating that enterprise AI can perform consequential work at scale.\n\nAI has given financial institutions a historic opportunity to transform how that work gets done. But for most large enterprises, the path to adoption is logistically challenging. Replacing legacy infrastructure with an entirely AI-native technology stack could require years of complex, high-risk migration, in a world where technology shifts happen every other quarter, and layering conventional AI assistants onto existing systems captures only a fraction of AI's potential. The result is a growing adoption gap: institutions recognize what AI can do but remain constrained by the systems and operating models they already have.\n\nKastle offers another path.\n\nIts platform enables financial institutions to deploy specialized AI agents that work across their existing core systems, execute high-volume workflows, and keep systems of record current. Rather than requiring a full infrastructure overhaul, Kastle turns that infrastructure into an environment where AI agents and people can work together.\n\nThis creates a new operating model for financial services: hybrid teams in which AI agents handle high-volume, repeatable work, while people focus on complex cases requiring judgment, expertise, empathy, and relationships. Kastle's agents complete work inside the institution's existing processes and controls, giving organizations additional capacity while helping their teams maintain consistency, oversight, and compliance.\n\n\"For years, enterprises have effectively been presented with a false choice: accept the limitations of legacy operations or endure a long and risky replacement of the systems at the heart of their business,\" said Rishi Choudhary, Co-Founder and CEO of Kastle. \"Kastle creates a third path. We give financial institutions an AI workforce that can operate across the systems they already have, so they can capture the benefits of AI now-not five years from now. We believe this will become the safest and fastest way for the world's largest institutions to become AI-native.\"\n\nKastle's initial focus is consumer lending, where institutions m",
+      "extract": {
+        "company_name": "Kastle",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$24 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Insight Partners"],
+        "announced_date": "2026-09-17",
+        "evidence_quote": "SAN FRANCISCO, Sept. 17, 2026 /PRNewswire/ -- Kastle, the AI workforce platform transforming consumer lending, today announced it has raised $24 million in Series A funding. The round was led by Insight Partners, with continued participation from existing investors Y Combinator and Commerce Ventures. Fifth Wall and a group of prominent founders and financial services executives also joined the round as new investors."
+      },
+      "expected": {
+        "company": "Kastle",
+        "stage": "series_a",
+        "new_money": 24,
+        "currency": "USD",
+        "round_total": 24,
+        "valuation": null,
+        "date": "2026-09-17",
+        "lead": ["Insight Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "viabot-a",
+      "url": "https://www.prnewswire.com/news-releases/viabot-announces-24m-series-a-to-scale-precision-outdoor-commercial-property-care-302882113.html",
+      "markdown": "VIABOT™ ANNOUNCES $24M SERIES A TO SCALE PRECISION OUTDOOR COMMERCIAL PROPERTY CARE\n\n Viabot \n\nSep 17, 2026, 09:15 ET\n\n \n\n Viabot’s mission is simple: to build helpful, beautiful robots that do meaningful work in exceptional places. \n\n \n\n Viabot’s robotic intelligence is trained on more than 5 billion square feet of real-world multimodal data. \n\n \n\n Set it and forget it. Viabot elevates the standard of cleanliness across large retail and commercial properties. \n\nSANTA CLARA, Calif., Sept. 17, 2026 /PRNewswire/ -- Viabot™, the autonomous robotics startup tackling trash, debris and soft security at scale, announced today a $24 million Series A raise led by Walden International, with participation from CDIB Capital Group and Stalwart Ventures, alongside existing investors: Baseline Ventures, Era Ventures, Morado Ventures and SOSV. The funding brings Viabot's total capital raised to $43 million, strengthening its capacity to meet growing enterprise demand for autonomous property-management robotics.\n\n\"We founded Viabot on the belief that technology should be extremely helpful, beautifully-designed and built to perform meaningful tasks that give teams their time back,\" said CEO and Co-Founder Gregg Ratanaphanyarat. \"This investment marks an important new chapter in pursuit of that mission.\"\n\nThe company's flagship product The Viabot One services 25 million square feet of commercial property with intelligence trained on more than 5 billion square feet of real world, multi-modal data. Viabot will apply the new capital to growing its sales and engineering teams, accelerating new product development, and continued improvements to its robotics-as-a-service and Viabot One.\n\n\"We invest in teams that combine technical depth with the discipline to solve important customer problems. Viabot has demonstrated both by building a compelling platform with a clear focus on real-world customer value,\" said Steve Anderson, founder of Baseline Ventures. \"The best technology becomes part of everyday life without asking people to think twice. Viabot produces robots that are both highly capable and thoughtfully designed for the communities, campuses and commercial properties they serve.\"\n\nTHE VIABOT ONE: PRODUCT FEATURES & FUNCTIONALITY The design-forward Viabot One outdoor property care platform features proprietary technology, including autonomous tool swapping and the ability to hot-swap its own batteries for 12-24 hour runs. Viabot One's primary function is sweeping and cleaning trash and debris up to 10 inches. It also provides supplementary soft security services, like loitering detection and asset monitoring. The platform is designed to continuously improve its intelligence with remote software updates. \n\nThe Viabot One uses cameras, lidar, depth sensors, DGPS and dynamic path planning to map and navigate its surroundings, perform scheduled routes and adapt to changing conditions. After completing a scheduled run, the robot independently returns to its docking station to recharge and empty collected debris into standard trash bins, requiring only a standard 120V outlet to operate.\n\nGROWING DEMAND FOR AUTONOMOUS PROPERTY CARE Following the release of its RUNO prototype in 2021, Viabot developed and validated its new mobile intelligence platform, The Viabot One, through real-world deployments that resulted in unit economic profitability, contract renewals and new business. The company also established its production and expanded service nationally to Californ",
+      "extract": {
+        "company_name": "Viabot",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$24 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Walden International"],
+        "announced_date": "2026-09-17",
+        "evidence_quote": "SANTA CLARA, Calif., Sept. 17, 2026 /PRNewswire/ -- Viabot™, the autonomous robotics startup tackling trash, debris and soft security at scale, announced today a $24 million Series A raise led by Walden International, with participation from CDIB Capital Group and Stalwart Ventures, alongside existing investors: Baseline Ventures, Era Ventures, Morado Ventures and SOSV. The funding brings Viabot's total capital raised to $43 million, strengthening its capacity to meet growing enterprise demand for autonomous property-management robotics."
+      },
+      "expected": {
+        "company": "Viabot",
+        "stage": "series_a",
+        "new_money": 24,
+        "currency": "USD",
+        "round_total": 24,
+        "valuation": null,
+        "date": "2026-09-17",
+        "lead": ["Walden International"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "ayble-a",
+      "url": "https://www.prnewswire.com/news-releases/ayble-health-raises-16m-series-a-to-expand-the-nations-most-clinically-validated-virtual-digestive-health-clinic-302880020.html",
+      "markdown": "Ayble Health Raises $16M Series A to Expand the Nation's Most Clinically Validated Virtual Digestive Health Clinic\n\n# Ayble Health Raises $16M Series A to Expand the Nation's Most Clinically Validated Virtual Digestive Health Clinic\n\n Ayble Health, Inc. \n\nSep 16, 2026, 08:45 ET\n\nLed by Neon, the oversubscribed-round accelerates expansion into AI precision digestive healthcare and autoimmune health, driven by rapid scaling across national health plans, jumbo employers and major benefit platforms.\n\nBOSTON, Sept. 16, 2026 /PRNewswire/ -- Ayble Health, the nation's leading AI-enabled virtual multidisciplinary GI clinic, today announced the close of a $16 million oversubscribed Series A round led by Neon, with participation from Unum Ventures, Upfront Ventures, M13, Cleveland Clinic Ventures, DigiTx, Accomplice and several individual strategic investors. The round brings Ayble's total capital raised to over $27 million.\n\nUndertreated, Underserved, and Enormously Costly Digestive and autoimmune conditions are among the most common, costly, and under-addressed chronic diseases in the country. GI conditions alone affect more than 70 million Americans and drive $136 billion in annual U.S. healthcare spending, more than the total cost of diabetes or heart disease, while nearly 70% of U.S. counties lack a single practicing gastroenterologist. The two categories are also clinically intertwined: a 2025 study spanning more than 141 million patients found inflammatory bowel disease (IBD) associated with 24 distinct autoimmune comorbidities, underscoring the need for a care model built to treat patients across both conditions.\n\nMeeting this dual burden requires a care model that can adapt to each patient's overlapping conditions rather than treating them in isolation. This new capital will be used to advance Ayble's proprietary AI+clinician precision care model, deepening data-driven personalization for patient engagement, enrollment, and care delivery. Additionally, the company will leverage its proven multidisciplinary model and data infrastructure to expand beyond its core gastrointestinal (GI) footprint into adjacent complex therapeutic areas, starting with autoimmune conditions.\n\nUnprecedented Scale and Enterprise Access \n\nThat expansion is underpinned by several years of rapid commercial growth, positioning Ayble to bring its model to an even broader population. Ayble is now in-network with most commercial health plans and covers 80+ million Americans through payer, employer, and health system partnerships. Recently, Ayble was nominated for the Galien Prize, widely regarded as the highest honor in biomedical innovation, often described as the Nobel Prize equivalent for life sciences, biotechnology and digital health.\n\n\"I built Ayble because I'm an Inflammatory Bowel Disease patient,\" said Sam Jactel, Founder and CEO of Ayble Health. \"I've lived through the diagnostic delays, the care gaps, and the overall frustration of a system that isn't designed for patients who need ongoing, coordinated care. Many patients are also managing autoimmune conditions, and too often, no one is treating the whole picture. This funding lets us close that gap: deepening our AI precision care capabilities and extending our multidisciplinary model into autoimmune, so patients get one team built for how these conditions actually show up in their lives. The growth we've seen and the partnerships we've built with leading employers, payers and providers demonstrates the nee",
+      "extract": {
+        "company_name": "Ayble Health",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$16 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Neon"],
+        "announced_date": "2026-09-16",
+        "evidence_quote": "BOSTON, Sept. 16, 2026 /PRNewswire/ -- Ayble Health, the nation's leading AI-enabled virtual multidisciplinary GI clinic, today announced the close of a $16 million oversubscribed Series A round led by Neon, with participation from Unum Ventures, Upfront Ventures, M13, Cleveland Clinic Ventures, DigiTx, Accomplice and several individual strategic investors. The round brings Ayble's total capital raised to over $27 million."
+      },
+      "expected": {
+        "company": "Ayble Health",
+        "stage": "series_a",
+        "new_money": 16,
+        "currency": "USD",
+        "round_total": 16,
+        "valuation": null,
+        "date": "2026-09-16",
+        "lead": ["Neon"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "profound-d",
+      "url": "https://techcrunch.com/2026/09/15/aeo-startup-profound-hits-unicorn-valuation-raises-180m-series-d-7-months-after-last-round/",
+      "markdown": "AEO startup Profound hits unicorn valuation, raises $180M Series D 7 months after last round | TechCrunch\n\nPosted:\n\n8:22 AM PDT · September 15, 2026\n\nImage Credits: Profound\n\n- Dominic-Madori Davis\n\n# AEO startup Profound hits unicorn valuation, raises $180M Series D 7 months after last round\n\nProfound, which builds marketing software to help brands appear in AI search results, on Tuesday said it has raised a $180 million Series D at a $1.8 billion valuation, less than seven months after it raised a $96 million Series C.\n\nSequoia and Kleiner Perkins led the round, and existing investors - including Lightspeed Venture Partners, Khosla Ventures, and South Park Commons - also participated. \n\nLaunched two years ago, Profound started as an analytics platform, and has since expanded to help companies research and create marketing strategies. The startup helps businesses understand how AI helps consumers discover their brands. \n\nIt’s part of a wave of startups in the GEO/AEO space (generative engine optimization and answer engine optimization, respectively), where companies try to find ways to surface their products in the AI systems customers are increasingly using for search. \n\nThe company says its revenue has increased by 3x in the past six months, and it now has more than 1,000 enterprise customers, which include Comcast, The Estée Lauder Companies, and Walmart.",
+      "extract": {
+        "company_name": "Profound",
+        "round_type_as_written": "Series D",
+        "amount_as_written": "$180 million",
+        "valuation_as_written": "$1.8 billion",
+        "lead_investors": ["Sequoia", "Kleiner Perkins"],
+        "announced_date": "2026-09-15",
+        "evidence_quote": "Profound, which builds marketing software to help brands appear in AI search results, on Tuesday said it has raised a $180 million Series D at a $1.8 billion valuation, less than seven months after it raised a $96 million Series C."
+      },
+      "expected": {
+        "company": "Profound",
+        "stage": "series_d_plus",
+        "new_money": 180,
+        "currency": "USD",
+        "round_total": 180,
+        "valuation": 1800,
+        "date": "2026-09-15",
+        "lead": ["Sequoia", "Kleiner Perkins"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "snorkel-e",
+      "url": "https://techcrunch.com/2026/09/22/snorkel-ai-triples-valuation-to-3-5b-as-demand-for-ai-training-data-booms/",
+      "markdown": "Snorkel AI triples valuation to $3.5B as demand for AI training data booms | TechCrunch\n\n# Snorkel AI triples valuation to $3.5B as demand for AI training data booms\n\n Marina Temkin \n\n2:56 PM PDT · September 22, 2026\n\nSnorkel AI, a startup that helps AI labs and corporations build training data sets and simulated environments, has raised a $350 million Series E at a $3.5 billion valuation.\n\nThe new round, which was led by Insight Partners and S32, valued the seven-year-old startup at nearly triple the $1.3 billion valuation it garnered when it raised $100 million in a Series D 17 months ago. Existing investors, including Addition, Lightspeed, Greylock, GV, and Wells Fargo, also participated in the round.\n\nWhile Snorkel originally provided software for data labeling automation, it shifted last year to providing customers with completed data sets, an offering it calls data-as-a-service. Rather than operating purely as a human expert marketplace, Snorkel relies on a hybrid approach, using its software and models to generate data synthetically alongside subject matter experts.\n\nSnorkel says its current annualized revenue run-rate now stands at $375 million, an 18-fold increase over the last 12 months. That growth is fueled by AI labs’ insatiable appetite for high-end training data.\n\nOther data companies positioning themselves as AI data labs have seen a similar explosion in growth. Mercor’s gross annualized revenue has climbed to $2 billion, Handshake hit the $1 billion milestone earlier this year, and TechCrunch reported that Micro1 has scaled to $500 million. Since these companies pay out roughly 60% to 70% of their top-line income directly to the domain specialists doing the work, it’s important to note that their actual net annual revenue is substantially lower than those headline gross figures.\n\nGiven that Snorkel sells reinforcement learning (RL) environments and complete datasets rather than human labor, payments to its human experts are accounted for in its cost of goods sold rather than headline-generating annualized revenue numbers, according to the company.\n\nSnorkel launched commercially in 2019 following four years of research by co-founder and CEO Alex Ratner and his team at a Stanford AI lab.\n\n Reporter, Venture \n\nYou can contact or verify outreach from Marina by emailing marina.temkin@techcrunch.com or via encrypted message at +1 347-683-3909 on Signal.",
+      "extract": {
+        "company_name": "Snorkel AI",
+        "round_type_as_written": "Series E",
+        "amount_as_written": "$350 million",
+        "valuation_as_written": "$3.5 billion",
+        "lead_investors": ["Insight Partners", "S32"],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "Snorkel AI, a startup that helps AI labs and corporations build training data sets and simulated environments, has raised a $350 million Series E at a $3.5 billion valuation."
+      },
+      "expected": {
+        "company": "Snorkel AI",
+        "stage": "series_d_plus",
+        "new_money": 350,
+        "currency": "USD",
+        "round_total": 350,
+        "valuation": 3500,
+        "date": "2026-09-22",
+        "lead": ["Insight Partners", "S32"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "ema-b",
+      "url": "https://techcrunch.com/2026/09/23/ema-raises-77m-as-ai-starts-eating-into-enterprise-software-and-services/",
+      "markdown": "Ema raises $77M as AI starts eating into enterprise software and services | TechCrunch\n\nImage Credits: Andriy Onufriyenko / Getty Images\n\n# Ema raises $77M as AI starts eating into enterprise software and services\n\n Jagmeet Singh \n\n5:00 AM PDT · September 23, 2026\n\nEma, a startup that uses teams of AI agents to automate corporate processes across HR, IT, and finance, has raised $77 million in a new funding round as it aims to take on more of the work traditionally handled by enterprise software and IT services.\n\nThe Series B round was led by Bengaluru-based venture firm Creaegis, with existing investors Accel, Section 32, and Prosus increasing their stakes. The financing brings the startup’s total funding to $140 million and more than quadruples its valuation from its last funding round in 2024. (Ema declined to disclose its latest valuation.) The round consisted entirely of primary equity, with no debt or secondary transactions, the startup confirmed to TechCrunch.\n\nThe funding comes as AI is beginning to compete for dollars that businesses have traditionally spent on enterprise software and IT services. Startups, major AI labs, and established software companies are now fighting to capture that spending.\n\nFounded in 2023 by former Google and Coinbase executive Surojit Chatterjee and ex-Okta executive Souvik Sen, Ema is looking to expand its position in that market. The startup deploys its technology, which it calls “AI employees” - systems that coordinate multiple AI agents. These help carry out multi-step business processes across a company’s existing applications, rather than handling a single task at a time.\n\nChatterjee sees that model eventually reducing companies’ reliance on traditional software products, including those sold as software-as-a-service (SaaS). Ema first “wraps” around an enterprise’s existing applications, he said, before customers can reduce their dependence on some of those products - and, in some cases, replace them altogether.\n\n“Many of our customers are already on the way to replace [large SaaS applications] completely, removing dependency on them, because they are mostly becoming like a database,” Chatterjee said.\n\n## Benefitting from AI labs’ push\n\nIn recent months, major AI companies have also pushed deeper into the enterprise market where Ema operates. Anthropic has expanded efforts to bring Claude into companies’ core operations, including financial and legal work. Similarly, OpenAI has established teams of forward-deployed engineers who work alongside customers to put AI into production.\n\nChatterjee, however, does not see the frontier AI labs as direct competitors. He told TechCrunch that Ema’s software can draw on more than 150 models, including frontier and open-source models, while the startup focuses on the domain knowledge, integrations, and orchestration needed to automate business processes end-to-end.\n\n“Progress in frontier models is actually very beneficial to us,” Chatterjee stated.\n\nEma’s approach is already gaining traction. The startup has more than 50 active enterprise deals, as well as over 1 million active enterprise users, and has handled more than 5 million actions and queries. Its customers include NTT DATA, Hitachi, ADP, PwC, Google, KPMG, Wipro, and Microsoft.\n\nOver the past two years, Ema said its revenue has grown 50-fold, while revenue bookings have surpassed $150 million. Chatterjee said the bookings figure includes the total value of multiyear contracts, including two- and thre",
+      "extract": {
+        "company_name": "Ema",
+        "round_type_as_written": "Series B",
+        "amount_as_written": "$77 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Creaegis"],
+        "announced_date": "2026-09-23",
+        "evidence_quote": "Ema, a startup that uses teams of AI agents to automate corporate processes across HR, IT, and finance, has raised $77 million in a new funding round as it aims to take on more of the work traditionally handled by enterprise software and IT services."
+      },
+      "expected": {
+        "company": "Ema",
+        "stage": "series_b",
+        "new_money": 77,
+        "currency": "USD",
+        "round_total": 77,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Creaegis"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "cloudnc-b-extension",
+      "url": "https://techcrunch.com/2026/09/08/cloudnc-raises-20m-to-automate-manufacturings-most-pressing-bottlenecks/",
+      "markdown": "CloudNC raises $20M to automate manufacturing's most pressing bottlenecks | TechCrunch\n\nImage Credits: CloudNC\n\n# CloudNC raises $20M to automate manufacturing’s most pressing bottlenecks\n\n Dominic-Madori Davis \n\n9:01 PM PDT · September 8, 2026\n\nUK-based manufacturing software startup CloudNC announced a $20 million B extension round on Wednesday, bringing its lifetime total raised amount to $128 million. The company’s last major raise was four years ago, its co-founder and CEO Theo Saville told TechCrunch.\n\nSaville launched CloudNC in 2015 with Chris Emery, now the company’s chief science officer, and offers AI-powered CAM Assist software that automates parts of Computer Numerical Control (CNC) machining. CNC is the process of using computer-controlled machines to cut or shape materials precisely into the parts that are then used in automotive, defense, or consumer hardware industries.\n\nBefore a part can be cut, Saville said, a machinist or a computer-aided manufacturing programmer has to decide issues like how a part should be held or what tools should be used, Saville said.\n\nThey typically use powerful CAM software to help with this ideation phase, and although some of these tools can help users create part features or known part patterns, that’s different from looking at the part and generating an execution strategy an expert would actually want to use. \n\n“Traditional CAM systems are powerful, but in most workflows, they are still tools that allow programmers to manually specify how a part should be machined,” Saville said. This is where his CAM Assist comes in, a software that plugs into traditional CAM systems, like Autodesk Fusion or Mastercam, to help machinists and programmers make more efficient strategic manufacturing decisions. \n\n“It selects suitable tools, approach directions, and cutting feeds and speeds, and then drafts the code required to tell the CNC machine what to do,” Saville said. \n\nImage Credits: CloudNC\n\nFrom there, the user reviews, edits, and approves the results. Saville said the goal was to help skilled workers be more “efficient and productive,” rather than removing expert judgment from the process. If “traditional CAM is a powerful toolkit,” he said, then “CAM Assist is more like an expert assistant sitting alongside the programmer, automating much of the first-pass thinking and repetitive setup so the human can review, improve, and approve the approach.” \n\nSaville said more than 1,000 machine shops worldwide use CAM Assist, and 80% of the company’s customer base, which includes both manufacturers and companies, is in the U.S. With a team of 80 employees, the company’s biggest goal is scaling adoption. \n\n“This makes this the right time to raise additional capital,” he said. Investors in the round include Nimble Ventures, which led the round, Calculus Venture Capital, Entrepreneur First, and LM Capital, Lockheed Martin’s venture arm. “The funding allows us to support wider take-up of CAM Assist, strengthen our go-to-market operations, expand in existing and new markets, and develop new products such as Quote Agent.” \n\nThe premise behind Quote Agent, which targets manufacturers, is similar to CAM Assist. It helps shops assess the estimated cost and risk of a new project so they can move faster to accept - or reject - new work. He tied this somewhat back to geopolitics, pointing to, for example, how machine shops in the U.S. are looking to reshore and how, at the same time, there is a shortage of skilled worke",
+      "extract": {
+        "company_name": "CloudNC",
+        "round_type_as_written": "Series B extension",
+        "amount_as_written": "$20 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Nimble Ventures"],
+        "announced_date": "2026-09-08",
+        "evidence_quote": "UK-based manufacturing software startup CloudNC announced a $20 million B extension round on Wednesday, bringing its lifetime total raised amount to $128 million. The company’s last major raise was four years ago, its co-founder and CEO Theo Saville told TechCrunch."
+      },
+      "expected": {
+        "company": "CloudNC",
+        "stage": "series_b",
+        "new_money": 20,
+        "currency": "USD",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-08",
+        "lead": ["Nimble Ventures"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "wonderful-c",
+      "url": "https://techcrunch.com/2026/09/02/wonderful-more-than-doubles-its-valuation-to-5b-in-under-6-months/",
+      "markdown": "Wonderful more than doubles its valuation to $5B in under 6 months | TechCrunch\n\nImage Credits: Wonderful\n\n# Wonderful more than doubles its valuation to $5B in under 6 months\n\n Ram Iyer \n\n9:04 AM PDT · September 2, 2026\n\nIsraeli-Dutch AI startup Wonderful has raised $550 million in a Series C funding round that gives it a price tag of $5 billion, more than doubling the $2 billion valuation the company gained when it last raised funding nearly six months ago.\n\nInsight Partners returned to lead this round, too, and existing investors Index Ventures, IVP, Vine Ventures, 9Yards, and Bessemer Venture Partners are participating once again. Salesforce is investing in the company for the first time in this round.\n\nFounded in early 2025, Wonderful has grown blazingly fast. It initially saw strong traction with its customer service AI agent platform, which it built and customized to sell in various non-English-speaking markets. Its strategy of deploying engineering teams to work with its customers, sometimes on their premises, to deploy and integrate its AI tech into their workflows and systems also proved very successful. The company says it now works across more than 35 countries.\n\nThe startup’s core offering has evolved over the past few months, though. Departing from its customer service roots, Wonderful now offers a platform, dubbed “Wonderful AI OS,” which it says can coordinate and connect agents, workflows, and AI applications with companies’ data, context, and existing integrations. The company says the platform works with any AI model and is compatible with existing tech stacks.\n\n“Customers can adopt whichever parts of the platform make the most sense, integrate them with existing systems, choose the best models for each workload, and retain ownership of everything they build,” Roey Lalazar, Wonderful CTO and co-founder, said in a statement.\n\nThe company is still leaning on its forward-deployed engineers to help embed its products quickly into companies - which appears to be a good strategy given the demand for experts versed in implementing AI services and products.\n\nWonderful said it will use the fresh $550 million to develop products faster, expand its FDE teams, and meet demand for its products.\n\nYou can contact or verify outreach from Ram by emailing ram.iyer@techcrunch.com.",
+      "extract": {
+        "company_name": "Wonderful",
+        "round_type_as_written": "Series C",
+        "amount_as_written": "$550 million",
+        "valuation_as_written": "$5 billion",
+        "lead_investors": ["Insight Partners"],
+        "announced_date": "2026-09-02",
+        "evidence_quote": "Israeli-Dutch AI startup Wonderful has raised $550 million in a Series C funding round that gives it a price tag of $5 billion, more than doubling the $2 billion valuation the company gained when it last raised funding nearly six months ago."
+      },
+      "expected": {
+        "company": "Wonderful",
+        "stage": "series_c",
+        "new_money": 550,
+        "currency": "USD",
+        "round_total": 550,
+        "valuation": 5000,
+        "date": "2026-09-02",
+        "lead": ["Insight Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "angle-c-tender",
+      "url": "https://techcrunch.com/2026/09/18/y-combinator-insurance-tech-alum-angle-health-hits-2-7b-valuation/",
+      "markdown": "Y Combinator insurance tech alum Angle Health hits $2.7B valuation | TechCrunch\n\nPosted:\n\n1:24 PM PDT · September 18, 2026\n\nImage Credits: TravelCouples / Getty Images\n\n- Julie Bort\n\n# Y Combinator insurance tech alum Angle Health hits $2.7B valuation\n\nThese days, it’s rare to hear of a startup founded in 2019, or one not focused on AI agents, raising a hefty Series C. But health insurance startup Angle Health announced Friday that it raised a $200 million Series C, alongside a $400 million tender offer, at a $2.7 billion valuation. The round was led by Vitruvian Partners with participation from Town Hall Ventures, Blumberg Capital, Portage Ventures, PruVen Capital, and Y Combinator. The tender offer allows employees to cash out some of their shares, the company told TechCrunch. It expects the round to close later this month.\n\nAngle Health, a winter 2020 YC alum, helps small businesses obtain and manage what’s known as “level funded health plans.” These are plans that land between fully insured and self-funded plans. In fully insured plans, the carrier takes all the risks; such plans are more expensive but costs are predictable. With self-funded plans, the company covers the expenses and costs can be unpredictable. With level-funded plans, businesses make predictable payments to carriers, are insured against higher-than-expected costs, and can potentially save money by getting a share of the surplus back if expenses stay low.\n\nAngle says these plans can make health insurance more affordable for small businesses. It’s an AI-powered platform that helps small businesses choose and manage plans, integrating with payroll and HR systems. The startup says it serves over 5,000 businesses and is profitable.",
+      "extract": {
+        "company_name": "Angle Health",
+        "round_type_as_written": "Series C",
+        "amount_as_written": "$400 million",
+        "valuation_as_written": "$2.7 billion",
+        "lead_investors": ["Vitruvian Partners"],
+        "announced_date": "2026-09-18",
+        "evidence_quote": "These days, it’s rare to hear of a startup founded in 2019, or one not focused on AI agents, raising a hefty Series C. But health insurance startup Angle Health announced Friday that it raised a $200 million Series C, alongside a $400 million tender offer, at a $2.7 billion valuation. The round was led by Vitruvian Partners with participation from Town Hall Ventures, Blumberg Capital, Portage Ventures, PruVen Capital, and Y Combinator. The tender offer allows employees to cash out some of their shares, the company told TechCrunch. It expects the round to close later this month."
+      },
+      "expected": {
+        "company": "Angle Health",
+        "stage": "series_c",
+        "new_money": 200,
+        "currency": "USD",
+        "round_total": 200,
+        "valuation": 2700,
+        "date": "2026-09-18",
+        "lead": ["Vitruvian Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "vaulted-debt",
+      "url": "https://www.cfp.energy/en/insights/vaulted-deep-secures-35-million-in-debt-financing-to-expand-nationwide",
+      "markdown": "Vaulted Deep Secures $35 Million in Debt Financing with CFP Energy to Expand Nationwide\n\n# Vaulted Deep Secures $35 Million in Debt Financing with CFP Energy to Expand Nationwide\n\n By CFP Energy \n\nPublished: 21 September 2026\n\n \n\nNew financing from Mediobanca and facilitated by CFP Energy will support new waste disposal sites across the country and continued investment in technology to accelerate site development\n\nHOUSTON, September 21, 2026 - Vaulted Deep, a waste management company building subsurface infrastructure for organic waste, today announced a $35 million debt facility from Mediobanca to expand its national buildout. The financing, arranged by CFP Energy, a leading provider of market-based energy transition solutions, is the largest publicly disclosed U.S. commercial debt deal in durable carbon removal to be secured by long-term purchase contracts. It demonstrates how such contracts can help companies borrow from mainstream lenders to build physical infrastructure.\n\nThe facility was supported by Vaulted’s waste service agreements and contracted carbon removal revenue, including its set of offtakes with Frontier buyers. Frontier is an advance market commitment backed by companies including Stripe, Shopify, and Google. Vaulted delivered more than 20,000 tons of carbon removal to Frontier buyers in the first half of 2026, surpassing the total amount delivered in 2025. Since 2023, the company has also increased weekly waste volume sixfold, reflecting its ability to scale operations alongside demand.\n\n“Waste operators across the country need new options as traditional disposal options become limited. This financing lets us take on more projects and invest in the tools that help us evaluate and develop new sites faster,” said Julia Reichelstein, CEO and Co-Founder of Vaulted Deep. “This is a meaningful milestone for Vaulted as we move into the next phase of building infrastructure at a much larger scale.”\n\nThe new capital will help Vaulted advance more projects through its AI-Accelerated Site Development Platform, which combines proprietary technology and operating experience across site discovery, permitting, and injection operations. Geology, regulatory, and waste-supply data narrow the search for candidate sites while standardized templates and regulatory guides speed up the path to permitting. Once a site is running, monitoring and control algorithms maximize safe disposal capacity. Together, these tools make new sites faster to open and easier to replicate.\n\n“Frontier’s theory of change is that robust demand for carbon removal, in the form of large, multi-year offtake agreements, gives companies the ability to raise the capital required to build and expand their businesses,” said Frontier spokesperson Hannah Bebbington Valori. “Vaulted raising institutional debt to expand their site development capabilities is a great example of this theory in practice.”\n\nTyler Manchester, Head of Voluntary Carbon, CFP Energy said:\n\n> \"By facilitating these types of transactions, we connect institutional capital with innovative climate technologies, helping accelerate the deployment of high-integrity carbon removal solutions. It reflects growing investor confidence in these solutions, driven by rising demand from corporate buyers seeking permanent pathways to support net-zero commitments and long-term climate strategies.\"\n\nThe facility adds a new source of growth capital alongside the $48 million in equity Vaulted has raised to date and its $8",
+      "extract": {
+        "company_name": "Vaulted Deep",
+        "round_type_as_written": "debt",
+        "amount_as_written": "$35 million",
+        "valuation_as_written": null,
+        "lead_investors": [],
+        "announced_date": "2026-09-21",
+        "evidence_quote": "HOUSTON, September 21, 2026 - Vaulted Deep, a waste management company building subsurface infrastructure for organic waste, today announced a $35 million debt facility from Mediobanca to expand its national buildout. The financing, arranged by CFP Energy, a leading provider of market-based energy transition solutions, is the largest publicly disclosed U.S. commercial debt deal in durable carbon removal to be secured by long-term purchase contracts. It demonstrates how such contracts can help companies borrow from mainstream lenders to build physical infrastructure."
+      },
+      "expected": {
+        "company": "Vaulted Deep",
+        "stage": "debt",
+        "new_money": null,
+        "currency": "USD",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-21",
+        "lead": [],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "neurophos-old",
+      "url": "https://www.prnewswire.com/news-releases/neurophos-scales-team-and-opens-silicon-valley-office-to-accelerate-commercialization-302874375.html",
+      "markdown": "Neurophos Scales Team and Opens Silicon Valley Office to Accelerate Commercialization\n\n# Neurophos Scales Team and Opens Silicon Valley Office to Accelerate Commercialization\n\n Neurophos \n\nSep 10, 2026, 09:02 ET\n\nFollowing a $110M Series A, the photonic-based AI accelerator chip pioneer is accelerating headcount growth and expanding engineering operations across Austin and Sunnyvale to scale commercialization. \n\nAUSTIN, Texas and SUNNYVALE, Calif., Sept. 10, 2026 /PRNewswire/ -- Neurophos, the pioneer of metasurface-based photonic AI chips, today announced a significant expansion of its leadership and engineering teams as it prepares to commercialize the next generation of high-performance computing. Following a $110 million Series A funding round announced in January, the company has scaled its workforce by 4x this year and is on track to grow it by another 2x by year-end, drawing top-tier talent from leading semiconductor, technology, and AI research organizations.\n\nThe leadership expansion includes appointing Dr. Nathan Kundtz as CTO, promoting Dr. Michael Shebanow to SVP of Engineering, hiring Kevin Keller as General Counsel, and expanding Preston Woo's role to include CCO. These executives join Dr. Patrick Bowen, CEO and Co-Founder, on the leadership team to steer the company toward commercial deployment. The company also appointed AI accelerator pioneer Nigel Toon, former CEO and Co-Founder of Graphcore, to its Board of Directors to enhance governance and bring additional industry experience. Neurophos continues to augment its engineering and operations team as it heads toward scale production.\n\n\"The addition of these industry-leading experts and the opening of our Silicon Valley office are crucial steps in accelerating Neurophos' commercialization efforts,\" said Dr. Patrick Bowen, CEO and Co-Founder of Neurophos. \"By scaling our team and expanding our geographic footprint, we are positioning ourselves to lead the next generation of high-performance computing and deliver on our mission to bring very large orders of metasurface-based photonic AI chips to market.\"\n\nExecutive and Engineering Hires\n\nDr. Nathan Kundtz - CTO\n\nDr. Nathan Kundtz brings deep expertise in metamaterial commercialization and startup scaling, having served as Founder, CTO, and CEO of Kymeta, a metamaterials-based satellite communications company, and led that company from concept to global deployment at scale. He was most recently CEO of Redered.ai, a synthetic data platform for training artificial intelligence systems. Nathan has a Master's in Electrical Engineering and a PhD in Physics from Duke University. He also founded Intellectual Ventures' Center for Metamaterials.\n\nDr. Michael Shebanow - SVP of Engineering\n\nDr. Michael Shebanow is a semiconductor veteran who has held executive roles including CEO of Silicon Bee, CTO of Sapeon, and VP at HAL, Samsung, and Cadence. His prior experience includes mobile graphics at Samsung, GPU architecture at NVIDIA, and microprocessor engineering at AMD, HAL, Motorola, and Cyrix. He holds a Ph.D. in Computer Science from UC Berkeley and is an IEEE Fellow.\n\nPreston Woo - CFO & CCO\n\nPreston's role has expanded from CFO to include the role of Chief Commercialization Officer (CCO). This reflects his leadership in commercial engagements and partnerships. Preston was previously CFO, CSO, and Board Director of several leading technology companies. He was also an executive at Intellectual Ventures. He has an MBA from the Wharto",
+      "extract": {
+        "company_name": "Neurophos",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$110 million",
+        "valuation_as_written": null,
+        "lead_investors": [],
+        "announced_date": null,
+        "evidence_quote": "AUSTIN, Texas and SUNNYVALE, Calif., Sept. 10, 2026 /PRNewswire/ -- Neurophos, the pioneer of metasurface-based photonic AI chips, today announced a significant expansion of its leadership and engineering teams as it prepares to commercialize the next generation of high-performance computing. Following a $110 million Series A funding round announced in January, the company has scaled its workforce by 4x this year and is on track to grow it by another 2x by year-end, drawing top-tier talent from leading semiconductor, technology, and AI research organizations.",
+        "is_background": true
+      },
+      "expected": {
+        "company": "Neurophos",
+        "stage": null,
+        "new_money": null,
+        "currency": "USD",
+        "round_total": null,
+        "valuation": null,
+        "date": null,
+        "lead": [],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "spott-a",
+      "url": "https://tech.eu/2026/09/22/spott-secures-21m-series-a-to-expand-its-ai-platform-for-recruitment-agencies/",
+      "markdown": "Spott secures $21M Series A to expand its AI platform for recruitment agencies - Tech.eu\n\n# Spott secures $21M Series A to expand its AI platform for recruitment agencies\n\n Spott’s new funding will support international expansion, enterprise product development and hiring as it scales its AI-native platform for recruitment agencies. \n\n Tamara Djurickovic 25 minutes ago \n\n \n\nSpott, an AI-native applicant tracking system (ATS) and customer relationship management (CRM) platform for recruitment agencies, has raised $21 million in Series A funding. The round was led by Balderton Capital, with participation from Base10 Partners, Y Combinator and Fortino. \n\nFounded in Leuven in 2024 by university friends Lander Degreve, Manu Vanderveeren and Samuel Smeys, Spott emerged from the founders’ work with recruitment businesses at McKinsey, Bain and BCG. They identified an industry under pressure to improve efficiency while relying on ageing and fragmented technology.\n\nRecruitment agencies typically use applicant tracking and CRM software to manage candidates, clients and placements, often alongside separate tools for sourcing, outreach, note-taking and scheduling. This can require recruiters to manually transfer information between different systems.\n\nSpott brings these functions together in a single AI-native platform, combining candidate management, search, conversations, outreach and automation. The platform turns information from emails, CVs and recruitment pipelines into searchable data, including databases containing up to two million candidates.\n\nThe company aims to automate more of the administrative and sourcing work involved in recruitment while leaving consequential decisions with recruiters. Spott does not autonomously move candidates into pipelines or present them to clients without human approval.\n\n> During our work with recruitment businesses, we saw firms under intense pressure to cut costs and make more placements, while their recruiters lost hours moving information between outdated systems. Recruitment succeeds through trust and human judgement. Spott gives agencies control of their data and puts AI to work around their recruiters, freeing them to deepen relationships with candidates and clients,\n\nsaid Lander Degreve, co-founder and CEO of Spott.\n\nThe company will use the Series A funding to support international expansion, develop enterprise functionality and advance its agentic AI capabilities. Spott is opening offices in Sydney and New York and plans to grow its workforce and engineering capacity. It will also develop AI features designed to identify vacancies, candidate career moves and recommended next steps.\n\nComments \n\n1. Would you like to write the first comment?\n\nLogin to post comments",
+      "extract": {
+        "company_name": "Spott",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$21 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Balderton Capital"],
+        "announced_date": "2026-09-22",
+        "evidence_quote": "Spott, an AI-native applicant tracking system (ATS) and customer relationship management (CRM) platform for recruitment agencies, has raised $21 million in Series A funding. The round was led by Balderton Capital, with participation from Base10 Partners, Y Combinator and Fortino."
+      },
+      "expected": {
+        "company": "Spott",
+        "stage": "series_a",
+        "new_money": 21,
+        "currency": "USD",
+        "round_total": 21,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Balderton Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "chift-a",
+      "url": "https://www.openbankingexpo.com/news/chift-secures-e10-5m-in-series-a-funding-round-as-it-eyes-european-expansion/",
+      "markdown": "Chift secures €10.5m in Series A funding round as it eyes European expansion | Open Banking Expo\n\n# Chift secures €10.5m in Series A funding round as it eyes European expansion \n\n \n\nEllie Duncan | News 16 Sep 2026\n\nEuropean financial connectivity platform Chift has raised €10.5 million in a Series A funding round led by BlackFin Capital Partners.\n\nExisting investors Entourage, Shapers, Seeder Fund and Wallonie Entreprendre also participated in the fundraising.\n\nChift is addressing what it has called “the defining problem of European SMB finance”, which is interoperability, with businesses’ financial data sitting in a different system in every European country.\n\nChift intends to use the funding to scale across Spain, the UK, the Nordics, Germany and Italy, and to build an agentic layer, “so that any connection sets itself up in minutes and any agent can act on financial data safely”.\n\nAs part of its growth plans, Chift revealed it is hiring for 15 roles across Europe in the second half of 2026.\n\nGauthier Henroz, co-founder and chief executive officer of Chift, said: “One integration to Chift connects a software company to more than 120 financial systems across Europe, and that catalogue expands every week.\n\n“Connecting Europe is not just a technical problem to solve: for the companies building on Chift, every integration opens a new go to market, a direct line into a new country’s ecosystem, new partnership opportunities, without rebuilding anything to get there.”\n\nHe added: “Today, more than 150 software companies build on Chift to connect over 50,000 businesses across 13 countries, including Europe’s leading tech companies: Sage, Revolut, Qonto, Pennylane and Mollie.\n\n“We are the clear leader in our first markets, France, Belgium and the Netherlands. We launched Spain a year ago, and we are already growing in the UK, the Nordics and Germany.”\n\nChift is an Event Partner of Open Banking Expo UK & Europe on 13-14 October at the Business Design Centre in London. Click here to find out more and buy your ticket.\n\n+44 (0)20 7993 5159 hello@openbankingexpo.com",
+      "extract": {
+        "company_name": "Chift",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "€10.5 million",
+        "valuation_as_written": null,
+        "lead_investors": ["BlackFin Capital Partners"],
+        "announced_date": "2026-09-16",
+        "evidence_quote": "European financial connectivity platform Chift has raised €10.5 million in a Series A funding round led by BlackFin Capital Partners."
+      },
+      "expected": {
+        "company": "Chift",
+        "stage": "series_a",
+        "new_money": 10.5,
+        "currency": "EUR",
+        "round_total": 10.5,
+        "valuation": null,
+        "date": "2026-09-16",
+        "lead": ["BlackFin Capital Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "enveda-e",
+      "url": "https://techcrunch.com/2026/09/23/enveda-secures-311m-to-bring-more-nature-derived-ai-drugs-into-clinical-trials/",
+      "markdown": "Enveda secures $311M to bring more nature-derived AI drugs into clinical trials | TechCrunch\n\nPosted:\n\n12:31 PM PDT · September 23, 2026\n\nImage Credits: Viswa Colluru / Enveda\n\n- Marina Temkin\n\n# Enveda secures $311M to bring more nature-derived AI drugs into clinical trials\n\nEnveda, a biotech startup that uses AI to discover new drugs in the natural world, has raised a $311 million Series E at a $2 billion valuation. The fresh funding, which was led by Catalio Capital Management, with participation from Iconiq and others, doubles the valuation Enveda achieved 12 months ago.\n\nThe idea behind Enveda is that powerful medicines could be harnessed from plants and microbes, rather than synthesized from scratch in a lab. Viswa Colluru, an early employee of Recursion Pharmaceuticals, founded Enveda in 2019 to speed up the process of discovering these new drugs using AI and other techniques.\n\nWhile AI hasn’t yet produced any FDA-approved drugs, Enveda is among the wave of companies advancing AI-discovered candidates into human clinical trials. The startup is currently testing several drugs in patients, including one targeting severe skin conditions and another designed to help maintain weight loss after stopping GLP-1s.",
+      "extract": {
+        "company_name": "Enveda",
+        "round_type_as_written": "Series E",
+        "amount_as_written": "$311 million",
+        "valuation_as_written": "$2 billion",
+        "lead_investors": ["Catalio Capital Management"],
+        "announced_date": "2026-09-23",
+        "evidence_quote": "Enveda, a biotech startup that uses AI to discover new drugs in the natural world, has raised a $311 million Series E at a $2 billion valuation. The fresh funding, which was led by Catalio Capital Management, with participation from Iconiq and others, doubles the valuation Enveda achieved 12 months ago."
+      },
+      "expected": {
+        "company": "Enveda",
+        "stage": "series_d_plus",
+        "new_money": 311,
+        "currency": "USD",
+        "round_total": 311,
+        "valuation": 2000,
+        "date": "2026-09-23",
+        "lead": ["Catalio Capital Management"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "axya-release",
+      "url": "https://www.prnewswire.com/news-releases/axya-secures-17-million-cad-in-funding-to-help-manufacturers-modernize-procurement-with-ai-302888441.html",
+      "markdown": "Axya Secures $17 Million CAD in Funding to Help Manufacturers Modernize Procurement with AI\n\n# Axya Secures $17 Million CAD in Funding to Help Manufacturers Modernize Procurement with AI\n\n Axya \n\nSep 24, 2026, 09:30 ET\n\nNew funding will accelerate development of Axya's AI-powered procurement platform, expand its geographic reach, and scale its engineering and go-to-market teams\n\nMONTREAL, Sept. 24, 2026 /PRNewswire/ -- Axya, the AI-powered procurement platform that automates sourcing and purchasing for manufacturers, announced a $17 million CAD Series A funding round to enhance its platform and AI capabilities as it expands into new markets and scales its team to meet increasing demand. The financing was led by McRock Capital, with participation from Yamaha Motor Ventures. The round was supported by existing shareholders, including the Business Development Bank of Canada's (BDC) Industrial Innovation Venture Fund, and Real Ventures, reaffirming their confidence in Axya's growth trajectory. The company also established a new banking relationship with CIBC, which provides financing to support its next phase of expansion.\n\nAxya helps complex manufacturers make their supply chains more predictable, cost-effective, and resilient by combining deep ERP integrations with AI-powered workflows that complement existing procurement teams. The company specializes in three customer sectors: aerospace and defense, custom machinery and vehicles, and natural resources and processing. It helps leading manufacturers such as MDA Space and GE Aerospace modernize their procurement operations across mid-market to enterprise segments.\n\nAxya combines deep expertise in engineering-to-order and procurement operations with robust ERP integrations, working with Infor, Epicor, Oracle, SAP, Microsoft Dynamics, and Sage to connect supplier networks and ERP data. Its platform takes a human-in-the-loop approach that keeps procurement teams in control while AI automates the most time-consuming work, including normalizing data, flagging risks early, and identifying savings opportunities, so teams can focus on the most strategic decisions and actions. Axya connects manufacturers with all of their suppliers and integrates deeply with leading ERP systems, enabling buyers and suppliers to collaborate using multiple file formats and channels.\n\nFounder and CEO Félix Bélisle-Dockrill, with a background in mechanical engineering, worked in supplier quality for two of the largest manufacturers in the aerospace industry earlier in his career, where he experienced firsthand the challenges of evaluating and managing suppliers. That experience inspired him to find a better way to share knowledge and information across the supply chain and led him to found Axya. \n\n\"Despite major investments in digital transformation, procurement remains one of the most fragmented functions within manufacturing organizations,\" said Bélisle-Dockrill. \"Axya's platform connects the data, suppliers, and workflows that drive purchasing decisions, enabling manufacturers to reduce manual effort, improve supplier responsiveness, and build more resilient supply chains.\"\n\nWith the new funding, Axya will invest in deepening its AI capabilities for risk detection, optimization, and automated workflows, as well as growing its sales, customer success, and engineering teams to drive faster deployments and better outcomes. In addition, the funding will help the company strengthen its North American presence and expand ",
+      "extract": {
+        "company_name": "Axya",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$17 million CAD",
+        "valuation_as_written": null,
+        "lead_investors": ["McRock Capital"],
+        "announced_date": "2026-09-24",
+        "evidence_quote": "MONTREAL, Sept. 24, 2026 /PRNewswire/ -- Axya, the AI-powered procurement platform that automates sourcing and purchasing for manufacturers, announced a $17 million CAD Series A funding round to enhance its platform and AI capabilities as it expands into new markets and scales its team to meet increasing demand. The financing was led by McRock Capital, with participation from Yamaha Motor Ventures. The round was supported by existing shareholders, including the Business Development Bank of Canada's (BDC) Industrial Innovation Venture Fund, and Real Ventures, reaffirming their confidence in Axya's growth trajectory. The company also established a new banking relationship with CIBC, which provides financing to support its next phase of expansion."
+      },
+      "expected": {
+        "company": "Axya",
+        "stage": "series_a",
+        "new_money": 12,
+        "currency": "CAD",
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["McRock Capital"],
+        "publish": true,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "comp-ai-a",
+      "url": "https://techcrunch.com/2026/09/17/comp-ai-sets-eyes-on-a-continiously-agentic-future-for-security-and-complaince/",
+      "markdown": "Comp AI sets eyes on a continuously agentic future for security and compliance | TechCrunch\n\nImage Credits: Comp AI\n\n# Comp AI sets eyes on a continuously agentic future for security and compliance\n\n Dominic-Madori Davis \n\n4:00 AM PDT · September 17, 2026\n\nComp AI, a cybersecurity and compliance startup, announced that it has raised a $34 million Series A round on Thursday. The round was led by Roo Capital and Grand Ventures. \n\nThe company was founded last January by Lewis Carhart (CEO), Claudio Fuentes (COO), and his brother, Mariano Fuentes (CTO). Claudio and Mariano had been building startups together for nearly a decade, met Carhart a few years ago, and invited him to join LeapAI, a workflow platform they were building. Claudio was the CEO and co-founder, while Carhart served as head of growth and Mariano was a senior full-stack engineer. The startup ran for about two years, growing to more than a million users, but they eventually decided to shut it down after not finding a “sticky enough use case to warrant continued investment.”\n\nThat experience taught them a lot, though, they recalled. For one, they learned how to build with LLMs and the importance of finding a specific use case for a product. They also learned how tedious the SOC 2 compliance process was, especially as they tried to scale the platform to work with bigger enterprise clients. \n\n“It’s a very obscure process,” Claudio said. “It took us a couple of months of doing things by hand, and the whole time it meant taking our eyes off building the product.”\n\nAlas, a startup idea was born. This time, Carhart would take the lead as CEO because it was his idea, the trio said. Comp AI says it’s building an agentic platform to tackle tedious security and compliance work; that means having AI agents help write company security policies or collect evidence for security audits. The platform also continuously monitors whether a company is meeting compliance controls. Comp AI is part of the next generation of cybersecurity startups emerging to help companies run more efficiently in the agentic era. \n\n“For a lot of software companies, security and compliance are directly tied to revenue,” Carhart told TechCrunch, citing, for example, how a customer might ask a startup for a SOC 2 report before closing a deal. “What Comp AI automates is much of the work companies traditionally have to do around that process.”\n\nThe software helps companies meet and maintain those security requirements, he continued, but doesn’t replace actual independent audit review. It also doesn’t replace humans, the trio said. Human workers help onboard the AI, support controls, and maintain the agentic workflow. \n\n“An agent might draft a policy, for example, but a person still reviews and approves it,” Carhart said. “As agents take on more consequential actions over time, we believe the level of safeguards and human approval should increase accordingly.” \n\nThe company also offers AI-powered penetration testing, “where the platform proactively tests codebases and infrastructures for vulnerabilities,” Carhart said. The team hopes this Series A capital will help with product expansion. It has raised $37.5 million in funding to date. \n\nThere has been much conversation about the new wave of security risks in the agentic era (and with it, a wave of AI security and compliance companies like Vanta and Drata). Carhart said the rapid adoption and experimentation companies are doing with AI is creating a need for continuous -",
+      "extract": {
+        "company_name": "Comp AI",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "$34 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Roo Capital", "Grand Ventures"],
+        "announced_date": "2026-09-17",
+        "evidence_quote": "Comp AI, a cybersecurity and compliance startup, announced that it has raised a $34 million Series A round on Thursday. The round was led by Roo Capital and Grand Ventures."
+      },
+      "expected": {
+        "company": "Comp AI",
+        "stage": "series_a",
+        "new_money": 34,
+        "currency": "USD",
+        "round_total": 34,
+        "valuation": null,
+        "date": "2026-09-17",
+        "lead": ["Roo Capital", "Grand Ventures"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "evvy-b",
+      "url": "https://techcrunch.com/2026/09/15/evvy-raises-40m-as-it-seeks-to-further-womens-health-research-with-vaginal-microbiome-data/",
+      "markdown": "Evvy raises $40M as it seeks to further women's health research with vaginal microbiome data | TechCrunch\n\n# Evvy raises $40M as it seeks to further women’s health research with vaginal microbiome data\n\n Dominic-Madori Davis \n\n7:13 AM PDT · September 15, 2026\n\nWomen’s health company Evvy on Tuesday said it has raised a $40 million Series B led by Catalio Capital Management.\n\nLaunched in 2021 by Priyanka Jain, Laine Bruzek, and Pita Navarro, the company is best known for operating what it touts as the world’s only at-home CLIA-certified and CLEP-certified mNGS test to analyze vaginal microbes with one swab.\n\nThe user mails their swab samples to Evvy’s lab, which then analyzes the results using its own mNGS sequencing, sends them to clinicians registered on its platform for review, and posts the results online in the patient’s health portal. \n\n“When a patient receives their results, they are presented alongside a diagnosis, clinical interpretation, and a clear path of next steps, including personalized prescription care when relevant,” CEO and co-founder Priyanka Jain told TechCrunch. \n\nSince its launch, Evvy says it now serves more than 100,000 patients across the United States, and works with 3,000 practitioners. “We’ve generated 15-peer reviewed publications and abstracts, identified novel BV subtypes, and discovered hundreds of previously uncatalogued vaginal microbiome genomes,” Jain said. \n\nShe added that clinicians on Evvy can now leverage the collected data to offer personalized treatment to patients. \n\nBut treating patients is only one part of the company’s vision. Its bigger goal is to build a dataset that connects microbiome biology, symptoms, interventions, and health outcomes, “creating a continuous feedback loop that unlocks improvements to care and the discovery of entirely new biomarkers,” Jain said. \n\nThere is a fundamental flaw right now with precision medicine: the lack of high-quality, representative data on female bodies. “You can’t build precision medicine for women on data sets that never adequately measured female biology in the first place,” Jain said, citing how leading AI models often struggle to answer questions about women’s health. \n\n“That’s why I believe AI for women’s health needs to be paired with new biological data at scale. AI can help us identify patterns across molecular signals, hormones, symptoms, treatments, fertility outcomes, and other biomarkers that traditional medicine has struggled to connect.”\n\nIn May, the company started offering its own AI assistant called EvvyAI, which it bills as an advisor for vaginal health. It translates the microbiome data that Evvy has collected into real-time guidance for users, and directs patients to clinicians for questions that need expert opinions.\n\nWhen Evvy launched, Jain said it was with the belief that she and the team could leverage certain indicators in the vaginal biome to “predict and improve outcomes across the female lifespan,” she said. With that in mind, the startup is also now entering the fertility space, its first major foray beyond vaginal health. \n\nRight now, the company is still compiling data and science, specifically linking vaginal microbiomes to infertility, gynecological cancer, preterm birth, IVF success rates, and recurrent pregnancy loss. The company last year launched a prospective study leveraging its vaginal microbiome tests in IVF clinics. \n\nHopefully, Jain said, collecting more data in women’s health can help the industry move aw",
+      "extract": {
+        "company_name": "Evvy",
+        "round_type_as_written": "Series B",
+        "amount_as_written": "$40 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Catalio Capital Management"],
+        "announced_date": "2026-09-15",
+        "evidence_quote": "Women’s health company Evvy on Tuesday said it has raised a $40 million Series B led by Catalio Capital Management."
+      },
+      "expected": {
+        "company": "Evvy",
+        "stage": "series_b",
+        "new_money": 40,
+        "currency": "USD",
+        "round_total": 40,
+        "valuation": null,
+        "date": "2026-09-15",
+        "lead": ["Catalio Capital Management"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "hiddenlayer-b",
+      "url": "https://techcrunch.com/2026/09/02/hiddenlayer-nabs-100m-as-enterprises-rush-to-secure-their-ai-deployments/",
+      "markdown": "HiddenLayer nabs $100M as enterprises rush to secure their AI deployments | TechCrunch\n\nImage Credits: HiddenLayer\n\n# HiddenLayer nabs $100M as enterprises rush to secure their AI deployments\n\n Ram Iyer \n\n8:01 AM PDT · September 2, 2026\n\nWhen AI security startup HiddenLayer raised its $50 million Series A three years ago, one of the big questions in the space was whether the AI threats the startup was protecting against would manifest in enough quantity to make for a real market. As my former colleague Kyle Wiggers noted at the time, it was difficult to pin down real examples of attacks against AI at scale.\n\nHow quickly things have changed. Security companies are now scrambling to build products that can monitor not just agents but also the tools and add-ons they use. While there still aren’t many headlines about agents being exploited, the risk of agents going haywire during production is nevertheless real. And so the market for tools to prevent that from happening has exploded: Gartner estimates companies will spend $2.83 billion this year on products meant to secure AI tools, 83% more than 2025, and expects spending to reach nearly $4.78 billion next year.\n\nHiddenLayer, which makes tools to protect AI models, agents, and workflows from adversarial attacks, vulnerabilities, and malicious code injections, has been able to take good advantage of that shift. Its co-founder and CEO, Chris Sestito, tells TechCrunch that the startup’s annual recurring revenue grew more than 10x over the past year. He declined to give an exact number but said ARR is now in the “tens of millions” of dollars, and over 90% of that growth was driven by new customers signing in the past year.\n\nFinancial services and large tech companies building AI products are currently the company’s largest verticals, and it also has contracts with the Department of Defense and intelligence community. One of its customers is apparently a “leading frontier model provider” with “more than 700 million weekly users,” which sounds like OpenAI or Anthropic to me.\n\nTo make the most of that momentum, the startup has now raised $100 million in a Series B funding round that was led by Delta-v Capital, with participation from Ten Eleven Ventures, Morgan Stanley, Microsoft’s M12, Booz Allen Hamilton, and others. \n\nThe Austin-based startup broadly still sells what it used to in 2023, but Sestito told TechCrunch that the biggest change it’s had to make was to extend its existing products - discovery, runtime protection, attack simulation, and supply chain security - to address prompt injection, agent manipulation, and malicious tool use.\n\n“Inference is still inference. So whether it’s on a traditional machine learning model, whether it’s GenAI, whether it’s an agentic work stream, a lot of our technology still applied. So really, we haven’t had to pivot, but we’ve had to grow our scope … from traditional modeling to GenAI to agentic,” he said.\n\nSestito stressed that runtime security has especially become a priority as AI deployments grow common across businesses and likened it to traditional endpoint detection and response (EDR) solutions, but specifically for AI.\n\nThe company’s new products reflect that shift, and Sestito highlighted a new opportunity for attackers in exploiting open source models. “We parse and scan about 50 different AI file frameworks to make sure that, especially in the case of open source, open-weight models, that the tool you’re working with is the one you believe it ",
+      "extract": {
+        "company_name": "HiddenLayer",
+        "round_type_as_written": "Series B",
+        "amount_as_written": "$100 million",
+        "valuation_as_written": null,
+        "lead_investors": ["Delta-v Capital"],
+        "announced_date": "2026-09-02",
+        "evidence_quote": "To make the most of that momentum, the startup has now raised $100 million in a Series B funding round that was led by Delta-v Capital, with participation from Ten Eleven Ventures, Morgan Stanley, Microsoft’s M12, Booz Allen Hamilton, and others."
+      },
+      "expected": {
+        "company": "HiddenLayer",
+        "stage": "series_b",
+        "new_money": 100,
+        "currency": "USD",
+        "round_total": 100,
+        "valuation": null,
+        "date": "2026-09-02",
+        "lead": ["Delta-v Capital"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "syte-a",
+      "url": "https://tech.eu/2026/09/17/syte-raises-eur9m-to-automate-early-stage-real-estate-planning/",
+      "markdown": "syte raises €9M to automate early-stage real estate planning - Tech.eu\n\n# syte raises €9M to automate early-stage real estate planning\n\n Series A funding will support syte’s European expansion and further development of its AI-powered platform for automating land and property analysis and early-stage real estate planning. \n\n Tamara Djurickovic 18 minutes ago \n\n \n\nGerman real estate technology company syte has raised €9 million in Series A funding to expand its land and property analytics platform. The round was led by amberra, the venture studio of the Cooperative Financial Group Volksbanken Raiffeisenbanken, with NRW.BANK joining as a new investor. Existing backers, including companies of the Schwarz Group, High-Tech Gründerfonds (HTGF), vent.io and Vantage Value, also participated.\n\nFounded in 2021, syte has developed a platform that combines land and real estate data with proprietary AI-powered analytics to help developers, banks and brokers assess development opportunities. The technology is designed to determine what can be built on a particular plot, identify relevant planning and building regulations, and evaluate whether a construction or renovation project is economically viable.\n\nThe company is targeting the early planning phase of real estate development, where assessing building potential, regulatory requirements and financial feasibility can involve lengthy manual processes. While construction and financing costs remain significant constraints for the sector, syte is focused on shortening preliminary assessments so that viable projects can be identified earlier and planning issues detected before significant time and capital are committed.\n\nAccording to the company, its platform can reduce property and land assessment processes from weeks to minutes. It is currently available across Germany and covers more than 62 million parcels of land.\n\nMore than 200 customers use syte for property valuation, planning and advisory work. Applications range from assessing individual sites and investment opportunities to analysing property portfolios for renovation requirements and identifying potential funding opportunities.\n\n> How land and existing properties have been assessed and evaluated so far costs the real estate and financial industry a great deal of time and money. Whoever digitizes these processes will help determine what gets built in Germany and Europe going forward,\n\nsaid Matthias Zühlke, CEO of syte.\n\nThe new capital will be used to further automate the planning stages that precede construction and support syte's expansion beyond Germany into other European markets. In the longer term, the company aims to digitally map the entire process leading up to property construction.\n\nComments",
+      "extract": {
+        "company_name": "syte",
+        "round_type_as_written": "Series A",
+        "amount_as_written": "€9 million",
+        "valuation_as_written": null,
+        "lead_investors": ["amberra"],
+        "announced_date": "2026-09-17",
+        "evidence_quote": "German real estate technology company syte has raised €9 million in Series A funding to expand its land and property analytics platform. The round was led by amberra, the venture studio of the Cooperative Financial Group Volksbanken Raiffeisenbanken, with NRW.BANK joining as a new investor. Existing backers, including companies of the Schwarz Group, High-Tech Gründerfonds (HTGF), vent.io and Vantage Value, also participated."
+      },
+      "expected": {
+        "company": "syte",
+        "stage": "series_a",
+        "new_money": 9,
+        "currency": "EUR",
+        "round_total": 9,
+        "valuation": null,
+        "date": "2026-09-17",
+        "lead": ["amberra"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "slice-down-round",
+      "url": "https://www.moneycontrol.com/news/business/startup/slice-raises-100-million-from-neo-wealth-kado-global-and-moore-strategic-ventures-at-lower-valuation-of-450-million-14021886.html",
+      "markdown": "# Slice raises $100 million from Neo Wealth, Kado Global and Moore Strategic Ventures at lower valuation of $450 million\nSeptember 03, 2026\nBanking startup Slice has raised $100 million (around Rs 950 crore) in a fresh funding round at a valuation of around $450 million (around Rs 4,300 crore), marking a sharp 68 percent drop in valuation from the heady days when the company was valued as a $1.4 billion fintech, people aware of the development told Moneycontrol.\nThe round was led by Indian wealth management platform Neo Wealth, while Japan-based Kado Global along with US-headquartered Moore Strategic Ventures also invested in the company, the people said.\nNot the entire fundraise will go into Slice's coffers. The $100 million corpus also includes a secondary share sale by existing investors, although the split between primary capital and secondary transactions was not immediately available.",
+      "extract": {
+        "company_name": "Slice",
+        "round_type_as_written": "funding round",
+        "amount_as_written": "$100 million",
+        "valuation_as_written": "$450 million",
+        "lead_investors": ["Neo Wealth"],
+        "announced_date": "2026-09-03",
+        "evidence_quote": "Banking startup Slice has raised $100 million (around Rs 950 crore) in a fresh funding round at a valuation of around $450 million (around Rs 4,300 crore), marking a sharp 68 percent drop in valuation from the heady days when the company was valued as a $1.4 billion fintech, people aware of the development told Moneycontrol."
+      },
+      "expected": {
+        "company": "Slice",
+        "stage": "other",
+        "new_money": null,
+        "round_total": 100,
+        "valuation": 450,
+        "date": "2026-09-03",
+        "lead": ["Neo Wealth"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "rightway-roundup",
+      "url": "https://alleywatch.com/2026/09/the-alleywatch-startup-daily-funding-report-9-24-2026/",
+      "markdown": "# The AlleyWatch Startup Daily Funding Report: 9/24/2026\nThe latest venture capital, seed, pre-seed, and angel deals for NYC startups for 9/24/2026 featuring funding details for Rightway, HIFI, and much more. This page will be updated throughout the day to reflect any new fundings.\nRightway, a pharmacy benefits management and care navigation platform that helps employers reduce prescription drug spending and guides members to the right care, has raised $155M in Series E funding. The round was led by Francisco Partners with participation from Thrive Capital and Khosla Ventures. Founded by Jordan Feldman and Theodore Feldman in 2017, Rightway has raised $394.3M in total equity funding to date.\nHIFI, a financial infrastructure platform that enables businesses to move money across stablecoins and bank rails through a single integration, has raised $37M in Series A funding. The round was led by Left Lane Capital. Founded by Zach Walsh and Mohamed Afifi in 2022, HIFI has raised $47M in total equity funding to date.\nNeurath, an AI reliability platform that quantifies model uncertainty in real time so teams in critical industries can control autonomous systems, has raised $1.52M in funding according to a recent SEC filing.",
+      "page_kind": "roundup",
+      "page_date": "2026-09-24",
+      "extract": {
+        "company_name": "Rightway",
+        "round_type_as_written": "Series E",
+        "amount_as_written": "$155M",
+        "valuation_as_written": null,
+        "lead_investors": ["Francisco Partners"],
+        "announced_date": null,
+        "evidence_quote": "Rightway, a pharmacy benefits management and care navigation platform that helps employers reduce prescription drug spending and guides members to the right care, has raised $155M in Series E funding. The round was led by Francisco Partners with participation from Thrive Capital and Khosla Ventures."
+      },
+      "expected": {
+        "company": "Rightway",
+        "stage": "series_d_plus",
+        "new_money": 155,
+        "round_total": 155,
+        "valuation": null,
+        "date": null,
+        "lead": ["Francisco Partners"],
+        "publish": false,
+        "valuation_basis": null
+      }
+    }
+  ]
+}

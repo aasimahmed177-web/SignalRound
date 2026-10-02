@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "page_verdicts_url_idx" ON "page_verdicts" ("url");

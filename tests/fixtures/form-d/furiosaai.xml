@@ -1,0 +1,172 @@
+<?xml version="1.0"?>
+<edgarSubmission>
+
+    <schemaVersion>X0708</schemaVersion>
+
+    <submissionType>D</submissionType>
+
+    <testOrLive>LIVE</testOrLive>
+
+    <primaryIssuer>
+        <cik>0002149195</cik>
+        <entityName>FuriosaAI, Inc.</entityName>
+        <issuerAddress>
+            <street1>14TH FL, 145 DOSAN-DAERO</street1>
+            <street2>GANGNAM-GU</street2>
+            <city>SEOUL</city>
+            <stateOrCountry>M5</stateOrCountry>
+            <stateOrCountryDescription>KOREA, REPUBLIC OF</stateOrCountryDescription>
+            <zipCode>06036</zipCode>
+        </issuerAddress>
+        <issuerPhoneNumber>+82-2-1551-9254</issuerPhoneNumber>
+        <jurisdictionOfInc>KOREA, REPUBLIC OF</jurisdictionOfInc>
+        <issuerPreviousNameList>
+            <value>None</value>
+        </issuerPreviousNameList>
+        <edgarPreviousNameList>
+            <value>None</value>
+        </edgarPreviousNameList>
+        <entityType>Corporation</entityType>
+        <yearOfInc>
+            <overFiveYears>true</overFiveYears>
+        </yearOfInc>
+    </primaryIssuer>
+
+    <relatedPersonsList>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Joon Ho</firstName>
+                <lastName>Baek</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>14F, 145, Dosan-daero</street1>
+                <street2>Gangnam-gu</street2>
+                <city>Seoul</city>
+                <stateOrCountry>M5</stateOrCountry>
+                <stateOrCountryDescription>KOREA, REPUBLIC OF</stateOrCountryDescription>
+                <zipCode>06036</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Executive Officer</relationship>
+                <relationship>Director</relationship>
+            </relatedPersonRelationshipList>
+        </relatedPersonInfo>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Hanjoon</firstName>
+                <lastName>Kim</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>14F, 145, Dosan-daero</street1>
+                <street2>Gangnam-gu</street2>
+                <city>Seoul</city>
+                <stateOrCountry>M5</stateOrCountry>
+                <stateOrCountryDescription>KOREA, REPUBLIC OF</stateOrCountryDescription>
+                <zipCode>06036</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Director</relationship>
+            </relatedPersonRelationshipList>
+        </relatedPersonInfo>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Hyungil</firstName>
+                <lastName>Koo</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>14F, 145, Dosan-daero</street1>
+                <street2>Gangnam-gu</street2>
+                <city>Seoul</city>
+                <stateOrCountry>M5</stateOrCountry>
+                <stateOrCountryDescription>KOREA, REPUBLIC OF</stateOrCountryDescription>
+                <zipCode>06036</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Director</relationship>
+            </relatedPersonRelationshipList>
+        </relatedPersonInfo>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Kyungho</firstName>
+                <lastName>Lee</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>3F, 10, Ttukseom-ro 1-gil</street1>
+                <street2>Seongdong-gu</street2>
+                <city>Seoul</city>
+                <stateOrCountry>M5</stateOrCountry>
+                <stateOrCountryDescription>KOREA, REPUBLIC OF</stateOrCountryDescription>
+                <zipCode>04779</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Director</relationship>
+            </relatedPersonRelationshipList>
+        </relatedPersonInfo>
+    </relatedPersonsList>
+
+    <offeringData>
+        <industryGroup>
+            <industryGroupType>Other Technology</industryGroupType>
+        </industryGroup>
+        <issuerSize>
+            <revenueRange>Decline to Disclose</revenueRange>
+        </issuerSize>
+        <federalExemptionsExclusions>
+            <item>06b</item>
+        </federalExemptionsExclusions>
+        <typeOfFiling>
+            <newOrAmendment>
+                <isAmendment>false</isAmendment>
+            </newOrAmendment>
+            <dateOfFirstSale>
+                <value>2026-08-25</value>
+            </dateOfFirstSale>
+        </typeOfFiling>
+        <durationOfOffering>
+            <moreThanOneYear>false</moreThanOneYear>
+        </durationOfOffering>
+        <typesOfSecuritiesOffered>
+            <isEquityType>true</isEquityType>
+        </typesOfSecuritiesOffered>
+        <businessCombinationTransaction>
+            <isBusinessCombinationTransaction>false</isBusinessCombinationTransaction>
+        </businessCombinationTransaction>
+        <minimumInvestmentAccepted>0</minimumInvestmentAccepted>
+        <salesCompensationList></salesCompensationList>
+        <offeringSalesAmounts>
+            <totalOfferingAmount>5119349</totalOfferingAmount>
+            <totalAmountSold>5119349</totalAmountSold>
+            <totalRemaining>0</totalRemaining>
+            <clarificationOfResponse>The total offering amount and total amount sold have been calculated based on KRW 7,085,002,881, translated into U.S. dollars using the Federal Reserve exchange rate in effect on August 25, 2026.</clarificationOfResponse>
+        </offeringSalesAmounts>
+        <investors>
+            <hasNonAccreditedInvestors>false</hasNonAccreditedInvestors>
+            <totalNumberAlreadyInvested>1</totalNumberAlreadyInvested>
+        </investors>
+        <salesCommissionsFindersFees>
+            <salesCommissions>
+                <dollarAmount>0</dollarAmount>
+            </salesCommissions>
+            <findersFees>
+                <dollarAmount>0</dollarAmount>
+            </findersFees>
+            <clarificationOfResponse></clarificationOfResponse>
+        </salesCommissionsFindersFees>
+        <useOfProceeds>
+            <grossProceedsUsed>
+                <dollarAmount>0</dollarAmount>
+            </grossProceedsUsed>
+            <clarificationOfResponse></clarificationOfResponse>
+        </useOfProceeds>
+        <signatureBlock>
+            <authorizedRepresentative>false</authorizedRepresentative>
+            <signature>
+                <issuerName>FuriosaAI, Inc.</issuerName>
+                <signatureName>/s/ Victor Hah</signatureName>
+                <nameOfSigner>Victor Hah</nameOfSigner>
+                <signatureTitle>Head of Investor Relations and Finance</signatureTitle>
+                <signatureDate>2026-09-03</signatureDate>
+            </signature>
+        </signatureBlock>
+    </offeringData>
+</edgarSubmission>

@@ -1,0 +1,322 @@
+[
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale raises $30M Series B for its database service",
+    "url": "https://techcrunch.com/2021/06/23/planetscale-raises-30m-series-b-for-its-database-service/",
+    "text": "PlanetScale, the database company built on Vitess, today announced a $30 million Series B round led by Insight Partners.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "They scaled YouTube, now they'll shard everyone with PlanetScale",
+    "url": "https://techcrunch.com/2018/12/13/planetscale/",
+    "text": "PlanetScale today announced a $3 million seed round led by SignalFire to commercialize Vitess, the database clustering system its founders built at YouTube.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale Announces $30M Series B Funding to Accelerate Adoption",
+    "url": "https://www.insightpartners.com/ideas/planetscale-announces-30m-series-b-funding",
+    "text": "$30 million in Series B funding led by Insight Partners with participation from a16z and SignalFire. The new funds will be used to scale the ...",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale raises $50M Series C as its enterprise database service hits general availability",
+    "url": "https://techcrunch.com/2021/11/16/planetscale-raises-50m-series-c/",
+    "text": "With this, the company has now raised a total of $105 million, including a $30 million Series B it announced only five months ago.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "How Much Did PlanetScale Raise? Funding & Key Investors",
+    "url": "https://www.clay.com/dossier/planetscale-funding",
+    "text": "Seed Round Amount Raised: USD 3,000,000 Date: December 2018 Lead Investors: SignalFire Valuation at Round: Not publicly disclosed",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale: Funding, Team & Investors",
+    "url": "https://startupintros.com/orgs/planetscale",
+    "text": "PlanetScale has raised $105.0M across 4 funding rounds. Most recently, it raised $50.0M Series C in November 2021.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale Revenue 2024: $3.9M Est. ARR, $105M Raised",
+    "url": "https://getlatka.com/companies/planetscale",
+    "text": "PlanetScale 2024 estimated revenue: $3.9M ARR (up from $1.9M in 2023). Total funding: $105M across 4 rounds. 93 employees",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale IPO Timeline and Financing Details",
+    "url": "https://forgeglobal.com/planetscale_ipo/",
+    "text": "Total Funding. $105.1M. Last Funding Round. Series C. Learn more about PlanetScale. To invest in PlanetScale pre-IPO.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale - Crunchbase Company Profile & Funding",
+    "url": "https://www.crunchbase.com/organization/planetscale",
+    "text": "PlanetScale is a fully managed database platform for Vitess/MySQL and Postgres, delivering NVMe-backed performance.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale ends free tier services and chops some staff",
+    "url": "https://www.theregister.com/software/2024/03/11/planetscale-ends-free-tier/",
+    "text": "CEO defends decision in difficult tech market.",
+    "round": false,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "Vantage raises $21M Series A to help bring down cloud costs",
+    "url": "https://techcrunch.com/2023/03/08/vantage-raises-21m-series-a/",
+    "text": "Vantage, a startup that helps businesses optimize their cloud spend, today announced a $21 million Series A funding round.",
+    "round": false,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale CEO discusses $30M funding for cloud database",
+    "url": "https://www.techtarget.com/data-technologies/news/252502918/",
+    "text": "PlanetScale on June 23 said it raised $30 million in Series B funding, bringing total funding to date for the cloud database services vendor.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "PlanetScale",
+    "title": "PlanetScale Unveils Distributed MySQL Database Service Based on Vitess",
+    "url": "https://www.hpcwire.com/bigdatawire/2021/05/18/planetscale-unveils/",
+    "text": "PlanetScale today took the wraps off its new database as a service based on Vitess.",
+    "round": false,
+    "kind": "news"
+  },
+  {
+    "c": "Whoop",
+    "title": "WHOOP Raises $575 Million at $10.1 Billion Valuation to Advance Global Health Platform",
+    "url": "https://www.whoop.com/us/en/press-center/whoop-announces-series-g-funding/",
+    "text": "Round Led by Collaborative Fund with Participation from 2PointZero Group, Qatar Investment Authority (QIA), Mubadala Investment Company.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Whoop",
+    "title": "2026 Funding Rounds & List of Investors - Whoop",
+    "url": "https://tracxn.com/d/companies/whoop/funding",
+    "text": "Whoop has raised a total of $979M over 11 funding rounds: 2 Seed, 3 Early-Stage, 5 Late-Stage and 1 Debt rounds.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "Whoop",
+    "title": "Think Whoop might be strapped for cash (unsolicited opinion)",
+    "url": "https://www.reddit.com/r/whoop/comments/1kiqvta/",
+    "text": "Whoop's latest VC funding round was in Aug-2021 ($200mm) after which the only significant capital they raised was $10mm of private debt in 2023.",
+    "round": false,
+    "kind": "other"
+  },
+  {
+    "c": "Whoop",
+    "title": "Fitness tracker maker Whoop raises $200M at $3.6B valuation",
+    "url": "https://techcrunch.com/2021/08/30/whoop-raises-200m/",
+    "text": "Whoop, the maker of a fitness tracker worn by athletes, has raised $200 million in a Series F round led by SoftBank Vision Fund 2.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "Whoop",
+    "title": "Whoop is raising $575 million from investors and star athletes including Cristiano Ronaldo",
+    "url": "https://finance.yahoo.com/news/whoop-is-raising-575-million/",
+    "text": "Rival Oura Health, the maker of the Oura Ring, raised a $900 million round at a $11 billion valuation last year.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "Clerk",
+    "title": "Committing to Agent Identity: Clerk raises $50m Series C",
+    "url": "https://clerk.com/blog/series-c",
+    "text": "Clerk has raised a $50 million Series C, led by Menlo and Anthropic's Anthology Fund, alongside Georgian and previous investors.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Clerk",
+    "title": "For the Love of the Developer: Announcing Clerk's Series C",
+    "url": "https://menlovc.com/perspective/for-the-love-of-the-developer-clerks-series-c/",
+    "text": "We're thrilled to announce Clerk's Series C round, led by Menlo Ventures with an investment through the Anthology Fund.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Clerk",
+    "title": "Clerk - 2026 Company Profile, Team, Funding & Competitors",
+    "url": "https://tracxn.com/d/companies/clerk/",
+    "text": "Clerk is a series C company based in San Francisco (United States), founded in 2019 by Braden Sidoti and Colin Sidoti.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "Clerk",
+    "title": "Oklahoma County leaders weigh forensic audit after clerk's accounting errors",
+    "url": "https://okcfox.com/news/local/oklahoma-county-clerk-audit",
+    "text": "Oklahoma County leaders are weighing whether to take a deeper look at the county clerk's finances following accounting errors.",
+    "round": false,
+    "kind": "other"
+  },
+  {
+    "c": "tldraw",
+    "title": "tldraw raises $10M to build the infinite canvas for developers",
+    "url": "https://tldraw.dev/blog/announcing-tldraw-series-a",
+    "text": "Today I'm excited to share that tldraw has raised a $10M Series A led by Lux Capital and Definition.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "tldraw",
+    "title": "Announcing tldraw's $2.7M seed",
+    "url": "https://tldraw.dev/blog/announcing-tldraws-seed-round",
+    "text": "Today I'm announcing tldraw's $2.7 million seed round led by Lux Capital and including the support of Amplify Partners.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "tldraw",
+    "title": "tldraw raised another $2M",
+    "url": "https://tldraw.dev/blog/tldraw-raised-another-2m",
+    "text": "We've raised another two million dollars of venture capital from Amplify Partners, Lux Capital, and Preston-Werner Ventures. This was an insiders' extension.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "tldraw",
+    "title": "tldraw Secures $10M to Revolutionize the Online Whiteboard & Infinite Canvas SDK Landscape",
+    "url": "https://www.trysignalbase.com/news/funding/tldraw-secures-10m",
+    "text": "tldraw, the London-based startup, has secured $10M in funding to expand its infinite canvas SDK. Signalbase funding news.",
+    "round": true,
+    "kind": "aggregator"
+  },
+  {
+    "c": "tldraw",
+    "title": "2023.11 22 tldraw other equity",
+    "url": "https://startupintros.com/orgs/tldraw",
+    "text": "tldraw raised $2M other equity on 2023-11-22. Investors: Amplify Partners, Lux Capital.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "tldraw",
+    "title": "Tldraw - Careers, Funding, and Headcount",
+    "url": "https://simplify.jobs/c/Tldraw",
+    "text": "Tldraw has raised $14.7M in total funding. See open jobs at Tldraw.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "tldraw",
+    "title": "tldraw has filed a notice of an exempt offering of securities to raise $10 Million",
+    "url": "https://www.intelligence360.news/tldraw-has-filed-a-notice/",
+    "text": "According to filings with the U.S. Securities and Exchange Commission, tldraw is raising up to $10,000,000.00 in new funding.",
+    "round": true,
+    "kind": "aggregator"
+  },
+  {
+    "c": "tldraw",
+    "title": "Offline manual",
+    "url": "https://offline.tldraw.com/manual",
+    "text": "Use tldraw offline. Your drawings are saved in your browser.",
+    "round": false,
+    "kind": "other"
+  },
+  {
+    "c": "Resend",
+    "title": "Resend raises $18M Series A",
+    "url": "https://resend.com/blog/series-a",
+    "text": "Resend just raised an $18M Series A led by Andreessen Horowitz. We're powering millions of transactional and marketing emails per day.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Resend",
+    "title": "Investing in Resend",
+    "url": "https://a16z.com/announcement/investing-in-resend/",
+    "text": "We are excited to lead their series A and join the board of Resend.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Resend",
+    "title": "Developer-focused email platform Resend raises $3M",
+    "url": "https://techcrunch.com/2023/07/18/developer-focused-email-platform-resend-raises-3m/",
+    "text": "Resend, a Y Combinator-backed startup building an email API for developers, has raised $3 million in seed funding.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "Resend",
+    "title": "How we got here",
+    "url": "https://resend.com/handbook/company/how-we-got-here",
+    "text": "We joined Y Combinator in Winter 2023 and later raised a $3M seed round. Here's the story of how Resend started.",
+    "round": true,
+    "kind": "primary"
+  },
+  {
+    "c": "Resend",
+    "title": "Resend: Email for developers",
+    "url": "https://www.ycombinator.com/companies/resend",
+    "text": "Resend is the new email API for developers. Winter 2023. Founded 2022. Team size 79.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "Resend",
+    "title": "Bounced email webhook",
+    "url": "https://resend.com/docs/webhooks/emails/bounced.md",
+    "text": "The email.bounced event is sent when the recipient's mail server permanently rejects the email.",
+    "round": false,
+    "kind": "other"
+  },
+  {
+    "c": "Acme",
+    "title": "Top 50 EdTech Companies to Watch in 2026",
+    "url": "https://example.com/top-50-edtech",
+    "text": "Acme raised $20M Series A last year and is one of the companies to watch.",
+    "round": false,
+    "kind": "aggregator"
+  },
+  {
+    "c": "Acme",
+    "title": "The Week's 10 Biggest Funding Rounds: Acme leads with $120M",
+    "url": "https://news.crunchbase.com/venture/biggest-funding-rounds-acme/",
+    "text": "1. Acme, $120M, fintech: The payments startup raised a $120 million Series C led by Thrive Capital.",
+    "round": true,
+    "kind": "news"
+  },
+  {
+    "c": "Acme",
+    "title": "Acme launches AI agent for accountants",
+    "url": "https://techcrunch.com/2026/03/01/acme-launches-agent/",
+    "text": "Acme, which raised a $20M Series A last year, today launched an AI agent for accountants.",
+    "round": false,
+    "kind": "news"
+  },
+  {
+    "c": "Acme",
+    "title": "Acme reportedly in talks to raise at $2B valuation",
+    "url": "https://www.theinformation.com/articles/acme-talks",
+    "text": "Acme is in talks with investors to raise new funding at a $2 billion valuation, according to people familiar.",
+    "round": false,
+    "kind": "news"
+  }
+]

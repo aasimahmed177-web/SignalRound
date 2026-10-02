@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "scrape_id": "01a0cacc-6707-7148-9f05-509900aec0c3",
+  "data": {
+    "alexandria": [
+      {
+        "provider": "ycombinator-com",
+        "capability": "companies/search",
+        "error": {
+          "code": "invalid_option",
+          "message": "companies/search does not take limit. Valid options: batch, hiring, industry, nonprofit, page, query, region, status, tag, top_company.",
+          "status": 400
+        },
+        "alexandriaId": "3bd1181a68baef09106c1e5304f785bb89c17fd2d79bbf7ab8aba67c24652a5b"
+      }
+    ],
+    "creditsCost": 0
+  }
+}

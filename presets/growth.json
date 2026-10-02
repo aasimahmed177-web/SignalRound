@@ -1,0 +1,63 @@
+{
+  "slug": "growth",
+  "name": "Series C and later",
+  "description": "Companies that just announced a Series C, Series D or later, or growth round.",
+  "order": 30,
+  "queries": [
+    "announces \"Series C\" funding round led by",
+    "\"Series C\" raises million led by",
+    "\"Series D\" OR \"Series E\" OR \"Series F\" raises million",
+    "\"Series C\" OR \"Series D\" secures OR closes funding",
+    "raises million at billion valuation funding round",
+    "\"growth round\" OR \"growth equity\" OR \"growth investment\" raises million",
+    "\"late-stage\" funding round raises million",
+    "startup funding roundup this week raised Series C Series D growth"
+  ],
+  "goal": "Alert when a company announces a new Series C, Series D or later, growth, or late-stage funding round. Ignore seed, pre-seed, Series A and Series B rounds, debt facilities, grants, IPOs and public offerings, funds raised by venture firms, rounds that are only rumored or in talks and not yet closed, and opinion or analysis pieces that do not report a specific new round.",
+  "stages": ["series_c", "series_d_plus", "growth"],
+  "sources": ["news", "web"],
+  "excludeDomains": [
+    "x.com",
+    "twitter.com",
+    "facebook.com",
+    "instagram.com",
+    "youtube.com",
+    "reddit.com",
+    "linkedin.com",
+    "tiktok.com",
+    "pinterest.com"
+  ],
+  "includeDomains": [],
+  "limit": 10,
+  "xAccounts": [],
+  "watchSites": [
+    "https://www.dealstreetasia.com/section/venture-capital",
+    "https://www.startupticker.ch/en/news",
+    "https://alleywatch.com/category/funding/",
+    "https://techcabal.com/category/startups/",
+    "https://dealroom.co/news"
+  ],
+  "watchQueries": [
+    {
+      "q": "\"equity financing\" OR \"strategic investment\" OR \"preferred equity\" million announces",
+      "includeDomains": [
+        "businesswire.com",
+        "globenewswire.com",
+        "prnewswire.com",
+        "accessnewswire.com",
+        "einpresswire.com",
+        "newswire.com"
+      ]
+    },
+    "\"invests in\" OR \"backs\" startup funding round million",
+    "startup lève millions d'euros",
+    "Startup sammelt Millionen Finanzierungsrunde",
+    "startup levanta OR capta millones OR milhões rodada OR ronda"
+  ],
+  "monitor": {
+    "searchWindow": "24h",
+    "maxResults": 50,
+    "schedule": "daily at 9am",
+    "timezone": "UTC"
+  }
+}

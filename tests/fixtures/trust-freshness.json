@@ -1,0 +1,86 @@
+[
+  {
+    "company": "Aloja",
+    "stored": "2026-09-24",
+    "firstSeen": "2026-09-24",
+    "earliest": "2026-09-23",
+    "url": "https://www.europapress.es/economia/noticia-startup-aloja-capta-12-millones-transformar-gestion-precios-sector-turistico-20260923151633.html"
+  },
+  {
+    "company": "Go.AI",
+    "stored": "2026-09-25",
+    "firstSeen": "2026-09-25",
+    "earliest": "2026-09-22",
+    "url": "https://go.ai/company/press/series-a-funding"
+  },
+  {
+    "company": "Clementine",
+    "stored": "2026-08-28",
+    "firstSeen": "2026-09-23",
+    "earliest": "2026-08-24",
+    "url": "https://ai.askclementine.com/news/clementine-secures-2m-funding"
+  },
+  {
+    "company": "Groq",
+    "stored": "2026-09-06",
+    "firstSeen": "2026-09-06",
+    "earliest": "2026-08-17",
+    "url": "https://groq.com/newsroom/groq-closes-usd350-million-series-a-building-the-world-s-leading-ai-inference-cloud"
+  },
+  {
+    "company": "Hygenco",
+    "stored": "2026-09-25",
+    "firstSeen": "2026-09-25",
+    "earliest": "2026-06-05",
+    "url": "https://www.ifc.org/en/pressroom/2026/hygenco-signs-definitive-agreements-for-us-105-million-equity-investment"
+  },
+  {
+    "company": "Instinct",
+    "stored": "2026-09-26",
+    "firstSeen": "2026-09-26",
+    "earliest": "2026-08-26",
+    "url": "https://www.wsj.com/tech/ai/the-latest-viral-ai-assistant-rocketing-across-silicon-valley-abb46276"
+  },
+  {
+    "company": "KredosAi",
+    "stored": "2026-09-06",
+    "firstSeen": "2026-09-06",
+    "earliest": "2026-07-02",
+    "url": "https://www.kredosai.com/company/blog/press-release-kredosai-raises-7-million-series-a/"
+  },
+  {
+    "company": "L-Nutra",
+    "stored": "2026-09-24",
+    "firstSeen": "2026-09-24",
+    "earliest": "2026-01-21",
+    "url": "https://www.prnewswire.com/news-releases/l-nutra-secures-36-5m-investment-from-mubadala-raising-series-d-proceeds-to-83-5m-and-accelerating-global-expansion-of-its-longevity-and-medical-nutrition-therapies-302666171.html"
+  },
+  {
+    "company": "Mirendil",
+    "stored": "2026-09-06",
+    "firstSeen": "2026-09-06",
+    "earliest": "2026-06-24",
+    "url": "https://mirendil.com/news/announcing-mirendil/"
+  },
+  {
+    "company": "Nilo",
+    "stored": "2026-09-23",
+    "firstSeen": "2026-09-23",
+    "earliest": "2025-10-08",
+    "url": "https://www.globenewswire.com/news-release/2025/10/08/3163197/0/en/nilo-therapeutics-launches-with-101-million-series-a-financing-to-advance-a-new-class-of-medicines-targeting-neural-circuits-in-immune-disease-and-appoints-kim-seth-as-chief-execut.html"
+  },
+  {
+    "company": "Sanyark Space",
+    "stored": "2026-09-26",
+    "firstSeen": "2026-09-26",
+    "earliest": "2026-02-24",
+    "url": "https://www.indianstartuptimes.com/interviews/from-isro-to-orbiting-innovation-how-raghava-kundrapu-is-building-the-future-of-precision-navigation-with-sanyark/"
+  },
+  {
+    "company": "Tiger Technology",
+    "stored": "2026-09-06",
+    "firstSeen": "2026-09-06",
+    "earliest": "2026-07-28",
+    "url": "https://www.tiger-technology.com/tiger-technology-closes-series-a/"
+  }
+]

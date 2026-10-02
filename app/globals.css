@@ -1,0 +1,382 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Firecrawl house tokens, grounded against firecrawl.dev (Heat #fa5d19, Graphite
+  #262626, Paper #f9f9f9; solid gray hairlines; the black-alpha text hierarchy),
+  with shadcn's semantic variables mapped onto them below. Orange is scarce by
+  design: the primary action, the `new` tick, focus rings. Never a background,
+  never body text, never a border.
+*/
+@theme {
+  --color-heat-4: rgba(250, 93, 25, 0.04);
+  --color-heat-8: rgba(250, 93, 25, 0.08);
+  --color-heat-12: rgba(250, 93, 25, 0.12);
+  --color-heat-16: rgba(250, 93, 25, 0.16);
+  --color-heat-20: rgba(250, 93, 25, 0.2);
+  --color-heat-24: rgba(250, 93, 25, 0.24);
+  --color-heat-32: rgba(250, 93, 25, 0.32);
+  --color-heat-40: rgba(250, 93, 25, 0.4);
+  --color-heat-48: rgba(250, 93, 25, 0.48);
+  --color-heat-64: rgba(250, 93, 25, 0.64);
+  --color-heat-80: rgba(250, 93, 25, 0.8);
+  --color-heat-90: rgba(250, 93, 25, 0.9);
+  --color-heat-100: #fa5d19;
+  --color-heat-hot: #ff4c00;
+
+  --color-accent-black: #262626;
+  --color-accent-white: #ffffff;
+  --color-accent-amethyst: #9061ff;
+  --color-accent-bluetron: #2a6dfb;
+  --color-accent-crimson: #eb3424;
+  --color-accent-forest: #42c366;
+  --color-accent-honey: #ecb730;
+
+  --color-border-faint: var(--fc-border-faint);
+  --color-border-muted: var(--fc-border-muted);
+  --color-border-loud: var(--fc-border-loud);
+
+  --color-bg-base: var(--fc-bg-base);
+  --color-bg-lighter: var(--fc-bg-lighter);
+  --color-bg-workspace: var(--fc-bg-workspace);
+
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+}
+
+/*
+  The ink ladder. The names are Firecrawl's black-alpha steps, but each resolves through a
+  theme variable (graphite in light, white in `.dark`) so a bare `text-black-alpha-32` reads in
+  both themes without a `dark:` twin. Inline, so the variable resolves on the element itself.
+*/
+@theme inline {
+  --color-black-alpha-4: var(--ink-4);
+  --color-black-alpha-8: var(--ink-8);
+  --color-black-alpha-12: var(--ink-12);
+  --color-black-alpha-16: var(--ink-16);
+  --color-black-alpha-24: var(--ink-24);
+  --color-black-alpha-32: var(--ink-32);
+  --color-black-alpha-40: var(--ink-40);
+  --color-black-alpha-48: var(--ink-48);
+  --color-black-alpha-56: var(--ink-56);
+  --color-black-alpha-64: var(--ink-64);
+  --color-black-alpha-72: var(--ink-72);
+  --color-black-alpha-88: var(--ink-88);
+}
+
+@theme inline {
+  --color-honey-ink: var(--honey-ink);
+  --color-heat-ink: var(--heat-ink);
+  --color-forest-ink: var(--forest-ink);
+  --color-crimson-ink: var(--crimson-ink);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", "SF Mono", monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --fc-border-faint: #ededed;
+  --fc-border-muted: #e8e8e8;
+  --fc-border-loud: #e6e6e6;
+  --fc-bg-base: #ffffff;
+  --fc-bg-lighter: #fbfbfb;
+  --fc-bg-workspace: #f9f9f9;
+
+  /*
+    Ink, measured on Paper (#f9f9f9) and on the 4% pill fill over it, the darkest ground text sits
+    on. 4-24 are pure black and decorative only: fills, hairlines, separators. 32 and up are
+    Graphite, lifted from their nominal alphas so every step that carries text clears AA: 32
+    (labels, axis ticks, "not stated") 4.8:1 on Paper, 4.7:1 on a pill; 56 (secondary text, same
+    as muted-foreground) 5.9:1. Recompute before changing a step; docs/design.md has the rule.
+  */
+  --ink-4: rgba(0, 0, 0, 0.04);
+  --ink-8: rgba(0, 0, 0, 0.08);
+  --ink-12: rgba(0, 0, 0, 0.12);
+  --ink-16: rgba(0, 0, 0, 0.16);
+  --ink-24: rgba(0, 0, 0, 0.24);
+  --ink-32: rgba(38, 38, 38, 0.66);
+  --ink-40: rgba(38, 38, 38, 0.68);
+  --ink-48: rgba(38, 38, 38, 0.7);
+  --ink-56: rgba(38, 38, 38, 0.72);
+  --ink-64: rgba(38, 38, 38, 0.76);
+  --ink-72: rgba(38, 38, 38, 0.8);
+  --ink-88: rgba(38, 38, 38, 0.9);
+
+  /* The accents as text: each clears 4.5:1 on Paper and the card; the swatches themselves stay for dots, bars and fills. */
+  --honey-ink: #8c6414; /* 5.1:1 on Paper */
+  --heat-ink: #c2410c; /* 4.9:1 on Paper */
+  --forest-ink: #1e7b3b; /* 5.1:1 on Paper */
+  --crimson-ink: #c92a1b; /* 5.2:1 on Paper */
+  --background: #f9f9f9; /* Paper */
+  --foreground: #262626; /* Graphite */
+  --card: #ffffff;
+  --card-foreground: #262626;
+  --popover: #ffffff;
+  --popover-foreground: #262626;
+  --primary: #d23f00; /* the hot orange, deepened so its white label clears AA (4.7:1); primary action only */
+  --primary-foreground: #ffffff;
+  --secondary: rgba(0, 0, 0, 0.04);
+  --secondary-foreground: #262626;
+  --muted: #f1f1f1;
+  --muted-foreground: rgba(38, 38, 38, 0.72); /* 5.9:1 on Paper, 6.0:1 on card, 5.6:1 on a pill: AA */
+  --accent: rgba(0, 0, 0, 0.04);
+  --accent-foreground: #262626;
+  --destructive: #c92a1b; /* crimson-ink, so the destructive button's label clears AA on its own tint */
+  --border: #ededed;
+  --input: #e8e8e8;
+  --ring: #fa5d19;
+  --chart-1: #fa5d19;
+  --chart-2: #2a6dfb;
+  --chart-3: #9061ff;
+  --chart-4: #42c366;
+  --chart-5: #ecb730;
+  --radius: 10px;
+  --sidebar: #f9f9f9;
+  --sidebar-foreground: #262626;
+  --sidebar-primary: #262626;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(0, 0, 0, 0.04);
+  --sidebar-accent-foreground: #262626;
+  --sidebar-border: #ededed;
+  --sidebar-ring: #fa5d19;
+}
+
+.dark {
+  --fc-border-faint: #2a2a2a;
+  --fc-border-muted: #333333;
+  --fc-border-loud: #404040;
+  --fc-bg-base: #171717;
+  --fc-bg-lighter: #1f1f1f;
+  --fc-bg-workspace: #0a0a0a;
+
+  /*
+    The same ladder in white, measured on the card (#171717), the popover (#1f1f1f), and the 6%
+    pill over the card: 32 is 5.0:1 on the popover and 4.9:1 on a pill, 56 (muted-foreground)
+    6.2:1. Light-on-dark reads fainter than the ratio says, so each step sits a little above its
+    light twin's ratio.
+  */
+  --ink-4: rgba(255, 255, 255, 0.05);
+  --ink-8: rgba(255, 255, 255, 0.09);
+  --ink-12: rgba(255, 255, 255, 0.13);
+  --ink-16: rgba(255, 255, 255, 0.17);
+  --ink-24: rgba(255, 255, 255, 0.24);
+  --ink-32: rgba(245, 245, 245, 0.52);
+  --ink-40: rgba(245, 245, 245, 0.54);
+  --ink-48: rgba(245, 245, 245, 0.56);
+  --ink-56: rgba(245, 245, 245, 0.6);
+  --ink-64: rgba(245, 245, 245, 0.66);
+  --ink-72: rgba(245, 245, 245, 0.74);
+  --ink-88: rgba(245, 245, 245, 0.88);
+
+  --honey-ink: #ecb730;
+  --heat-ink: #fa5d19;
+  --forest-ink: #42c366;
+  --crimson-ink: #f0553f; /* 4.8:1 on the popover, where #eb3424 is 4.0 */
+  --background: #0a0a0a;
+  --foreground: #f5f5f5;
+  --card: #171717;
+  --card-foreground: #f5f5f5;
+  --popover: #1f1f1f;
+  --popover-foreground: #f5f5f5;
+  --primary: #d23f00;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #f5f5f5;
+  --muted: #1f1f1f;
+  --muted-foreground: rgba(245, 245, 245, 0.6); /* 6.2:1 on popover, 6.8:1 on the page: AA */
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #f5f5f5;
+  --destructive: #f0553f;
+  --border: #2a2a2a;
+  --input: #333333;
+  --ring: #fa5d19;
+  --chart-1: #fa5d19;
+  --chart-2: #4d84ff;
+  --chart-3: #a67dff;
+  --chart-4: #5fd67f;
+  --chart-5: #f2c44d;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #f5f5f5;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #fa5d19;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  ::selection {
+    background: var(--color-heat-16);
+  }
+}
+
+@utility text-title-h4 {
+  font-size: 32px;
+  line-height: 36px;
+  letter-spacing: -0.32px;
+  font-weight: 500;
+}
+@utility text-title-h5 {
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.24px;
+  font-weight: 500;
+}
+@utility text-title-h6 {
+  font-size: 18px;
+  line-height: 26px;
+  letter-spacing: -0.18px;
+  font-weight: 500;
+}
+@utility text-body-medium {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+}
+@utility text-body-small {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+}
+@utility text-label-medium {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 450;
+}
+@utility text-label-small {
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
+}
+@utility text-label-x-small {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 450;
+}
+@utility text-mono-small {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+@utility text-mono-x-small {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The house border technique: a 1px inset border that inherits the radius. */
+@utility inside-border {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--color-border-faint);
+    border-radius: inherit;
+    pointer-events: none;
+    transition: border-color 0.2s;
+  }
+}
+
+/*
+  Hit slop for a small control on a touch screen: an invisible box at least 44px square, centred on
+  the control, catches the tap. The control keeps its drawn size, so a desktop row stays compact and
+  a phone thumb still lands. Pair it with `relative` (or any positioned class); not for an element
+  that already uses ::after (a card-wide link).
+*/
+@utility tap {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+/*
+  A reader who asked for less motion: transitions and entrances (chevrons, sheets, dialogs, toasts,
+  the skeleton pulse) finish at once, and a spinner keeps turning, slowly, so busy still reads as busy.
+  Unlayered, so it outranks every utility layer without !important.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+  .animate-spin {
+    animation-duration: 2.4s;
+    animation-iteration-count: infinite;
+  }
+}

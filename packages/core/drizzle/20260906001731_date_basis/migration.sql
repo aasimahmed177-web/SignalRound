@@ -1,0 +1,1 @@
+ALTER TABLE "funding_rounds" ADD COLUMN "date_basis" text;

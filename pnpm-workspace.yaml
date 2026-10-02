@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  cbor-extract: false
+  esbuild: true
+  "@swc/core": true
+  "@electric-sql/pglite": true
+
+# Advisories the parents still pin: workflow's @workflow/core holds nanoid 5.1.6 and its world-local
+# holds undici 7.28.0. Scoped to the vulnerable ranges so nothing else moves; drop once they ship fixes.
+overrides:
+  "nanoid@>=4.0.0 <5.1.16": "^5.1.16"
+  "undici@>=7.0.0 <7.29.0": "^7.29.0"

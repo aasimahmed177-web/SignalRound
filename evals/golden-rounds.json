@@ -1,0 +1,309 @@
+{
+  "$comment": "Hand-verified rounds from the September 2026 row-by-row audits. Each case names the company as the store spells it and the facts a reader of every source would settle on. Fields absent from a case are not scored. date: the announcement day; month: the announcement month when no day is on any page; stage: the enum value; stage_not: an enum value the sources rule out; amount: value in millions with its currency, or null when the sources say undisclosed; leads: the full lead set; leads_include / leads_exclude: partial constraints; participants_include: names that must be participants (not leads); absent: names that must be on neither list.",
+  "cases": [
+    {
+      "name": "Gimlet Labs",
+      "date": "2026-09-04",
+      "stage": "series_b"
+    },
+    {
+      "name": "David",
+      "date": "2026-09-02",
+      "leads": ["Greenoaks", "Valor Equity Partners"],
+      "participants_include": ["Iconiq", "Imaginary Ventures"]
+    },
+    {
+      "name": "iPronics",
+      "date": "2026-09-02",
+      "stage": "series_b",
+      "amount": {
+        "value": 125,
+        "currency": "USD"
+      },
+      "leads": ["Maverick Silicon", "Light Street Capital"],
+      "participants_include": ["NVIDIA", "Bosch Ventures"]
+    },
+    {
+      "name": "Conveo",
+      "date": "2026-09-02",
+      "stage": "series_a",
+      "amount": {
+        "value": 50,
+        "currency": "USD"
+      },
+      "leads_include": ["DST Global"],
+      "leads_exclude": ["Visionaries", "6 Degrees Capital", "Y Combinator"]
+    },
+    {
+      "name": "Vitalfluid",
+      "stage": "series_a",
+      "amount": {
+        "value": 17.2,
+        "currency": "EUR"
+      },
+      "leads_include": ["Invest-NL", "Alder Tree Investments"]
+    },
+    {
+      "name": "Oligo Security",
+      "date": "2026-08-04",
+      "stage_not": "series_b",
+      "amount": {
+        "value": 60,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Xenter",
+      "date": "2026-07-23",
+      "stage": "series_b",
+      "amount": {
+        "value": 58.25,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Rundoo",
+      "date": "2026-08-19",
+      "stage": "series_b",
+      "amount": {
+        "value": 30,
+        "currency": "USD"
+      },
+      "leads": ["Battery Ventures"],
+      "participants_include": ["Bessemer Venture Partners", "CRV"]
+    },
+    {
+      "name": "Xynova",
+      "month": "2026-07",
+      "stage": "series_a",
+      "amount": {
+        "value": 74,
+        "currency": "USD"
+      },
+      "leads": ["Meituan"]
+    },
+    {
+      "name": "Singularity",
+      "date": "2026-07-14",
+      "stage": "series_a",
+      "amount": {
+        "value": 80,
+        "currency": "USD"
+      },
+      "leads": ["Khosla Ventures", "Felicis"]
+    },
+    {
+      "name": "Ant International",
+      "month": "2026-07",
+      "stage": "series_a",
+      "leads_exclude": ["Ant Group", "Alibaba Group"],
+      "participants_include": ["Ant Group"]
+    },
+    {
+      "name": "Oxylabs",
+      "date": "2026-07-09",
+      "stage": "series_a",
+      "amount": {
+        "value": 130,
+        "currency": "USD"
+      },
+      "leads": ["Warburg Pincus"]
+    },
+    {
+      "name": "SportsStack",
+      "leads_exclude": ["BettingStartups Capital"],
+      "participants_include": ["BettingStartups Capital"]
+    },
+    {
+      "name": "Mara",
+      "date": "2026-08-26",
+      "stage": "pre_seed",
+      "amount": {
+        "value": 7,
+        "currency": "USD"
+      },
+      "leads": ["Khosla Ventures"]
+    },
+    {
+      "name": "Makr Microsystems",
+      "stage": "seed",
+      "leads": ["Bluehill VC"],
+      "participants_include": ["Artha Venture Fund"]
+    },
+    {
+      "name": "Kazimi",
+      "date": "2026-08-24",
+      "stage": "pre_seed",
+      "amount": {
+        "value": 2.2,
+        "currency": "EUR"
+      },
+      "leads": ["Market One Capital"],
+      "participants_include": ["IBB Ventures"]
+    },
+    {
+      "name": "Alteon",
+      "stage": "pre_seed",
+      "amount": {
+        "value": 2.5,
+        "currency": "USD"
+      },
+      "leads": ["Lachy Groom"],
+      "participants_include": ["Together Fund"]
+    },
+    {
+      "name": "Discernis",
+      "date": "2026-08-25",
+      "stage": "seed",
+      "amount": {
+        "value": 2.5,
+        "currency": "USD"
+      },
+      "leads": ["Newfund Capital"]
+    },
+    {
+      "name": "Eternity",
+      "amount": null
+    },
+    {
+      "name": "Wayy",
+      "date": "2026-08-03",
+      "stage": "pre_seed",
+      "amount": {
+        "value": 2,
+        "currency": "USD"
+      },
+      "leads": ["0 to 1 Ventures"]
+    },
+    {
+      "name": "ZuriQ",
+      "date": "2026-07-28",
+      "stage": "seed",
+      "amount": {
+        "value": 25.5,
+        "currency": "USD"
+      },
+      "leads_include": ["Quantonation"]
+    },
+    {
+      "name": "Upwind Security",
+      "date": "2026-09-03",
+      "stage": "series_c",
+      "amount": {
+        "value": 300,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "PatientIQ",
+      "date": "2026-09-03",
+      "stage": "series_c",
+      "amount": {
+        "value": 30,
+        "currency": "USD"
+      },
+      "leads": ["Hughes & Company"],
+      "participants_include": ["Health Enterprise Partners", "August Capital"]
+    },
+    {
+      "name": "Capacity",
+      "date": "2026-09-02",
+      "stage": "series_d_plus",
+      "amount": {
+        "value": 54,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Higharc",
+      "date": "2026-06-30",
+      "stage": "series_c",
+      "amount": {
+        "value": 95,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Unrivaled",
+      "date": "2026-08-26",
+      "stage": "series_c",
+      "amount": null,
+      "leads": ["Ten Pillar Sports Fund"]
+    },
+    {
+      "name": "Helcim",
+      "date": "2026-08-21",
+      "stage": "series_c",
+      "amount": {
+        "value": 53,
+        "currency": "CAD"
+      },
+      "leads_include": ["BDC Growth Venture Fund"],
+      "participants_include": ["Curql Collective", "Headline", "Aquiline"]
+    },
+    {
+      "name": "MarginEdge",
+      "date": "2026-08-11",
+      "leads": ["Schooner Capital", "Ten Coves Capital"],
+      "participants_include": ["Osage Venture Partners", "Derive Ventures", "Western Alliance Bank"]
+    },
+    {
+      "name": "LifeMine Therapeutics",
+      "stage": "series_d_plus",
+      "amount": {
+        "value": 188,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Zenity",
+      "date": "2026-08-03",
+      "stage": "series_c",
+      "leads": ["Norwest Venture Partners"],
+      "participants_include": ["Qumra Capital", "SoftBank Vision Fund 2", "Hitachi Ventures", "LG Technology Ventures"]
+    },
+    {
+      "name": "Multiverse Computing",
+      "date": "2026-07-27",
+      "stage": "series_c",
+      "leads": ["Forgepoint Capital International", "BNPP SIVF", "Bullhound Capital"],
+      "participants_include": ["Santander Alternative Investments", "Tikehau Capital", "HP Inc."]
+    },
+    {
+      "name": "Chai Discovery",
+      "date": "2026-07-14",
+      "stage": "series_c",
+      "leads_include": ["Index Ventures"],
+      "leads_exclude": ["OpenAI", "Bain Capital Ventures"]
+    },
+    {
+      "name": "Cyllene Therapeutics",
+      "stage": "series_c",
+      "amount": {
+        "value": 33,
+        "currency": "EUR"
+      },
+      "leads": ["GordonMD", "Merck Ventures"]
+    },
+    {
+      "name": "Wonderful",
+      "date": "2026-09-02",
+      "stage": "series_c",
+      "amount": {
+        "value": 550,
+        "currency": "USD"
+      }
+    },
+    {
+      "name": "Xsight Labs",
+      "leads_include": ["Fidelity"]
+    },
+    {
+      "name": "PLD Space",
+      "amount": {
+        "value": 108,
+        "currency": "EUR"
+      }
+    }
+  ]
+}

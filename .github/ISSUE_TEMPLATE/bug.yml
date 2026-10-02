@@ -1,0 +1,23 @@
+name: Bug
+description: Something in the app, the API, a feed, or a script does not work
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Paste errors as text.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: fireround.dev, or your own instance (local, Vercel, or another host) and the commit you run.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Setup
+      description: Node and pnpm versions, the database (embedded PGlite or Postgres), and the coverage rung. Never paste keys or passwords.

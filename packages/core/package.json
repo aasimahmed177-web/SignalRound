@@ -1,0 +1,41 @@
+{
+  "name": "@fireround/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The funding feed pipeline: Firecrawl lanes, extraction schema, normalization, entity resolution, storage, delivery.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./company-newsrooms": "./src/firecrawl/company-newsrooms.ts",
+    "./db": "./src/db/index.ts",
+    "./db/schema": "./src/db/schema.ts",
+    "./snapshots": "./src/firecrawl/snapshots.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.60",
+    "@ai-sdk/gateway": "^4.0.89",
+    "@ai-sdk/openai": "^4.0.72",
+    "@electric-sql/pglite": "^0.5.8",
+    "@neondatabase/serverless": "^1.1.0",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "ai": "^7.0.110",
+    "chrono-node": "^2.10.1",
+    "drizzle-orm": "1.0.0-rc.4",
+    "firecrawl": "^4.41.0",
+    "pg": "^8.23.0",
+    "tldts": "^7.4.14",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "1.0.0-rc.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

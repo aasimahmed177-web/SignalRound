@@ -1,0 +1,1 @@
+ALTER TYPE "enrichment_kind" ADD VALUE 'alexandria';

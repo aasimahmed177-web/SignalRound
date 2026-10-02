@@ -1,0 +1,45 @@
+// @fireround/core: the pipeline as a library. The app, the worker, and the
+// evals all import from here; none of them re-implement a rule.
+
+export * from "./edgar/form-d.ts";
+export * from "./firecrawl/alexandria.ts";
+export * from "./firecrawl/company-newsrooms.ts";
+export * from "./firecrawl/corroborate.ts";
+export * from "./firecrawl/credits.ts";
+export * from "./firecrawl/deepdive.ts";
+export * from "./firecrawl/enrich.ts";
+export * from "./firecrawl/extract.ts";
+export * from "./firecrawl/gapfill.ts";
+export * from "./firecrawl/investor-domain.ts";
+export * from "./firecrawl/judge.ts";
+export * from "./firecrawl/monitor.ts";
+export * from "./firecrawl/reader.ts";
+export * from "./firecrawl/sweep.ts";
+export * from "./firecrawl/watch.ts";
+export * from "./llm/dossier-verify.ts";
+export * from "./llm/jev.ts";
+export * from "./llm/model.ts";
+export * from "./llm/reconcile.ts";
+export * from "./presets/types.ts";
+export * from "./records/accuracy.ts";
+export { cleanBrandName, cleanHeadlineName } from "./records/brand-name.ts";
+export * from "./records/certainty.ts";
+export * from "./records/financing.ts";
+export * from "./records/fx.ts";
+export * from "./records/history.ts";
+export * from "./records/invariants.ts";
+export * from "./records/investors.ts";
+export * from "./records/money-kind.ts";
+export * from "./records/normalize.ts";
+export * from "./records/page-shape.ts";
+export * from "./records/plausibility.ts";
+export * from "./records/resolve.ts";
+export * from "./records/routing.ts";
+export * from "./records/schema.ts";
+export * from "./records/sectors.ts";
+export * from "./records/source-fit.ts";
+export * from "./records/valuation.ts";
+export * from "./trending/announcements.ts";
+export * from "./trending/hn.ts";
+export * from "./trending/signals.ts";
+export * from "./trending/x.ts";

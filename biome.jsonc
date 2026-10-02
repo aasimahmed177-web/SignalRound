@@ -1,0 +1,57 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**", "!**/node_modules", "!**/.next", "!**/drizzle/**/snapshot.json", "!**/data"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "lineWidth": 140
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        // The coverage rungs are an ARIA radiogroup of styled card buttons; native radios would mean restyling the cards.
+        "useSemanticElements": "off"
+      },
+      "performance": {
+        // Company logos load from every company's own domain, which next/image would need listed in remotePatterns.
+        "noImgElement": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      // Static assets and the next/og image are rasterized or served as files; there is no DOM for a title to reach.
+      "includes": ["**/*.svg", "app/**/opengraph-image.tsx"],
+      "linter": { "rules": { "a11y": { "noSvgWithoutTitle": "off" } } }
+    },
+    {
+      // Fixtures and bench scripts index into arrays they just built; a missing entry fails the run either way.
+      "includes": ["tests/**", "scripts/**"],
+      "linter": { "rules": { "style": { "noNonNullAssertion": "off" } } }
+    },
+    {
+      // shadcn emits `import * as React`; re-adding a component would bring the value import back.
+      "includes": ["components/ui/**"],
+      "linter": { "rules": { "style": { "useImportType": "off" } } }
+    }
+  ],
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "scrape_id": "01a0cacc-5c8f-7131-a8cf-e46307ed894c",
+  "data": {
+    "alexandria": [
+      {
+        "provider": "ycombinator-com",
+        "capability": "companies/search",
+        "creditsCost": 5,
+        "data": {
+          "next_page": null,
+          "observed_at_ms": 1790108786486,
+          "page": 0,
+          "records": [
+            {
+              "all_locations": "San Francisco, CA, USA",
+              "batch": "Summer 2022",
+              "id": 27152,
+              "industry": "B2B",
+              "isHiring": true,
+              "name": "Firecrawl",
+              "one_liner": "The web data API for searching and scraping. 🔥",
+              "regions": ["United States of America", "America / Canada", "Remote", "Partly Remote"],
+              "slug": "firecrawl",
+              "stage": "Growth",
+              "status": "Active",
+              "subindustry": "B2B",
+              "tags": ["Artificial Intelligence", "Developer Tools", "Open Source"],
+              "team_size": 3,
+              "url": "https://www.ycombinator.com/companies/firecrawl",
+              "website": "https://www.firecrawl.dev"
+            }
+          ],
+          "source_url": "https://www.ycombinator.com/companies",
+          "total": 1
+        },
+        "workflow": { "version": "0.4.1", "digest": "sha256:68e6c197ae2b2a1f18f3a7282458bafcb13d8c12930415fdff555e29c0dd5598" },
+        "records": 1,
+        "upstreamStatus": 200,
+        "alexandriaId": "f868bd930a5395a5120a07f0fbf27ee48d5641f36119f6bca862a3035ae3bd6b",
+        "providerRequestId": "6326aab7-dcb6-4296-882b-973e5f464cb5",
+        "workflowRunId": "6326aab7-dcb6-4296-882b-973e5f464cb5"
+      }
+    ],
+    "creditsCost": 5
+  }
+}

@@ -1,0 +1,683 @@
+{
+  "provenance": "Forty recent announcement pages captured live through Firecrawl and checked against their source funding, lead, participant, date, and money sentences. A missing valuation basis means the page did not state one. MCO is a negative credit-financing case; Hughes does not split primary from secondary investment.",
+  "cases": [
+    {
+      "id": "recent-50skills",
+      "url": "https://techfundingnews.com/50skills-raises-6m-for-ai-agents-that-build-their-own-agents-to-run-hr",
+      "expected": {
+        "company": "50skills",
+        "stage": "other",
+        "new_money": 6,
+        "round_total": 6,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Avant", "DRD Investments", "Frumtak Ventures", "Swiss Post Ventures"],
+        "currency": "USD",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-ai-hospitality-group",
+      "url": "https://www.hotelnewsresource.com/article142992.html",
+      "expected": {
+        "company": "AI Hospitality Group",
+        "stage": "seed",
+        "new_money": 7.5,
+        "round_total": 7.5,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Rackhouse Venture Capital"],
+        "currency": "USD",
+        "investors": ["Sierra Ventures", "Dynamo Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-amber-electric",
+      "url": "https://mercomcapital.com/amber-raises-56-million-in-series-e-funding-round",
+      "expected": {
+        "company": "Amber Electric",
+        "stage": "series_d_plus",
+        "new_money": 78.5,
+        "round_total": 78.5,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["1GT"],
+        "currency": "AUD",
+        "investors": ["Environmental Technologies Fund (ETF Partners)", "Innovation Victoria", "E.ON"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-american-supercritical",
+      "url": "https://pulse2.com/american-supercritical-raises-8-million",
+      "expected": {
+        "company": "American Supercritical",
+        "stage": "pre_seed",
+        "new_money": 8,
+        "round_total": 8,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Silent Ventures"],
+        "currency": "USD",
+        "investors": ["Riot Ventures", "Harpoon", "Reveille VC", "Hillwood", "Mana Ventures", "Climate Capital", "Alumni Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-anaconda-biomed",
+      "url": "https://anaconda.bio/anaconda-biomed-secures-56-million-financing-from-new-and-existing-investors",
+      "expected": {
+        "company": "Anaconda Biomed",
+        "stage": "other",
+        "new_money": 56,
+        "round_total": 56,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Omega Funds"],
+        "currency": "USD",
+        "investors": ["FOCO", "Asabys Sabadell Asabys II", "Ysios Capital", "CDTI"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-atum",
+      "url": "https://cryptobriefing.com/atum-raises-seed-round-open-payments-network",
+      "expected": {
+        "company": "Atum",
+        "stage": "seed",
+        "new_money": 13.5,
+        "round_total": 13.5,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Variant"],
+        "currency": "USD",
+        "investors": ["PayPal Ventures", "Abstract Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-azulene-labs",
+      "url": "https://www.azulenelabs.com/news/azulene-labs-raises-3-4-million",
+      "expected": {
+        "company": "Azulene Labs",
+        "stage": "pre_seed",
+        "new_money": 3.4,
+        "round_total": 3.4,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Ground State Ventures"],
+        "currency": "USD",
+        "investors": ["Entrada Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-basalt-health",
+      "url": "https://basalt.health/basalt-series-a",
+      "expected": {
+        "company": "Basalt Health",
+        "stage": "series_a",
+        "new_money": 20,
+        "round_total": 20,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["NEA"],
+        "currency": "USD",
+        "investors": ["Frist Cressey Ventures", "25m Health"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-basecamp-research-ltd",
+      "url": "https://www.basecamp-research.com/news-research/basecamp-research-raises-140m-to-advance-ai-designed-therapeutics",
+      "expected": {
+        "company": "Basecamp Research Ltd.",
+        "stage": "series_c",
+        "new_money": 140,
+        "round_total": 140,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["S32"],
+        "currency": "USD",
+        "investors": [
+          "NVIDIA",
+          "Menlo Ventures’ Anthology Fund",
+          "Catalio Capital Management",
+          "European Tech Collective",
+          "Firebrand River Capital",
+          "Inception Fund",
+          "King Philanthropies",
+          "NATO Innovation Fund",
+          "PostScriptum",
+          "Redalpine",
+          "The Rockefeller Foundation",
+          "Singular",
+          "Sovereign AI",
+          "True Ventures"
+        ],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-baselayer",
+      "url": "https://pulse2.com/baselayer-raises-35-million-series-a",
+      "expected": {
+        "company": "Baselayer",
+        "stage": "series_a",
+        "new_money": 35,
+        "round_total": 35,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["M13"],
+        "currency": "USD",
+        "investors": ["Torch Capital", "Picus Ventures", "Afore Capital", "Matt Thompson"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-beagle-labs",
+      "url": "https://pulse2.com/beagle-labs-4-1-million-funding",
+      "expected": {
+        "company": "Beagle Labs",
+        "stage": "pre_seed",
+        "new_money": 4.1,
+        "round_total": 4.1,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Chingona Ventures"],
+        "currency": "USD",
+        "investors": ["Sovereign’s Capital", "Remarkable Ventures", "C2 Ventures", "South Loop Ventures", "Red Bike Capital"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-bird-be",
+      "url": "https://pulse2.com/birdbe-raises-13-million",
+      "expected": {
+        "company": "Bird&Be",
+        "stage": "other",
+        "new_money": 13,
+        "round_total": 13,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["BDC Thrive", "BFG Partners"],
+        "currency": "USD",
+        "investors": ["BAM Ventures", "Founder Collective", "Rejuvenation Ventures", "HSR Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-bonbon-mobility",
+      "url": "https://vir.com.vn/genai-fund-backs-bonbon-mobilitys-500000-pre-seed-round-161626.html",
+      "expected": {
+        "company": "Bonbon Mobility",
+        "stage": "pre_seed",
+        "new_money": 0.5,
+        "round_total": 0.5,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Tasco"],
+        "currency": "USD",
+        "investors": ["GenAI Fund"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-brahma-ai",
+      "url": "https://globallegalchronicle.com/post-240452",
+      "expected": {
+        "company": "Brahma AI",
+        "stage": "other",
+        "new_money": 150,
+        "round_total": 150,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Multiples Alternate Asset Management"],
+        "currency": "USD",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-byteask",
+      "url": "https://eroof.community/byteask-raises-1m-yc-pre-seed-funding",
+      "expected": {
+        "company": "ByteAsk",
+        "stage": "pre_seed",
+        "new_money": 1,
+        "round_total": 1,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Entrepreneur First", "Y Combinator"],
+        "currency": "USD",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-clastix",
+      "url": "https://technicalbeep.com/clastix-kmetal-kubernetes-fleet-platform",
+      "expected": {
+        "company": "Clastix",
+        "stage": "seed",
+        "new_money": 2.9,
+        "round_total": 2.9,
+        "valuation": null,
+        "date": "2026-09-25",
+        "lead": ["CDP Venture Capital"],
+        "currency": "EUR",
+        "investors": ["Mistral", "Vertis SGR"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-codebreaker-labs",
+      "url": "https://www.kitsapsun.com/press-release/story/802110/codebreaker-labs-raises-seed-round-to-scale-first-of-its-kind-data-for-genomic-ai",
+      "expected": {
+        "company": "Codebreaker Labs",
+        "stage": "seed",
+        "new_money": 4.5,
+        "round_total": 4.5,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Kickstart"],
+        "currency": "USD",
+        "investors": ["Buff Gold Ventures", "Children’s Hospital Colorado", "Denver Ventures", "Service Provider Capital", "Pelican Trust"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-confido",
+      "url": "https://ventureburn.com/confido-raises-55m-ai-cpg-platform",
+      "expected": {
+        "company": "Confido",
+        "stage": "series_b",
+        "new_money": 55,
+        "round_total": 55,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Insight Partners"],
+        "currency": "USD",
+        "investors": ["Trenches Capital", "Watchfire", "Barrel Ventures", "Footwork", "Y Combinator"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-crux-analytics",
+      "url": "https://finovate.com/crux-analytics-secures-2-2-million-in-seed-funding",
+      "expected": {
+        "company": "Crux Analytics",
+        "stage": "seed",
+        "new_money": 1.9,
+        "round_total": 1.9,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Castle Creek Launchpad"],
+        "currency": "EUR",
+        "investors": ["Chartway Ventures", "One Washington Financial", "Curql"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-dextr-ai",
+      "url": "https://www.webwire.com/ViewPressRel.asp?aId=360910",
+      "expected": {
+        "company": "Dextr AI",
+        "stage": "seed",
+        "new_money": 6.7,
+        "round_total": 6.7,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Elevation Capital"],
+        "currency": "USD",
+        "investors": ["Foundation Capital"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-dialybrid-s-r-l",
+      "url": "https://dialybrid.com/dialybrid-secures-e15-million-series-a-round",
+      "expected": {
+        "company": "Dialybrid S.r.l.",
+        "stage": "series_a",
+        "new_money": 15,
+        "round_total": 15,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["XGEN Venture"],
+        "currency": "EUR",
+        "investors": ["CDP Venture Capital"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-duqu",
+      "url": "https://www.finextra.com/pressarticle/110999/ai-fintech-duqu-raises-15m-to-tackle-europes-late-payment-problem",
+      "expected": {
+        "company": "Duqu",
+        "stage": "pre_seed",
+        "new_money": 1.5,
+        "round_total": 1.5,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": [],
+        "currency": "EUR",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-f13",
+      "url": "https://techfundingnews.com/f13-5m-pre-seed-ai-vector-graphics-no-deck",
+      "expected": {
+        "company": "F13",
+        "stage": "pre_seed",
+        "new_money": 5,
+        "round_total": 5,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Credo Ventures", "Point Nine"],
+        "currency": "USD",
+        "investors": ["Carles Reina", "Jack Richardson"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-firecrawl",
+      "url": "https://www.pr.com/press-release/979737",
+      "expected": {
+        "company": "Firecrawl",
+        "stage": "series_b",
+        "new_money": 75,
+        "round_total": 75,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Smash Capital"],
+        "currency": "USD",
+        "investors": ["Altos Ventures", "Nexus Venture Partners", "Y Combinator", "Freestyle", "Offline Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-fluxnium",
+      "url": "https://pulse2.com/fluxnium-raises-7-million-seed-round-to-develop-uranium-from-seawater-technology-for-domestic-nuclear-fuel-supply",
+      "expected": {
+        "company": "Fluxnium",
+        "stage": "seed",
+        "new_money": 7,
+        "round_total": 7,
+        "valuation": null,
+        "date": "2026-09-21",
+        "lead": ["Congruent Ventures"],
+        "currency": "USD",
+        "investors": ["Constellation Technology Ventures", "Active Impact Investments"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-go-ai",
+      "url": "https://finovate.com/go-ai-secures-85-million-in-series-a-funding",
+      "expected": {
+        "company": "Go.AI™",
+        "stage": "series_a",
+        "new_money": 85,
+        "round_total": 85,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Updata Partners"],
+        "currency": "USD",
+        "investors": ["GFT Ventures", "LAUNCH"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-harvey",
+      "url": "https://www.law.com/legaltechnews/2026/09/25/legaltech-rundown-harvey-raises-an-additional-50m-clio-brings-new-tools-to-canada-and-more",
+      "expected": {
+        "company": "Harvey",
+        "stage": "other",
+        "new_money": 50,
+        "round_total": 50,
+        "valuation": null,
+        "date": "2026-09-25",
+        "lead": [],
+        "currency": "USD",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-heidi-health",
+      "url": "https://www.trendingtopics.eu/heidi-health-ai-startup-raises-340-million-at-a-900-million-valuation",
+      "expected": {
+        "company": "Heidi Health",
+        "stage": "series_c",
+        "new_money": 100,
+        "round_total": 100,
+        "valuation": 900,
+        "date": "2026-09-22",
+        "lead": ["Blackbird"],
+        "currency": "USD",
+        "valuation_basis": null,
+        "investors": ["Phoenix Court", "Point72 Private Investments", "Headline"]
+      }
+    },
+    {
+      "id": "recent-hughes-precision-manufacturing",
+      "url": "https://www.manufacturingtodayindia.com/hughes-precision-raises-%E2%82%B9250-cr",
+      "expected": {
+        "company": "Hughes Precision Manufacturing",
+        "stage": "growth",
+        "new_money": null,
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": [],
+        "currency": "INR",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-infini",
+      "url": "https://www.pymnts.com/newswire-announcements/infini-raises-6m-seed-round-to-scale-its-ai-powered-global-financial-platform",
+      "expected": {
+        "company": "Infini",
+        "stage": "seed",
+        "new_money": 6,
+        "round_total": 6,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": [],
+        "currency": "USD",
+        "investors": ["Reforge", "Fortwest Capital", "Enlight Capital", "NextGen Digital Venture", "SNZ Capital", "Vernal"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-kasvu-therapeutics",
+      "url": "https://european-biotechnology.com/latest-news/kasvu-raises-e30m-for-depression-drug-targeting-trkb",
+      "expected": {
+        "company": "Kasvu Therapeutics",
+        "stage": "series_a",
+        "new_money": 30,
+        "round_total": 30,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["Hadean Ventures"],
+        "currency": "EUR",
+        "investors": [
+          "Tesi",
+          "Finnish Drug Discovery Center",
+          "Stephen Industries",
+          "Innovestor Life Science Fund",
+          "Nordic Science Investments",
+          "Helsinki University Funds"
+        ],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-kinoxis-therapeutics",
+      "url": "https://kinoxistherapeutics.com/kinoxis-therapeutics-closes-6-75-million-financing-round-and-secures-2-5-million-cureator-grant-to-advance-new-drug-candidate",
+      "expected": {
+        "company": "Kinoxis Therapeutics",
+        "stage": "other",
+        "new_money": 6.75,
+        "round_total": 6.75,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": [],
+        "currency": "USD",
+        "investors": ["Main Sequence"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-kontext-security",
+      "url": "https://techfundingnews.com/kontext-4m-seed-ai-agent-security-banking-fintech",
+      "expected": {
+        "company": "Kontext Security",
+        "stage": "seed",
+        "new_money": 4,
+        "round_total": 4,
+        "valuation": null,
+        "date": "2026-09-24",
+        "lead": ["42CAP"],
+        "currency": "USD",
+        "investors": ["a16z CSX", "High-Tech Gründerfonds"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-lilac-agriculture",
+      "url": "https://www.lilac.ag/company-updates/lilac-closes-series-seed",
+      "expected": {
+        "company": "Lilac Agriculture",
+        "stage": "seed",
+        "new_money": 2.3,
+        "round_total": 2.3,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": ["Innova"],
+        "currency": "USD",
+        "investors": [
+          "701 Fund",
+          "Ag Ventures Alliance",
+          "Evergreen Climate Innovations",
+          "North Dakota Development Fund",
+          "Pathway Ventures",
+          "Tall Grass Ventures"
+        ],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-magic-ai",
+      "url": "https://techfundingnews.com/magic-ai-11m-fitness-mirror-us-expansion",
+      "expected": {
+        "company": "Magic AI",
+        "stage": "other",
+        "new_money": 11,
+        "round_total": 11,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["Beringea", "IW Capital"],
+        "currency": "USD",
+        "investors": ["PXN Group", "Accelerate Ventures", "Ventures Together", "Active Partners"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-mco-mycomplianceoffice",
+      "url": "https://www.thesaasnews.com/news/mco-raises-100m-growth-capital",
+      "expected": {
+        "company": "MCO (MyComplianceOffice)",
+        "stage": null,
+        "new_money": null,
+        "round_total": null,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": [],
+        "currency": "USD",
+        "round": false,
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-metris-energy",
+      "url": "https://www.esgtoday.com/metris-raises-5-million-to-scale-ai-powered-renewable-energy-asset-management-platform",
+      "expected": {
+        "company": "Metris Energy",
+        "stage": "seed",
+        "new_money": 5,
+        "round_total": 4.35,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": ["AENU", "Blackfinch Ventures", "Octopus Ventures", "PT1 Ventures"],
+        "currency": "USD",
+        "investors": ["Plug and Play", "Love Ventures"],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-mojave-energy-systems",
+      "url": "https://pulse2.com/mojave-raises-19-million-series-b",
+      "expected": {
+        "company": "Mojave Energy Systems",
+        "stage": "series_b",
+        "new_money": 19,
+        "round_total": 19,
+        "valuation": null,
+        "date": "2026-09-25",
+        "lead": ["Fairtree Elevant Ventures"],
+        "currency": "USD",
+        "investors": [
+          "River Bay Investments",
+          "At One Ventures",
+          "Fifth Wall",
+          "Myriad Venture Partners",
+          "Starshot Capital",
+          "Cleo Capital",
+          "MetaTrail"
+        ],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-monetary-metals",
+      "url": "https://pulse2.com/monetary-metals-raises-10-5-million-bringing-total-funding-to-nearly-25-million",
+      "expected": {
+        "company": "Monetary Metals",
+        "stage": "other",
+        "new_money": 10.5,
+        "round_total": 10.5,
+        "valuation": null,
+        "date": "2026-09-23",
+        "lead": [],
+        "currency": "USD",
+        "investors": [],
+        "valuation_basis": null
+      }
+    },
+    {
+      "id": "recent-morphotonics",
+      "url": "https://morphotonics.com/series-b-announcement",
+      "expected": {
+        "company": "Morphotonics",
+        "stage": "series_b",
+        "new_money": 40,
+        "round_total": 40,
+        "valuation": null,
+        "date": "2026-09-22",
+        "lead": [],
+        "currency": "EUR",
+        "investors": ["3M Ventures", "Innovation Industries", "BOM", "Invest-NL", "European Innovation Council Fund", "Ernij Next"],
+        "valuation_basis": null
+      }
+    }
+  ]
+}
