@@ -233,6 +233,10 @@ A public instance serves its visitors from cache: the prerendered shells and the
 
 A clone without `PUBLIC_DEMO` behaves exactly as the README describes.
 
+## Alexandria
+
+An instance can serve as a funding data source for [Firecrawl's Alexandria](https://docs.firecrawl.dev/features/alexandria), answering agents' funding-round searches, trending rounds, and company lookups from `GET /api/v1/rounds`. Every agent's call reaches the API from a handful of addresses, so set `ALEXANDRIA_API_KEY` to a random secret of 32+ characters, and give Alexandria the same value to send as `Authorization: Bearer <key>`. A request with it skips the per-address budgets in `lib/rate-limit.ts`; it is not an admin and reads exactly the public rows a visitor reads. The Vercel Firewall's `/api/v1` rule counts by IP before the app sees the request, so give it an exception for requests whose `authorization` header equals `Bearer <key>` (a Bypass rule above the rate limit), or Alexandria meets the firewall's 429s instead.
+
 ## Who can reach what
 
 Without `PUBLIC_DEMO` and without `DASHBOARD_PASSWORD`, everything is open: every button that spends Firecrawl credits (Run sweep, Create monitor, Research, Deep dive), the coverage rung, feed tokens, and delivery targets are reachable by anyone who can reach the URL. That is the laptop case.

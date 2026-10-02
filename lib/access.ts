@@ -6,6 +6,7 @@
 
 import { headers } from "next/headers";
 import { BASIC_CHALLENGE, basicAuthorized, dashboardPassword } from "@/lib/dashboard-auth";
+import { tokenEquals } from "@/lib/tokens";
 
 /** The deployment hosts a public demo when PUBLIC_DEMO=1. */
 export function isPublicDemo(): boolean {
@@ -112,6 +113,17 @@ export function adminRefusal(authorization: string | null): Response | null {
   if (password === null) return isPublicDemo() ? new Response("Not Found", { status: 404 }) : null;
   if (basicAuthorized(authorization, password)) return null;
   return new Response("Unauthorized", { status: 401, headers: BASIC_CHALLENGE });
+}
+
+/**
+ * Whether the request carries ALEXANDRIA_API_KEY as a bearer. Firecrawl's Alexandria serves the read
+ * API to every agent that calls the fireround provider from a handful of addresses, so its calls are
+ * not counted per address. It is not a viewer tier: it reads exactly what a demo visitor reads.
+ */
+export function alexandriaCaller(authorization: string | null): boolean {
+  const key = process.env.ALEXANDRIA_API_KEY;
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return Boolean(key) && tokenEquals(bearer, key);
 }
 
 /**

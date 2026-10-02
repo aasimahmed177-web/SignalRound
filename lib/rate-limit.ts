@@ -12,7 +12,7 @@
 import { createHash } from "node:crypto";
 import { schema } from "@fireround/core/db";
 import { lt, sql } from "drizzle-orm";
-import { isPublicDemo } from "@/lib/access";
+import { alexandriaCaller, isPublicDemo } from "@/lib/access";
 import { db } from "@/lib/db";
 
 const { rateLimits } = schema;
@@ -117,11 +117,11 @@ export function tooManyRequests(decision: RateDecision): Response {
 }
 
 /**
- * The route handlers' one-liner: null when the request may proceed (not counted, or within budget),
- * else the 429 to return.
+ * The route handlers' one-liner: null when the request may proceed (not counted, Alexandria's
+ * calls, or within budget), else the 429 to return.
  */
 export async function limitRequest(request: Request, limit: Limit, insider = false): Promise<Response | null> {
-  if (!counted(insider)) return null;
+  if (!counted(insider) || alexandriaCaller(request.headers.get("authorization"))) return null;
   const decision = await rateLimit(limit, clientKey(request.headers));
   return decision.ok ? null : tooManyRequests(decision);
 }

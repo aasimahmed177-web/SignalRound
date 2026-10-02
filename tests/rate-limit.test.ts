@@ -106,6 +106,24 @@ describe("the open doors on a public demo", () => {
     expect((await roundsGet(new Request("http://app.test/api/v1/rounds", { headers: admin }))).status).toBe(200);
   });
 
+  test("Alexandria's key lifts the per-address budget and reads only what a visitor reads", async () => {
+    vi.stubEnv("ALEXANDRIA_API_KEY", "alexandria-key");
+    await exhaust(LIMITS.api);
+    const alexandria = { ...from(), authorization: "Bearer alexandria-key" };
+    const res = await roundsGet(new Request("http://app.test/api/v1/rounds", { headers: alexandria }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toContain("public");
+    expect((await roundsGet(new Request("http://app.test/api/v1/rounds?include_review=true", { headers: alexandria }))).status).toBe(403);
+    const wrong = { ...from(), authorization: "Bearer not-the-key" };
+    expect((await roundsGet(new Request("http://app.test/api/v1/rounds", { headers: wrong }))).status).toBe(429);
+  });
+
+  test("a bearer counts like any visitor when no Alexandria key is configured", async () => {
+    await exhaust(LIMITS.api);
+    const bearer = { ...from(), authorization: "Bearer " };
+    expect((await roundsGet(new Request("http://app.test/api/v1/rounds", { headers: bearer }))).status).toBe(429);
+  });
+
   test("MCP answers 429 before the server reads the request", async () => {
     await exhaust(LIMITS.mcp);
     expect((await mcpGet(new Request("http://app.test/api/mcp", { headers: from() }))).status).toBe(429);
