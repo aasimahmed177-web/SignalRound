@@ -61,7 +61,7 @@
     "cn": "^0.2.6",
     "drizzle-orm": "1.0.0-rc.4",
     "feed": "^6.0.0",
-    "firecrawl": "^4.41.0",
+    "firecrawl": "^4.42.4",
     "geist": "^1.7.2",
     "lucide-react": "^1.47.0",
     "mcp-handler": "^2.2.0",

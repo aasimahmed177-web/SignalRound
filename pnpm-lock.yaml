@@ -7,6 +7,8 @@ settings:
 overrides:
   nanoid@>=4.0.0 <5.1.16: ^5.1.16
   undici@>=7.0.0 <7.29.0: ^7.29.0
+  devalue@>=5.0.0 <5.9.3: ^5.9.4
+  http-cache-semantics@<4.2.1: ^4.2.1
 
 importers:
 
@@ -52,8 +54,8 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       firecrawl:
-        specifier: ^4.41.0
-        version: 4.41.0
+        specifier: ^4.42.4
+        version: 4.42.4
       geist:
         specifier: ^1.7.2
         version: 1.7.2(next@16.3.6(@babel/core@7.29.7)(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
@@ -152,8 +154,8 @@ importers:
         specifier: 1.0.0-rc.4
         version: 1.0.0-rc.4(@electric-sql/pglite@0.5.8)(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0)(zod@4.6.5)
       firecrawl:
-        specifier: ^4.41.0
-        version: 4.41.0
+        specifier: ^4.42.4
+        version: 4.42.4
       pg:
         specifier: ^8.23.0
         version: 8.23.0
@@ -2773,8 +2775,8 @@ packages:
     resolution: {integrity: sha512-Xcz9l0z7y9yQ9rdDaxlmaI4uJHf/T8g9hOEzJcsEqX2SjCj4J20uK7+ldkDHMbpJDK76wF7xEIgxc/vSlsfw5w==}
     engines: {node: '>=10.12.0'}
 
-  axios@1.18.0:
-    resolution: {integrity: sha512-E32NzpYKp++W7XRe52rHiXV2ehxmh3wbdgO7MHeFM+vqxLBYHzt0ElkiImtOBxtOmyp0yoC8C6uESVV84Y2/hw==}
+  axios@1.20.0:
+    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
   b4a@1.9.0:
     resolution: {integrity: sha512-dpfcF9fDNR6++cthXR67iyhgqWy9CBouAvIWhIntzBG6cvK/cnIPiZQjBwi/ZqjjBEDGfoNDtmB0kTjroOJ3pQ==}
@@ -3147,8 +3149,8 @@ packages:
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
 
-  devalue@5.9.2:
-    resolution: {integrity: sha512-po4PAY5c53tw5XMocSnf8A/5OHhbbUftpr93aEN6BBoAdntUmK7vu7wOATqvt7cXO7m1Cl4gMVn6p7n6n4mj0w==}
+  devalue@5.9.4:
+    resolution: {integrity: sha512-sPAT4pztbu6586/hrhOnMKS17IJrvg12mXiSPSS3W5qDeN2RGgvZ0diZCm31dBbnevfVmujNO3IM2wrS4Y2Rhg==}
 
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
@@ -3547,8 +3549,8 @@ packages:
     resolution: {integrity: sha512-2kCCtc+JvcZ86IGAz3Z2Y0A1baIz9fL31pH/0S1IqZr9Iwnjq8izfPtrCyQKO6TLMPELLsQMre7VDqeIKCsHkA==}
     engines: {node: '>=18'}
 
-  firecrawl@4.41.0:
-    resolution: {integrity: sha512-ZaW/SyDJW0kRcUR/C6hsOFPNRIZ/EniystWEgQ9ZO9TkYYgffc7er6WLNUCQR3jDZq9EdE56wPPJEspnWR58fw==}
+  firecrawl@4.42.4:
+    resolution: {integrity: sha512-J7b0GoVhh+0tuWm5tdcnB+5cXqE299+pT7yOPLHNBAoLJZ8l38mrpLpPiHhSaWqkFOsph00xkAUxTSTYXswM5g==}
     engines: {node: '>=22.0.0'}
 
   follow-redirects@1.16.0:
@@ -3689,8 +3691,8 @@ packages:
     resolution: {integrity: sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==}
     engines: {node: '>=16.9.0'}
 
-  http-cache-semantics@4.2.0:
-    resolution: {integrity: sha512-dTxcvPXqPvXBQpq5dUr6mEMJX4oIEFv6bwom3FDwKRDsuIjjJGANqhBuoAn9c1RQJIdAKav33ED65E2ys+87QQ==}
+  http-cache-semantics@4.3.0:
+    resolution: {integrity: sha512-M5t5LlJpS1UHMjvwRQVdFHvPISGeLAxNcrWuJkeGh0KxsqCHZ1O3NXZU/8x7cD0BDcGW8kapxMKTvwlqrNkHkA==}
 
   http-errors@2.0.1:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
@@ -7462,7 +7464,7 @@ snapshots:
       '@workflow/world-local': 4.4.1
       '@workflow/world-vercel': 4.7.4
       debug: 4.4.3(supports-color@8.1.1)
-      devalue: 5.9.2
+      devalue: 5.9.4
       ms: 2.1.3
       nanoid: 5.1.16
       seedrandom: 3.0.5
@@ -7799,7 +7801,7 @@ snapshots:
 
   atomically@1.7.0: {}
 
-  axios@1.18.0:
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
@@ -7920,7 +7922,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.2.0
       get-stream: 9.0.1
-      http-cache-semantics: 4.2.0
+      http-cache-semantics: 4.3.0
       keyv: 5.6.0
       mimic-response: 4.0.0
       normalize-url: 8.1.1
@@ -8130,7 +8132,7 @@ snapshots:
 
   detect-node-es@1.1.0: {}
 
-  devalue@5.9.2: {}
+  devalue@5.9.4: {}
 
   diff@8.0.4: {}
 
@@ -8495,9 +8497,9 @@ snapshots:
       semver-regex: 4.0.5
       super-regex: 1.1.0
 
-  firecrawl@4.41.0:
+  firecrawl@4.42.4:
     dependencies:
-      axios: 1.18.0
+      axios: 1.20.0
       typescript-event-target: 1.1.2
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
@@ -8624,7 +8626,7 @@ snapshots:
 
   hono@4.13.8: {}
 
-  http-cache-semantics@4.2.0: {}
+  http-cache-semantics@4.3.0: {}
 
   http-errors@2.0.1:
     dependencies:
