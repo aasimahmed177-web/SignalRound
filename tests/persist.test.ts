@@ -12,6 +12,7 @@ import {
   isSameRound,
   listRounds,
   listSectors,
+  mergeCompanies,
   mergeDuplicateRounds,
   persistRecords,
   reportRound,
@@ -93,6 +94,7 @@ describe("persistRecords", () => {
       certainty: "announced",
       amount: { ...report.amount, value: 50, usd_millions: 50, as_written: "$50M" },
       valuation_as_written: "$1 billion",
+      evidence_quotes: ["Modal Labs raised $50M at a $1 billion valuation."],
     });
     await persistRecords(db, [different], "series-c-plus", "different");
     expect((await db.select().from(schema.fundingRounds)).length).toBe(2);
@@ -117,6 +119,62 @@ describe("persistRecords", () => {
     expect((after.verification as { notes: string[] }).notes).toContain("Reported before its announcement on 2026-09-01");
     expect(after.evidenceQuotes).toEqual(expect.arrayContaining(report.evidence_quotes));
     expect((await db.select().from(schema.fundingRounds)).length).toBe(2);
+  });
+
+  test("a newsletter's closing does not lift a scoop that the round is still being raised", async () => {
+    const db = await testDb();
+    const scoop = record({
+      company_name: "Modal Labs",
+      company_domain: "modal.com",
+      stage: "growth",
+      stage_as_written: "Growth",
+      announced_date: "2026-09-28",
+      certainty: "expected",
+      amount: { value: 750, currency: "USD", as_written: "$750 million", usd_millions: 750, fx_rate: 1, fx_date: "2026-09-28" },
+      evidence_quotes: ["Modal Labs is nearing a $750 million funding round led by Accel at a $15.75 billion valuation."],
+      sources: [{ url: "https://techcrunch.com/modal-closing-in", host: "techcrunch.com", title: "Modal Labs closing in on $750M round" }],
+    });
+    await persistRecords(db, [scoop], "series-c-plus", "scoop");
+    const roundup = record({
+      ...scoop,
+      certainty: "announced",
+      evidence_quotes: ["Modal Labs raised $750M in a funding round at a $15.75B valuation led by Accel"],
+      sources: [{ url: "https://scouts.yutori.com/funding", host: "scouts.yutori.com", title: "AI Startup Funding Announcements" }],
+    });
+    await persistRecords(db, [roundup], "series-c-plus", "roundup");
+    const [row] = await db.select().from(schema.fundingRounds);
+    expect(row.certainty).toBe("expected");
+  });
+
+  test("a low-tier closing does not stand against an established outlet's report that the round is still being raised", async () => {
+    const db = await testDb();
+    const round = record({
+      company_name: "FieldAI",
+      company_domain: "fieldai.com",
+      stage: "series_c",
+      stage_as_written: "Series C",
+      announced_date: "2026-10-02",
+      certainty: "announced",
+      amount: { value: 700, currency: "USD", as_written: "$700M", usd_millions: 700, fx_rate: 1, fx_date: "2026-10-02" },
+      evidence_quotes: ["FieldAI closed a $700 million round at a $10 billion valuation."],
+      sources: [
+        {
+          url: "https://aiweekly.co/fieldai",
+          host: "aiweekly.co",
+          title: "FieldAI Lands $700M",
+          evidence: "FieldAI closed a $700 million round at a $10 billion valuation.",
+        },
+        {
+          url: "https://siliconangle.com/fieldai",
+          host: "siliconangle.com",
+          title: "FieldAI reportedly raising $700M",
+          evidence: "FieldAI Inc. is reportedly seeking $700 million in funding.",
+        },
+      ],
+    });
+    await persistRecords(db, [round], "series-c-plus", "fieldai");
+    const [row] = await db.select().from(schema.fundingRounds);
+    expect(row.certainty).toBe("expected");
   });
 
   test("a later accepted Blue Origin closing upgrades its earlier seeking report without a second row", async () => {
@@ -150,8 +208,8 @@ describe("persistRecords", () => {
       evidence_quotes: ["Blue Origin raises $10 billion in its first outside financing round."],
       sources: [
         {
-          url: "https://finance.yahoo.com/news/blue-origin-raises-10-billion",
-          host: "finance.yahoo.com",
+          url: "https://www.reuters.com/business/blue-origin-raises-10-billion",
+          host: "reuters.com",
           title: "Blue Origin raises $10 billion in first outside funding",
         },
       ],
@@ -1687,5 +1745,21 @@ describe("a stale namesake hold", () => {
     );
     const [row] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, r.id));
     expect(row.disposition).toBe("review");
+  });
+});
+
+describe("folding one company into another", () => {
+  test("carries its newsrooms and visitor requests, so the fold is not refused", async () => {
+    const db = await testDb();
+    await db.insert(schema.companies).values([
+      { id: "acme-old", name: "Acme", nameKey: "acme" },
+      { id: "acme.com", name: "Acme", nameKey: "acme", domain: "acme.com" },
+    ]);
+    await db.insert(schema.companyNewsrooms).values({ companyId: "acme-old", url: "https://acme.com/blog", discoveredAt: new Date() });
+    await db.insert(schema.companyNewsroomScans).values({ companyId: "acme-old", discoveredAt: new Date() });
+    await mergeCompanies(db, "acme-old", "acme.com");
+    expect(await db.select().from(schema.companies)).toHaveLength(1);
+    expect((await db.select().from(schema.companyNewsrooms)).map((n) => n.companyId)).toEqual(["acme.com"]);
+    expect((await db.select().from(schema.companyNewsroomScans)).map((n) => n.companyId)).toEqual(["acme.com"]);
   });
 });

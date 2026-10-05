@@ -2,6 +2,7 @@
 
 import type { AlexandriaEnrichment, ApolloEnrichment, FeedRecord, RoundCertainty, Stage, StoredRound } from "@fireround/core";
 import {
+  assertedRoundCertainty,
   canonicalUrl,
   DATE_PRECISION_RANK,
   DEFAULT_TIERS,
@@ -154,6 +155,16 @@ async function foldCompany(handle: Db, fromId: string, intoId: string): Promise<
     sql`insert into history_promotions (company_id, prior_key, prior, status, attempts, next_attempt_at, claimed_by, round_id, source_url, outcome, credits, last_error, created_at, updated_at) select ${intoId}, prior_key, prior, status, attempts, next_attempt_at, claimed_by, round_id, source_url, outcome, credits, last_error, created_at, updated_at from history_promotions where company_id = ${fromId} on conflict do nothing`,
   );
   await handle.delete(schema.historyPromotions).where(eq(schema.historyPromotions.companyId, fromId));
+  // Its newsrooms, their scan marker and any visitor request follow it too, or the delete below is refused.
+  await handle.execute(
+    sql`insert into company_newsrooms (company_id, url, monitor_id, discovered_at, checked_at) select ${intoId}, url, monitor_id, discovered_at, checked_at from company_newsrooms where company_id = ${fromId} on conflict do nothing`,
+  );
+  await handle.delete(schema.companyNewsrooms).where(eq(schema.companyNewsrooms.companyId, fromId));
+  await handle.execute(
+    sql`insert into company_newsroom_scans (company_id, discovered_at) select ${intoId}, discovered_at from company_newsroom_scans where company_id = ${fromId} on conflict do nothing`,
+  );
+  await handle.delete(schema.companyNewsroomScans).where(eq(schema.companyNewsroomScans.companyId, fromId));
+  await handle.update(schema.companyRequests).set({ companyId: intoId }).where(eq(schema.companyRequests.companyId, fromId));
   // The domain is unique, so the row that goes is deleted before the survivor takes its domain.
   await handle.delete(companies).where(eq(companies.id, fromId));
   await handle
@@ -923,12 +934,40 @@ export async function persistRecords(
     await rememberNameKey(handle, companyId, r.company_key, r.company_name, r.sources[0]?.url ?? null);
 
     const prev = existingById.get(r.id);
+    // A closing lifts a reported or expected round only when a page that would make a round visible
+    // states it: a newsletter's "raised" does not outrank a scoop's "nearing" (Modal Labs, 2026-09-28).
+    const certaintyRank: Record<RoundCertainty, number> = { unconfirmed: 0, expected: 1, reported: 2, announced: 3 };
+    const sourceCertainty = [
+      ...r.sources.map((s) => ({
+        source: s,
+        certainty: assertedRoundCertainty(s.evidence ?? (r.sources.length === 1 ? r.evidence_quotes.join(" ") : null)),
+      })),
+      ...(prev?.sourceIds ?? [])
+        .filter((url) => !r.sources.some((s) => canonicalUrl(s.url) === url))
+        .map((url) => {
+          const evidence = excerpts.get(`${r.id}:${url}`) ?? null;
+          return { source: { url, title: titles.get(url) ?? undefined, evidence }, certainty: assertedRoundCertainty(evidence) };
+        }),
+    ];
+    // A page that would make a round visible on its own and says it is still being raised or only reported.
+    const doubtedBy = sourceCertainty
+      .filter(
+        (s) => (s.certainty === "expected" || s.certainty === "reported") && visibilityEvidence([s.source], r.company_domain, [], tiers),
+      )
+      .map((s) => s.certainty as "expected" | "reported")
+      .sort((a, b) => certaintyRank[b] - certaintyRank[a])[0];
+    const closes = visibilityEvidence(
+      sourceCertainty.filter((s) => s.certainty === "announced").map((s) => s.source),
+      r.company_domain,
+      [],
+      tiers,
+    );
+    if (prev && prev.certainty !== "announced" && (r.certainty ?? "announced") === "announced" && !closes) r.certainty = prev.certainty;
     if (prev) r.evidence_quotes = [...new Set([...prev.evidence, ...r.evidence_quotes])];
     const upgrade = Boolean(
       prev && prev.certainty !== "announced" && r.certainty === "announced" && matchingCertainty(prev, r, recordIdentity(r)),
     );
     const reportedOn = prev?.reportedOn ?? (r.certainty !== "announced" ? (r.announced_date ?? now.toISOString().slice(0, 10)) : null);
-    const certaintyRank: Record<RoundCertainty, number> = { unconfirmed: 0, expected: 1, reported: 2, announced: 3 };
     const arriving = r.certainty ?? prev?.certainty ?? "announced";
     r.certainty =
       prev?.certainty === "unconfirmed" && arriving !== "announced"
@@ -936,6 +975,8 @@ export async function persistRecords(
         : prev && certaintyRank[prev.certainty] > certaintyRank[arriving]
           ? prev.certainty
           : arriving;
+    // Nor does a low-tier "closed" stand against an established outlet's "reportedly raising" (FieldAI, 2026-10-02).
+    if (r.certainty === "announced" && !closes && doubtedBy) r.certainty = doubtedBy;
     if (upgrade && reportedOn) {
       const note = `Reported before its announcement on ${reportedOn}`;
       const verification = r.verification ?? { status: "unverified" as const, notes: [], url: null };
@@ -1180,6 +1221,8 @@ export async function persistRecords(
                   ? // A valuation taken off, a broken invariant, or secondhand sources move even a published row.
                     sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged', 'publish') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
                   : sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`,
+          // A reading that holds the row in review withdraws what it asked for at the publication gate.
+          ...(disposition === "review" ? { pendingDisposition: null } : {}),
         })
         .where(eq(fundingRounds.id, r.id));
       if (changed) {
@@ -2303,7 +2346,14 @@ export async function setDisposition(handle: Db, id: string, disposition: "publi
   const lifts = disposition === "publish" || disposition === "flagged";
   await handle
     .update(fundingRounds)
-    .set({ disposition, ...(lifts ? { hold: null } : {}), updatedAt: new Date() })
+    .set({
+      disposition,
+      // A person's placement is the audit: publishing passes the gate, any other choice withdraws the request.
+      ...(lifts
+        ? { hold: null, audit: { status: "human" as const, at: new Date().toISOString() }, auditFacts: null }
+        : { pendingDisposition: null }),
+      updatedAt: new Date(),
+    })
     .where(eq(fundingRounds.id, id));
 }
 
@@ -2318,7 +2368,10 @@ export async function reportRound(handle: Db, id: string, reason: string): Promi
   if (!row) return;
   const current = (row.verification as RoundRow["verification"]) ?? { status: "unverified", notes: [], url: null };
   const verification = { ...current, notes: [...current.notes, `reported: ${reason.trim()}`] };
-  await handle.update(fundingRounds).set({ disposition: "review", verification, updatedAt: new Date() }).where(eq(fundingRounds.id, id));
+  await handle
+    .update(fundingRounds)
+    .set({ disposition: "review", pendingDisposition: null, verification, updatedAt: new Date() })
+    .where(eq(fundingRounds.id, id));
 }
 
 /** Distinct sectors seen on visible records, for the filter menu. */
