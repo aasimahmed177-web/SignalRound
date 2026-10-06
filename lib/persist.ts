@@ -171,6 +171,13 @@ async function foldCompany(handle: Db, fromId: string, intoId: string): Promise<
   );
   await handle.delete(schema.companyNewsroomScans).where(eq(schema.companyNewsroomScans.companyId, fromId));
   await handle.update(schema.companyRequests).set({ companyId: intoId }).where(eq(schema.companyRequests.companyId, fromId));
+  // The old id stays reachable: its page, and the pages of ids folded into it before, redirect to the survivor.
+  await handle.update(schema.companyFolds).set({ intoId }).where(eq(schema.companyFolds.intoId, fromId));
+  await handle
+    .insert(schema.companyFolds)
+    .values({ fromId, intoId })
+    .onConflictDoUpdate({ target: schema.companyFolds.fromId, set: { intoId, foldedAt: new Date() } });
+  await handle.delete(schema.companyFolds).where(eq(schema.companyFolds.fromId, intoId));
   // The domain is unique, so the row that goes is deleted before the survivor takes its domain.
   await handle.delete(companies).where(eq(companies.id, fromId));
   await handle

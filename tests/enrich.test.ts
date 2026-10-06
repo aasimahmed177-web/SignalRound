@@ -7,10 +7,12 @@ import {
   CompanyProfile,
   describedAs,
   distinguishingWords,
+  type Enrichment,
   enrichCompanies,
   findWebsite,
   hasContext,
   identityPrompt,
+  looksParked,
   MAX_HOMEPAGE_SCRAPES,
   namesDifferentBusiness,
   websiteQuery,
@@ -19,7 +21,17 @@ import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
-import { clearProfile, clearUnverifiedProfiles, enrichBatch, isPending, isVerified, profileUnverified } from "../lib/enrich";
+import {
+  clearProfile,
+  clearUnverifiedProfiles,
+  enrichBatch,
+  isPending,
+  isVerified,
+  onOwnSite,
+  profileUnverified,
+  replaceProfile,
+  saveProfiles,
+} from "../lib/enrich";
 import { persistRecords } from "../lib/persist";
 import { record, testDb } from "./helpers";
 
@@ -909,5 +921,204 @@ describe("enrichBatch writes only verified rows", () => {
     const [again] = await db.select().from(schema.companies).where(eq(schema.companies.id, "ollie"));
     expect(again?.website).toBe("https://ollie.com");
     expect(again?.logoUrl).toBeNull();
+  });
+});
+
+// The audit's round-two cases: a parked page, a refused namesake read again after a clear, a profile
+// from one host on a row that shows another, and a repair that must not leave a gap for the lane.
+describe("namesake guards", () => {
+  const SIMPL = {
+    company_key: "simpl",
+    company_name: "Simpl",
+    company_website: "https://getsimpl.com",
+    company_description: "a cardless payment network with 1-tap checkout, buy now pay later and buyer protection",
+    headquarters: "Bengaluru, India",
+    sector: "payments",
+  };
+  /** What getsimpl.com served when a sweep verified it as Simpl: Namecheap's page for a fresh hosting account. */
+  const NAMECHEAP_PARKING: Page = {
+    json: {
+      same_company: true,
+      identity_reason: "A payment network for checkout and buy now pay later, as the record says.",
+      different_business: null,
+      what_they_sell: "Simpl offers a cardless payment network with 1-tap checkout and buy now pay later.",
+      customer_type: "consumer",
+      sells_software_subscription: false,
+    },
+    metadata: { title: "Namecheap Parking Page" },
+    markdown:
+      "Namecheap Parking Page\n\nHosting account was successfully created on the server\n\nNameservers have been set up properly\n\nDNS propagation is completed",
+    links: [
+      "https://www.namecheap.com/",
+      "https://www.namecheap.com/support/knowledgebase/subcategory.aspx/27/getting-started",
+      "http://getsimpl.com/cpanel",
+      "http://getsimpl.com/webmail",
+      "https://www.namecheap.com/support/",
+      "https://www.namecheap.com/status-updates/",
+      "https://www.namecheap.com/blog/",
+    ],
+  };
+
+  test("the Simpl case: a Namecheap parking page is parked, whatever the verdict echoes", async () => {
+    const { client } = fakeClient([], { "getsimpl.com": NAMECHEAP_PARKING });
+    const { enrichments } = await enrichCompanies(client, [SIMPL]);
+    expect(enrichments[0]).toMatchObject({
+      company_website: null,
+      website_source: "parked",
+      refused_hosts: ["getsimpl.com"],
+      profile: null,
+    });
+  });
+
+  test("parking markers: the registrar's title, its placeholder text, or its links; a registrar's own site is not parked", () => {
+    expect(looksParked([], "Namecheap Parking Page")).toBe(true);
+    expect(looksParked([], "getsimpl.com", "Hosting account was successfully created on the server")).toBe(true);
+    expect(looksParked([], "Example", "This domain is parked free, courtesy of GoDaddy.com.")).toBe(true);
+    expect(looksParked(NAMECHEAP_PARKING.links, "getsimpl.com", "", "https://getsimpl.com")).toBe(true);
+    // A company's site that credits its registrar in the footer is not parked.
+    const company = [
+      ...["pricing", "about", "blog", "careers", "docs", "login"].map((p) => `https://acme.com/${p}`),
+      "https://www.namecheap.com/",
+    ];
+    expect(looksParked(company, "Acme: invoicing for small businesses", "Acme builds invoicing software.", "https://acme.com")).toBe(false);
+    const registrar = ["https://www.namecheap.com/domains/", "https://www.namecheap.com/hosting/", "https://www.namecheap.com/about/"];
+    expect(looksParked(registrar, "Namecheap: buy a domain name", "Register domains.", "https://www.namecheap.com")).toBe(false);
+  });
+
+  const GEMBA = {
+    id: "jp-gemba.com",
+    name: "GEMBA Co., Ltd.",
+    website: "https://jp-gemba.com",
+    description:
+      "an app that digitizes improvement activities and issue management in manufacturing sites without relying on paper or Excel",
+    hq: "Kariya City, Aichi Prefecture",
+    sector: "hardware",
+  };
+  /** thegemba.com, a VR enterprise-training company, verified as GEMBA with the record's own sentence as its verdict. */
+  const VR_TRAINING: Page = {
+    json: {
+      same_company: true,
+      identity_reason: "An app that digitizes improvement activities and issue management in manufacturing sites.",
+      different_business: null,
+      what_they_sell: "An app that digitizes improvement activities and issue management in manufacturing sites without paper or Excel.",
+      customer_type: "B2B software",
+      sells_software_subscription: true,
+    },
+    branding: { brandName: "GEMBA", logo: "/vr-logo.png" },
+  };
+
+  test("the GEMBA case: a host the stored profile refused is never read again after a clear, and stays refused", async () => {
+    const db = await testDb();
+    await db.insert(schema.companies).values({
+      id: GEMBA.id,
+      name: GEMBA.name,
+      nameKey: "gemba",
+      domain: "jp-gemba.com",
+      website: GEMBA.website,
+      description: GEMBA.description,
+    });
+    await db.insert(schema.enrichments).values({
+      companyId: GEMBA.id,
+      kind: "profile",
+      data: { company_key: GEMBA.id, company_website: GEMBA.website, website_source: "record", refused_hosts: ["thegemba.com"] },
+    });
+    // The clear keeps a retry row with the refused host, so the lane takes the company and still refuses it.
+    expect(await clearProfile(db, GEMBA.id)).toEqual({ cleared: true });
+    const [retry] = await db.select().from(schema.enrichments).where(eq(schema.enrichments.companyId, GEMBA.id));
+    expect(retry?.data).toMatchObject({ retry: true, refused_hosts: ["thegemba.com"], profile: null });
+
+    const { client, calls } = fakeClient(["https://thegemba.com/"], {
+      "jp-gemba.com": new Error("Firecrawl could not extract the page"),
+      "thegemba.com": VR_TRAINING,
+    });
+    const r = await enrichBatch(db, client, [GEMBA], { pricingPage: false });
+    expect(calls.scrape).not.toContain("https://thegemba.com");
+    expect(r.enrichments[0]).toMatchObject({ refused_hosts: ["thegemba.com"], unreadable_hosts: ["jp-gemba.com"], profile: null });
+    const [company] = await db.select().from(schema.companies).where(eq(schema.companies.id, GEMBA.id));
+    expect(company?.logoUrl).toBeNull();
+  });
+
+  test("the Sol case: a homepage on another domain than the row's website writes no logo, brand, description, or domain", async () => {
+    const db = await testDb();
+    await db.insert(schema.companies).values([
+      { id: "sol", name: "Sol", nameKey: "sol", website: "https://hellosol.app", description: "an AI assistant for professional work" },
+      // A row that owns sol.com must not be folded in by the other host's domain either.
+      { id: "sol.com", name: "Sol", nameKey: "sol", domain: "sol.com", website: "https://sol.com" },
+    ]);
+    const read: Enrichment = {
+      company_key: "sol",
+      company_website: "https://sol.com",
+      website_source: "search",
+      identity_basis: "homepage",
+      context: ["description"],
+      refused_hosts: [],
+      unreadable_hosts: [],
+      logo_url: "https://sol.com/logo.png",
+      brand: { name: "Sol", logo: "https://sol.com/logo.png", primary_color: null },
+      profile: { ...ASSISTANT, what_they_sell: "Sol sells solar panels for homes." },
+      pricing_page_url: null,
+      pricing: null,
+    };
+    const r = await saveProfiles(db, { enrichments: [read], credits: 0 });
+    expect(r.resolved).toBe(0);
+    const rows = await db.select().from(schema.companies);
+    expect(rows).toHaveLength(2);
+    const sol = rows.find((c) => c.id === "sol");
+    expect(sol).toMatchObject({
+      website: "https://hellosol.app",
+      domain: null,
+      logoUrl: null,
+      description: "an AI assistant for professional work",
+    });
+    const [profile] = await db.select().from(schema.enrichments).where(eq(schema.enrichments.companyId, "sol"));
+    expect(profile?.data).toMatchObject({ company_website: "https://hellosol.app", profile: null, logo_url: null, brand: null });
+    expect((profile?.data as Enrichment | undefined)?.error).toContain("sol.com verified, but the company's website is hellosol.app");
+    // The same read on a row whose website is sol.com, or that has none, writes as before.
+    expect(onOwnSite(read, { website: "https://www.sol.com/", domain: null })).toBe(read);
+    expect(onOwnSite(read, { website: null, domain: null })).toBe(read);
+  });
+
+  test("replaceProfile clears and writes in one transaction: the row is never absent, and refused hosts carry over", async () => {
+    const db = await testDb();
+    await db.insert(schema.companies).values({
+      id: GEMBA.id,
+      name: GEMBA.name,
+      nameKey: "gemba",
+      domain: "thegemba.com",
+      website: "https://thegemba.com",
+      logoUrl: "https://thegemba.com/vr-logo.png",
+      description: GEMBA.description,
+    });
+    await db.insert(schema.enrichments).values([
+      { companyId: GEMBA.id, kind: "profile", data: { company_key: GEMBA.id, refused_hosts: ["gemba.example"] } },
+      { companyId: GEMBA.id, kind: "alexandria", data: { domain: "thegemba.com" } },
+    ]);
+    const row = await replaceProfile(db, GEMBA.id, {
+      website: "https://jp-gemba.com",
+      refuse: ["thegemba.com"],
+      unreadable: ["jp-gemba.com"],
+      note: "set by hand: Firecrawl cannot extract jp-gemba.com",
+    });
+    expect(row).toMatchObject({
+      company_website: "https://jp-gemba.com",
+      website_source: "record",
+      refused_hosts: ["gemba.example", "thegemba.com"],
+      unreadable_hosts: ["jp-gemba.com"],
+      profile: null,
+    });
+    const [company] = await db.select().from(schema.companies).where(eq(schema.companies.id, GEMBA.id));
+    expect(company).toMatchObject({
+      website: "https://jp-gemba.com",
+      domain: "jp-gemba.com",
+      logoUrl: null,
+      description: GEMBA.description,
+    });
+    const kinds = (await db.select().from(schema.enrichments).where(eq(schema.enrichments.companyId, GEMBA.id))).map((e) => e.kind);
+    expect(kinds).toEqual(["profile"]);
+    // A domain another row owns is refused, and nothing changes.
+    await db.insert(schema.companies).values({ id: "other", name: "Other", nameKey: "other", domain: "other.com" });
+    await expect(replaceProfile(db, GEMBA.id, { website: "https://other.com", note: "x" })).rejects.toThrow("belongs to company other");
+    const [still] = await db.select().from(schema.companies).where(eq(schema.companies.id, GEMBA.id));
+    expect(still?.domain).toBe("jp-gemba.com");
   });
 });

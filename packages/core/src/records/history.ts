@@ -5,7 +5,7 @@
 // results to read first, the window a page is resolved in, and whether a round the page reports
 // is the prior round the dossier named. lib/history.ts runs them against the store and Firecrawl.
 
-import { searchName } from "../firecrawl/enrich.ts";
+import { businessWords, hostCovered, searchName, sharesBusinessWords } from "../firecrawl/enrich.ts";
 import type { PageVerdict } from "../llm/jev.ts";
 import {
   canonicalUrl,
@@ -44,6 +44,21 @@ export interface HistoryCompany {
   aliasKeys?: string[];
   /** Other sites the company publishes on, as its homepage links them (a blog on another domain). */
   sites?: string[];
+  /** What the record says the company does, for the tie below. */
+  description?: string | null;
+  /** The press sentence that best describes the company, from its own feed rounds. */
+  evidence?: string | null;
+  /** Hosts the company's homepage check refused as a namesake's (its profile's refused_hosts). */
+  refusedHosts?: string[];
+  sector?: string | null;
+  headquarters?: string | null;
+}
+
+/** The city a headquarters names first, lowercased: "New York, NY" and "New York City" are one place. */
+function sameCity(a: string | null | undefined, b: string | null | undefined): boolean {
+  const city = (x: string | null | undefined) => (x ?? "").split(",")[0].trim().toLowerCase();
+  const [x, y] = [city(a), city(b)];
+  return x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x));
 }
 
 const DAY = 86_400_000;
@@ -281,7 +296,7 @@ const AMOUNT_DISAGREE = 0.25;
 
 export type PriorMatch =
   | { ok: true; score: number; evidence: string[] }
-  | { ok: false; reason: "company" | "stage" | "amount" | "date" | "undated" | "weak" };
+  | { ok: false; reason: "company" | "namesake" | "untied" | "stage" | "amount" | "date" | "undated" | "weak" };
 
 /**
  * Whether the record's company is the dossier's company: a key, an alias key, the domain, or every
@@ -300,6 +315,52 @@ export function sameHistoryCompany(
   if (keys.has(record.company_key)) return true;
   if (site === "own") return true;
   return namesCompany(record.company_name, company.name, { share: 1 }) || namesCompany(company.name, record.company_name, { share: 1 });
+}
+
+/**
+ * Whether the page's round is tied to this company and not only to its name. A name search finds a
+ * namesake's rounds as readily as the company's own: Primer (primer.io, payment orchestration) took
+ * Primer Technologies' $69M Series D (primer.ai, AI data analysis for defense), and Hadrian
+ * (hadrian.io, offensive security) took four of Hadrian Automation's manufacturing rounds, $1.37B
+ * among them, from hadrian.co, a host its own homepage check had already refused. A round is tied
+ * when its page is on the company's own site, when the page gives the company's own domain, or when
+ * the page's words about the company (its description, the round's sentences, the headline) share the
+ * record's line of business, or the page places it in the record's sector or city. It is never tied when the page, the company it names, or the page a
+ * lead pointed to sits on a host the company's homepage check refused. A record with no description
+ * has no line of business to hold a page to, and its name alone ties it, as before.
+ */
+export function historySourceTie(
+  prior: Pick<PriorRound, "source_url">,
+  record: Pick<
+    FeedRecord,
+    "company_domain" | "company_website" | "company_description" | "evidence_quotes" | "sources" | "sector" | "headquarters"
+  >,
+  company: HistoryCompany,
+): { ok: true; tie: "own_site" | "domain" | "business" | "unchecked" } | { ok: false; reason: "namesake" | "untied" } {
+  const refused = (company.refusedHosts ?? []).filter((h) => !company.domain || !hostCovered(company.domain, [h]));
+  const subjects = [record.company_domain, record.company_website, prior.source_url, ...record.sources.map((s) => s.url)];
+  if (subjects.some((u) => hostCovered(u, refused))) return { ok: false, reason: "namesake" };
+  if (record.sources.some((s) => companySite(s.url, company) === "own")) return { ok: true, tie: "own_site" };
+  const named = registrableDomain(record.company_domain ?? record.company_website);
+  if (company.domain && named && (named === company.domain || (company.sites ?? []).includes(named))) return { ok: true, tie: "domain" };
+  const description = company.description?.trim() || null;
+  if (!description) return { ok: true, tie: "unchecked" };
+  const text = [record.company_description, ...record.evidence_quotes, ...record.sources.map((s) => s.title)].filter(Boolean).join(" ");
+  if (company.domain && text.toLowerCase().includes(company.domain)) return { ok: true, tie: "domain" };
+  const context = { company_name: company.name, headquarters: null, sector: null, headline: null };
+  // The press sentence that describes the company is a second statement of its business; a round
+  // sentence ("raised $5M led by Y") names only investors, so it can tie a page but never refuse one.
+  const evidence = company.evidence?.trim() || null;
+  // Only a sentence that names a business can vouch: "Primer raised $50 million in a Series B" names none.
+  const quoted = { ...context, company_description: null, evidence };
+  const shares =
+    sharesBusinessWords(text, { ...context, company_description: description, evidence: null }) ||
+    (evidence !== null && businessWords(quoted).length > 0 && sharesBusinessWords(text, quoted)) ||
+    // The page's own reading of the company in the record's sector, or in its city, is the same
+    // business told in other words (Slingshot's "mental health chatbot" for "a foundation model for psychology").
+    (Boolean(record.sector) && record.sector !== "other" && record.sector === company.sector) ||
+    sameCity(record.headquarters, company.headquarters);
+  return shares ? { ok: true, tie: "business" } : { ok: false, reason: "untied" };
 }
 
 /** Whether a lead the dossier names is among the investors the page names for the round. */
@@ -321,7 +382,8 @@ function leadAgrees(prior: PriorRound, record: Pick<FeedRecord, "lead_investors"
 const DATE_SLACK_STRONG_DAYS = 400;
 
 /**
- * Whether a round a page reports is the dossier's prior round. The company first; then a day (a page
+ * Whether a round a page reports is the dossier's prior round. The company first, and the page tied to
+ * it rather than to a namesake (historySourceTie); then a day (a page
  * that dates nothing cannot place the round, and its row would only wait in review while the ledger
  * called the round done, so the next page is read instead); then no
  * contradiction (two amounts in one currency more than a quarter apart, a day outside the dossier's
@@ -336,6 +398,8 @@ const DATE_SLACK_STRONG_DAYS = 400;
  */
 export function matchPriorRound(prior: PriorRound, record: FeedRecord, company: HistoryCompany): PriorMatch {
   if (!sameHistoryCompany(company, record)) return { ok: false, reason: "company" };
+  const tie = historySourceTie(prior, record, company);
+  if (!tie.ok) return tie;
   if (record.stage === "debt" || record.stage === "grant" || record.stage === "secondary") return { ok: false, reason: "stage" };
   if (!record.announced_date) return { ok: false, reason: "undated" };
   const evidence: string[] = [];

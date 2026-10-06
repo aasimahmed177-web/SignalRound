@@ -12,7 +12,14 @@ import type { Document, Firecrawl, SearchResultWeb } from "firecrawl";
 import { z } from "zod";
 import { mapLimit } from "../firecrawl/credits.ts";
 import type { CompanyDossier } from "../firecrawl/deepdive.ts";
-import { hostMatchesCompany, searchName } from "../firecrawl/enrich.ts";
+import {
+  businessWords,
+  describingQuote,
+  distinguishingWords,
+  hostMatchesCompany,
+  searchName,
+  sharesBusinessWords,
+} from "../firecrawl/enrich.ts";
 import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
 import type { ReconcileModel } from "./model.ts";
 
@@ -716,6 +723,51 @@ export function applyDossierVerdict(
   };
 }
 
+/** Distinguishing words a description needs before a one-liner's wording is held to it. */
+const ONE_LINER_DESCRIPTION_WORDS = 4;
+
+/**
+ * Why the dossier's one-liner may not stand as the company's description, or null when it may. A
+ * one-liner read from the company's own site, our record, or provider facts stands. One read from any
+ * other page is held to the check a homepage gets: the page must name the company or carry its
+ * domain, and the sentence must share the record's line of business. Silicon Mobility's dossier
+ * researched SiliconFlow, an AI-inference company: its one-liner, "SiliconFlow provides developers and
+ * enterprises with AI infrastructure", came from siliconflow.cn/about, a page that never says Silicon
+ * Mobility, and it stood as the description of an EV semiconductor company. The line of business is
+ * compared only against a description with ONE_LINER_DESCRIPTION_WORDS words to compare: a one-liner
+ * says what the company does in its own words, and against a short description ("a medical technology
+ * company") it rarely shares one. Of the checked one-liners read off-site, about one in eight failed
+ * against any description, nearly all of them the right company's; against four words or more, one in 25.
+ */
+export function oneLinerFault(
+  oneLiner: string,
+  citedUrl: string | undefined,
+  pages: Array<Pick<EvidencePage, "url" | "title" | "markdown">>,
+  ctx: Pick<DossierContext, "company" | "rounds">,
+): string | null {
+  const c = ctx.company;
+  const page = citedUrl ? pages.find((p) => p.url === citedUrl) : undefined;
+  if (!page || isCompanySite(page.url, c)) return null;
+  const raw = `${page.title ?? ""} ${page.markdown}`;
+  const name = normalizeForQuote(searchName(c.name, c.domain));
+  const named = name.length > 0 && ` ${normalizeForQuote(visibleMarkdown(raw))} `.includes(` ${name} `);
+  const domain = c.domain ? raw.toLowerCase().includes(c.domain.toLowerCase()) : false;
+  if (!named && !domain) return `its page (${hostOf(page.url)}) names neither ${c.name} nor ${c.domain ?? "its domain"}`;
+  const context = { company_name: c.name, headquarters: null, sector: null, headline: null };
+  const described = { ...context, company_description: c.description, evidence: null };
+  if (!c.description?.trim() || distinguishingWords(described).length < ONE_LINER_DESCRIPTION_WORDS) return null;
+  // Our rounds' press sentence is a second statement of the business: it can vouch for the one-liner, never refuse it alone.
+  const evidence = describingQuote(
+    c.name,
+    ctx.rounds.flatMap((r) => r.evidence),
+  );
+  const quoted = { ...context, company_description: null, evidence };
+  const shares =
+    sharesBusinessWords(oneLiner, described) ||
+    (evidence !== null && businessWords(quoted).length > 0 && sharesBusinessWords(oneLiner, quoted));
+  return shares ? null : "it does not share the record's line of business";
+}
+
 export type ReadDossierPages = (urls: string[]) => Promise<Array<{ url: string; title?: string; markdown: string }>>;
 export type SearchDossier = (query: string, limit: number) => Promise<Array<{ url: string; title?: string; markdown: string }>>;
 
@@ -833,6 +885,22 @@ export async function verifyDossier(
     // A claim the second pass skipped is not confirmed.
     for (const id of applied.needsRecheck) if (!answers.has(id)) answers.set(id, { id, verdict: "unsupported", source: null, quote: null });
     applied = applyDossierVerdict(d, verdict, ctx, evidence, answers);
+  }
+  const fault = applied.dossier.one_liner ? oneLinerFault(applied.dossier.one_liner, applied.citations.one_liner, pages, ctx) : null;
+  if (fault) {
+    // Only the description goes; the other claims stand or fall on their own evidence.
+    const { one_liner: _, ...citations } = applied.citations;
+    applied = {
+      ...applied,
+      dossier: {
+        ...applied.dossier,
+        one_liner: "",
+        sources: [...new Set(Object.values(citations))].filter((u) => /^https?:\/\//i.test(u)),
+      },
+      citations,
+      dropped: [...applied.dropped, { field: "one_liner", item: applied.dossier.one_liner, reason: fault }],
+      kept: applied.kept - 1,
+    };
   }
   return {
     status: "verified",

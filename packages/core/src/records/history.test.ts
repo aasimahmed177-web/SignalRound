@@ -415,3 +415,184 @@ describe("tldraw: sibling sites, a seed extension, and app pages", () => {
     ).toHaveLength(1);
   });
 });
+
+// The audit's real cases: name searches promoted a namesake's rounds onto Primer (primer.io) and
+// Hadrian (hadrian.io). The quotes, titles, and URLs are the pages the history lane read.
+describe("a history round's page must tie it to the company, not to a namesake", () => {
+  const primer: HistoryCompany = {
+    name: "Primer",
+    nameKey: "primer",
+    domain: "primer.io",
+    description: "a payment orchestration infrastructure provider",
+    sector: "fintech",
+    headquarters: "London",
+  };
+  const hadrian: HistoryCompany = {
+    name: "Hadrian",
+    nameKey: "hadrian",
+    domain: "hadrian.io",
+    description: "a world-class autonomous offensive security company",
+    evidence: "Hadrian, an Amsterdam, Netherlands-based provider of an agentic AI offensive security platform, raised $40M in funding.",
+    sector: "cybersecurity",
+    headquarters: "London and Amsterdam",
+    // Its own homepage check had already refused Hadrian Automation's site.
+    refusedHosts: ["hadrian.co"],
+  };
+  const usd = (value: number, as_written: string) => ({
+    value,
+    currency: "USD",
+    as_written,
+    usd_millions: value,
+    fx_rate: 1,
+    fx_date: null,
+  });
+
+  test("Primer Technologies' $69M Series D is not Primer's: no domain, no shared business, another sector", () => {
+    const lead = prior({
+      stage_as_written: "Series D round",
+      amount_as_written: "$69M",
+      announced_date: null,
+      lead_investors: [],
+      source_url: "https://primer.ai/news/primer-announces-69m-in-funding-to-accelerate-ai-enabled-information-advantage",
+    });
+    const page = rec({
+      company_key: "primer",
+      company_name: "Primer",
+      company_description: "an AI/ML technology firm specializing in AI-powered data analysis",
+      stage: "series_d_plus",
+      stage_as_written: "Series D",
+      amount: usd(69, "$69M"),
+      announced_date: "2023-06-14",
+      lead_investors: [],
+      sector: "ai",
+      evidence_quotes: [
+        "Primer Technologies, an AI/ML technology firm specializing in AI-powered data analysis, today announced a Series D round with a first close of $69M to accelerate the delivery of trusted AI solutions for the U.S. Government and Commercial customers.",
+      ],
+      sources: [
+        {
+          url: "https://www.prnewswire.com/news-releases/primer-announces-69m-in-funding-to-accelerate-ai-enabled-information-advantage-301850176.html",
+          host: "prnewswire.com",
+          title: "Primer Announces $69M in Funding to Accelerate AI-Enabled Information Advantage",
+        },
+      ],
+    });
+    expect(matchPriorRound(lead, page, primer)).toEqual({ ok: false, reason: "untied" });
+    // The same page giving primer.ai as the company's site is refused the same way, by the domain check.
+    expect(matchPriorRound(lead, { ...page, company_domain: "primer.ai" }, primer).ok).toBe(false);
+  });
+
+  test("Primer's own Series B ties by its line of business: payment flows", () => {
+    const lead = prior({ stage_as_written: "Series B", amount_as_written: "$50M", announced_date: null, lead_investors: [] });
+    const page = rec({
+      company_key: "primer",
+      company_name: "Primer",
+      stage: "series_b",
+      stage_as_written: "Series B",
+      amount: usd(50, "$50M"),
+      announced_date: "2021-10-18",
+      lead_investors: [],
+      evidence_quotes: ["Primer has raised $50 million in a Series B round."],
+      sources: [
+        {
+          url: "https://techcrunch.com/2021/10/18/primer-raises-50m-at-a-425m-valuation-for-a-framework-designed-to-help-merchants-build-more-powerful-payment-flows/",
+          host: "techcrunch.com",
+          title: "Primer raises $50M at a $425M valuation for a framework designed to help merchants build more powerful payment flows",
+        },
+      ],
+    });
+    expect(matchPriorRound(lead, page, primer).ok).toBe(true);
+  });
+
+  test("Hadrian Automation's $260M is refused outright: the lead named hadrian.co, a host Hadrian's check refused", () => {
+    const lead = prior({
+      stage_as_written: "Funding round",
+      amount_as_written: "$260M",
+      announced_date: null,
+      lead_investors: [],
+      source_url: "https://www.hadrian.co/press",
+    });
+    const page = rec({
+      company_key: "hadrian",
+      company_name: "Hadrian",
+      stage: "series_c",
+      stage_as_written: "Series C",
+      amount: usd(260, "$260 million"),
+      announced_date: "2025-07-17",
+      lead_investors: ["Founders Fund"],
+      // Even a sentence that happened to share a word would not save it.
+      evidence_quotes: ["Defense tech startup Hadrian has raised a $260 million Series C funding round led by Founders Fund."],
+      sources: [
+        {
+          url: "https://www.prnewswire.com/news-releases/hadrian-raises-260m-to-build-ai-powered-factories-for-america-adds-full-product-manufacturing-opens-arizona-site-302508179.html",
+          host: "prnewswire.com",
+          title: "Hadrian Raises $260M to Build AI-Powered Factories for America",
+        },
+      ],
+    });
+    expect(matchPriorRound(lead, page, hadrian)).toEqual({ ok: false, reason: "namesake" });
+  });
+
+  test("Hadrian Automation's $1.37B from a trade article shares nothing with offensive security, Amsterdam, or London", () => {
+    const url = "https://www.manufacturingdive.com/news/hadrian-automation-1-4b-funding-manufacturing-workforce-growth/827136/";
+    const lead = prior({
+      stage_as_written: "Funding round",
+      amount_as_written: "$1.4B",
+      announced_date: null,
+      lead_investors: [],
+      source_url: url,
+    });
+    const page = rec({
+      company_key: "hadrian",
+      company_name: "Hadrian",
+      company_description: "the advanced manufacturing company building highly automated factories for America",
+      stage: "series_d_plus",
+      stage_as_written: "Series D",
+      amount: usd(1370, "$1.37 billion"),
+      announced_date: "2026-08-06",
+      lead_investors: [],
+      sector: "manufacturing",
+      headquarters: "Los Angeles",
+      evidence_quotes: [
+        "Hadrian, the advanced manufacturing company building highly automated factories for America, today announced $1.37 billion in new equity financing.",
+      ],
+      sources: [{ url, host: "manufacturingdive.com", title: "Hadrian raises $1.4B to grow its manufacturing workforce" }],
+    });
+    expect(matchPriorRound(lead, page, hadrian)).toEqual({ ok: false, reason: "untied" });
+  });
+
+  test("Hadrian's own pre-seed ties by its business; a page on its own site ties whatever it says", () => {
+    const lead = prior({ stage_as_written: "pre-seed funding", amount_as_written: "€2.5m", announced_date: null, lead_investors: [] });
+    const page = rec({
+      company_key: "hadrian",
+      company_name: "Hadrian",
+      stage: "pre_seed",
+      stage_as_written: "pre-seed",
+      amount: { value: 2.5, currency: "EUR", as_written: "€2.5 million", usd_millions: 2.9, fx_rate: 1.17, fx_date: null },
+      announced_date: "2021-11-22",
+      lead_investors: [],
+      evidence_quotes: [
+        "Hadrian has announced a €2.5 million (approximately £2 million) pre-seed round to build a fully autonomous offensive security solution.",
+      ],
+      sources: [
+        {
+          url: "https://starthub.london.edu/hadrian-raises-e2-5m-pre-seed-funding/",
+          host: "starthub.london.edu",
+          title: "Hadrian raises €2.5M",
+        },
+      ],
+    });
+    expect(matchPriorRound(lead, page, hadrian).ok).toBe(true);
+    const own = {
+      ...page,
+      evidence_quotes: ["Hadrian raised €2.5M."],
+      sources: [{ url: "https://hadrian.io/blog/pre-seed", host: "hadrian.io" }],
+    };
+    expect(matchPriorRound(lead, own, hadrian).ok).toBe(true);
+  });
+
+  test("a record with no description has no business to hold a page to: the name ties it, as before", () => {
+    expect(matchPriorRound(prior({}), rec({ evidence_quotes: ["Footprint raised $6M for its pet grooming app."] }), footprint).ok).toBe(
+      true,
+    );
+  });
+});

@@ -31,6 +31,7 @@
     "bench-pipeline": "node --env-file-if-exists=.env scripts/bench-pipeline.ts",
     "prune-page-snapshots": "node --env-file-if-exists=.env scripts/maintenance/prune-page-snapshots.ts",
     "reverify-profiles": "node --env-file-if-exists=.env scripts/maintenance/reverify-profiles.ts",
+    "replace-profile": "node --env-file-if-exists=.env scripts/maintenance/replace-profile.ts",
     "accuracy-check": "node --env-file-if-exists=.env scripts/accuracy-check.ts",
     "alexandria-backfill": "node --env-file-if-exists=.env scripts/alexandria-backfill.ts",
     "investor-domains": "node --env-file-if-exists=.env scripts/investor-domains.ts",

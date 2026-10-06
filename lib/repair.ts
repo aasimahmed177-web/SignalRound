@@ -288,6 +288,7 @@ export async function resetData(handle: Db): Promise<{ rounds: number; companies
   await handle.delete(investors);
   await handle.delete(enrichments);
   await handle.delete(schema.companyAliases);
+  await handle.delete(schema.companyFolds);
   await handle.delete(companies);
   await handle.delete(schema.candidates);
   await handle.delete(schema.webhookDeliveries);

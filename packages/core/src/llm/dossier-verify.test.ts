@@ -13,6 +13,7 @@ import {
   type DossierVerdict,
   DossierVerdict as DossierVerdictSchema,
   duplicatesOurRound,
+  oneLinerFault,
   quoteFound,
   rankDossierSources,
   recordEvidence,
@@ -551,5 +552,77 @@ describe("dossierVerifyProviderFor", () => {
     expect(dossierVerifyProviderFor({ ...key, RECONCILE: "off", DOSSIER_VERIFY_MODEL: "openai/gpt-6-astra" })?.modelId).toBe(
       "openai/gpt-6-astra",
     );
+  });
+});
+
+// Silicon Mobility's dossier researched SiliconFlow, a Chinese AI-inference company, and its one-liner
+// stood as the description of a French EV semiconductor company. The page and sentence are the dossier's.
+describe("the one-liner is held to the check a homepage gets", () => {
+  const SILICONFLOW_ABOUT = {
+    url: "https://siliconflow.cn/about",
+    title: "About SiliconFlow",
+    markdown:
+      "SiliconFlow provides developers and enterprises with AI infrastructure that turns heterogeneous computing resources and many AI models into standardized, scalable token services. Founded by Jinhui Yuan.",
+  };
+  const ONE_LINER =
+    "SiliconFlow provides developers and enterprises with AI infrastructure that turns heterogeneous computing resources and many AI models into standardized, scalable token services through APIs, dedicated instances and private deployments.";
+  const siliconMobility = (description: string): Pick<DossierContext, "company" | "rounds"> => ({
+    company: {
+      name: "Silicon Mobility",
+      domain: "silicon-mobility.com",
+      website: "https://silicon-mobility.com",
+      description,
+      hq: "Valbonne, Alpes-Maritimes",
+      sector: "hardware",
+    },
+    rounds: [],
+  });
+
+  test("a one-liner read from a page that names neither the company nor its domain does not stand", () => {
+    // The record's description at the time came from the same confusion, so the words alone agreed.
+    const ctx = siliconMobility("a company specializing in AI infrastructure");
+    expect(oneLinerFault(ONE_LINER, SILICONFLOW_ABOUT.url, [SILICONFLOW_ABOUT], ctx)).toBe(
+      "its page (siliconflow.cn) names neither Silicon Mobility nor silicon-mobility.com",
+    );
+  });
+
+  test("a page that names the company still needs the record's line of business", () => {
+    const ctx = siliconMobility("a semiconductor and software company that makes electric and hybrid vehicles more energy-efficient");
+    const roundup = {
+      url: "https://af.net/realtime/silicon-mobility-secures-funding",
+      title: "Silicon Mobility secures funding",
+      markdown: ONE_LINER,
+    };
+    expect(oneLinerFault(ONE_LINER, roundup.url, [roundup], ctx)).toBe("it does not share the record's line of business");
+    const right =
+      "Silicon Mobility makes semiconductor and software solutions that make electric and hybrid vehicles more energy-efficient.";
+    expect(oneLinerFault(right, roundup.url, [{ ...roundup, markdown: right }], ctx)).toBeNull();
+  });
+
+  test("the company's own site, our record, and a short description are not second-guessed", () => {
+    const ctx = siliconMobility("a semiconductor and software company that makes electric and hybrid vehicles more energy-efficient");
+    const own = { url: "https://www.silicon-mobility.com/about", title: "About", markdown: "Intel company." };
+    expect(oneLinerFault("An Intel company building chips for EVs.", own.url, [own], ctx)).toBeNull();
+    expect(oneLinerFault(ONE_LINER, undefined, [], ctx)).toBeNull();
+    const named = { ...SILICONFLOW_ABOUT, markdown: `${SILICONFLOW_ABOUT.markdown} Silicon Mobility` };
+    expect(oneLinerFault(ONE_LINER, named.url, [named], siliconMobility("an EV chip company"))).toBeNull();
+  });
+
+  test("verifyDossier drops the one-liner, records why, and keeps the rest of the dossier's checked claims", async () => {
+    const namesake = { url: pages[1].url, title: "SiliconFlow", markdown: SILICONFLOW_ABOUT.markdown };
+    const { d } = deps(verdict({ one_liner: ok("S2", "SiliconFlow provides developers and enterprises with AI infrastructure") }), {
+      read: [pages[0], namesake],
+    });
+    const r = await verifyDossier({ ...dossier, one_liner: ONE_LINER }, ctx, d);
+    expect(r.status).toBe("verified");
+    if (r.status !== "verified") return;
+    expect(r.dossier.one_liner).toBe("");
+    expect(r.verification.citations.one_liner).toBeUndefined();
+    expect(r.verification.dropped).toContainEqual({
+      field: "one_liner",
+      item: ONE_LINER,
+      reason: "its page (news.example) names neither Acme nor acme.com",
+    });
+    expect(r.dossier.founded_year).toBe(2021);
   });
 });

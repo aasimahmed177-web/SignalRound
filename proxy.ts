@@ -29,8 +29,8 @@ import { adminRefusal, frontDoor, homeRedirect, isAdminPath, isLanding, isPublic
 import { requestCompanyPath } from "@/lib/company-request-status";
 import { companyRequestFor } from "@/lib/company-requests";
 import { db } from "@/lib/db";
-import { entityPath, entityVisible } from "@/lib/entity-exists";
-import { legacyInvestorPath } from "@/lib/links";
+import { entityPath, entityVisible, foldedInto } from "@/lib/entity-exists";
+import { companyHref, legacyInvestorPath } from "@/lib/links";
 
 /** No route lives here, so a rewrite under it is Next's own 404, status included. */
 const MISSING_PREFIX = "/_missing";
@@ -65,6 +65,13 @@ async function checkedEntity(
     return pass(request, mode);
   }
   const url = request.nextUrl.clone();
+  // A folded company's old id (a link a Slack delivery already sent) goes to the row it went into. Not a
+  // permanent redirect: a fold found by a name alias is a reading of the store, and a browser keeps a 308.
+  const survivor = entity.kind === "companies" ? await foldedInto(await db(), entity.id).catch(() => null) : null;
+  if (survivor) {
+    url.pathname = companyHref(survivor);
+    return NextResponse.redirect(url, 307);
+  }
   url.pathname = `${MISSING_PREFIX}${request.nextUrl.pathname}`;
   return NextResponse.rewrite(url);
 }

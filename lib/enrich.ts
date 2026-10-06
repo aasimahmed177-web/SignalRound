@@ -13,6 +13,7 @@ import {
   cleanHeadlineName,
   describingQuote,
   enrichCompanies,
+  hostCovered,
   hostOf,
   normalizeCompanyKey,
   registrableDomain,
@@ -83,6 +84,30 @@ async function storeEvidence(handle: Db, companies: EnrichCompany[]): Promise<Ma
   return out;
 }
 
+/** The hosts each company's stored profile row refused: a new read never takes one of them back. */
+async function storedRefusals(handle: Db, batch: EnrichCompany[]): Promise<Map<string, string[]>> {
+  if (batch.length === 0) return new Map();
+  const rows = await handle
+    .select({ companyId: enrichments.companyId, data: enrichments.data })
+    .from(enrichments)
+    .where(
+      and(
+        eq(enrichments.kind, "profile"),
+        inArray(
+          enrichments.companyId,
+          batch.map((c) => c.id),
+        ),
+      ),
+    );
+  return new Map(rows.map((r) => [r.companyId, refusedHostsOf(r.data)]));
+}
+
+/** A stored profile row's refused hosts, whatever shape the row is in. */
+function refusedHostsOf(data: unknown): string[] {
+  const hosts = (data as { refused_hosts?: unknown } | null)?.refused_hosts;
+  return Array.isArray(hosts) ? hosts.filter((h): h is string => typeof h === "string" && h.length > 0) : [];
+}
+
 /**
  * The sentence and headline the company's most recent round was read from; what the press says it is.
  * The subquery names funding_rounds.id outright: drizzle writes a bare "id" for a one-table select,
@@ -150,6 +175,36 @@ function refusedOwnSite(e: Pick<Enrichment, "refused_hosts">, row: { website: st
 }
 
 /**
+ * The read as the company row may take it. The website is written with coalesce, so a row that has
+ * one keeps it, and the logo, brand, description, and the domain the Alexandria and Apollo lanes look
+ * up must come from that same site. Sol's row showed hellosol.app while sol.com, another company,
+ * verified: the row kept hellosol.app, took sol.com's logo, and its empty domain became sol.com, so
+ * Alexandria and Apollo described sol.com too. A homepage that verified on another domain than the
+ * row's own website (or domain, when it has no website), which the check did not refuse, is kept
+ * only as the record of a read: the row's own website, and no profile, logo, brand, or pricing.
+ */
+export function onOwnSite(e: Enrichment, row: { website: string | null; domain: string | null }): Enrichment {
+  if (!isVerified(e) || !e.company_website) return e;
+  const own = registrableDomain(row.website) ?? row.domain;
+  const read = registrableDomain(e.company_website);
+  if (!own || !read || own === read || refusedOwnSite(e, row)) return e;
+  const other = hostOf(e.company_website);
+  return {
+    ...e,
+    company_website: row.website ?? `https://${own}`,
+    website_source: "record",
+    identity_basis: undefined,
+    identity_evidence: undefined,
+    logo_url: null,
+    brand: null,
+    profile: null,
+    pricing_page_url: null,
+    pricing: null,
+    error: [e.error, `${other} verified, but the company's website is ${own}; nothing from ${other} is written`].filter(Boolean).join("; "),
+  };
+}
+
+/**
  * The read half of a batch: the store's context and evidence for each company, and the enrichment
  * read. Nothing is written, so a measurement can run it against a read-only store.
  */
@@ -159,7 +214,11 @@ export async function readProfiles(
   batch: EnrichCompany[],
   options: { pricingPage: boolean },
 ): Promise<{ enrichments: Enrichment[]; credits: number }> {
-  const [context, evidence] = await Promise.all([roundContext(handle, batch), storeEvidence(handle, batch)]);
+  const [context, evidence, refused] = await Promise.all([
+    roundContext(handle, batch),
+    storeEvidence(handle, batch),
+    storedRefusals(handle, batch),
+  ]);
   const result = await enrichCompanies(
     client,
     batch.map((c) => ({
@@ -173,6 +232,7 @@ export async function readProfiles(
       headline: context.get(c.id)?.headline ?? null,
       source_pages: evidence.get(c.id)?.sourcePages ?? [],
       dossier_sources: evidence.get(c.id)?.dossierSources ?? [],
+      refused_hosts: refused.get(c.id) ?? [],
     })),
     { pricingPage: options.pricingPage },
   );
@@ -193,7 +253,24 @@ export async function enrichBatch(
 export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof readProfiles>>): Promise<EnrichBatchResult> {
   let resolved = 0;
   let pricing = 0;
-  for (const e of result.enrichments) {
+  for (const read of result.enrichments) {
+    const [before] = await handle
+      .select({ website: companies.website, domain: companies.domain })
+      .from(companies)
+      .where(eq(companies.id, read.company_key));
+    const e = before ? onOwnSite(read, before) : read;
+    if (e !== read) {
+      // Nothing from the other host lands, and its domain folds no row: the profile row only records
+      // the read, so the lane does not take the company again on every sweep.
+      await handle
+        .insert(enrichments)
+        .values({ companyId: e.company_key, kind: "profile", data: e, sourceUrl: e.company_website })
+        .onConflictDoUpdate({
+          target: [enrichments.companyId, enrichments.kind],
+          set: { data: e, sourceUrl: e.company_website, fetchedAt: new Date() },
+        });
+      continue;
+    }
     const verified = isVerified(e);
     if (verified) resolved++;
     if (e.pricing) pricing++;
@@ -291,7 +368,10 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
  * Forget what an earlier enrichment learned about a company so the next one starts clean: the
  * profile row goes; the logo, and a website and domain that came from the old ungrounded search
  * rather than the record, go with it; the description goes when the profile wrote it. A website
- * the record itself named stays and is verified again on the next read.
+ * the record itself named stays and is verified again on the next read. The hosts the old row
+ * refused are not forgotten: a row that refused any is replaced by a retry row that carries them
+ * (Barq's refused web.barq.app came back on the next sweep whenever its row was cleared), and the
+ * enrich lane takes a retry row as it takes a company with none.
  */
 export async function clearProfile(handle: Db, companyId: string): Promise<{ cleared: boolean }> {
   const [row] = await handle
@@ -310,8 +390,125 @@ export async function clearProfile(handle: Db, companyId: string): Promise<{ cle
   if (stored.profile?.what_they_sell && stored.profile.what_they_sell === row.description) set.description = null;
   await handle.update(companies).set(set).where(eq(companies.id, companyId));
   // The alexandria row goes too: it was keyed on the domain this profile vouched for.
-  await handle.delete(enrichments).where(and(eq(enrichments.companyId, companyId), inArray(enrichments.kind, ["profile", "alexandria"])));
+  await handle.delete(enrichments).where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "alexandria")));
+  const refused = refusedHostsOf(row.data);
+  if (refused.length === 0) {
+    await handle.delete(enrichments).where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")));
+    return { cleared: true };
+  }
+  const retry: Enrichment = {
+    company_key: companyId,
+    company_website: null,
+    website_source: "none",
+    context: [],
+    refused_hosts: refused,
+    unreadable_hosts: [],
+    logo_url: null,
+    brand: null,
+    profile: null,
+    pricing_page_url: null,
+    pricing: null,
+    retry: true,
+  };
+  await handle
+    .update(enrichments)
+    .set({ data: retry, sourceUrl: null, fetchedAt: new Date() })
+    .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")));
   return { cleared: true };
+}
+
+/** A hand-checked profile for one company, as a repair writes it. */
+export interface ProfileReplacement {
+  /** The company's real website, or null to leave the company without one. */
+  website: string | null;
+  /** Namesake hosts to refuse, on top of every host the old row already refused. */
+  refuse?: string[];
+  /** Hosts that are the company's but the pipeline cannot read (barq.com). */
+  unreadable?: string[];
+  /** A description to set; when absent, one the old profile wrote is cleared and any other stays. */
+  description?: string | null;
+  /** Why the row was written by hand; kept as the row's error so a reader of the row knows. */
+  note: string;
+}
+
+/**
+ * Clear a company's profile and write its hand-checked replacement in one transaction. Clearing and
+ * then writing in two steps left a gap the enrich lane filled: a sweep took getsimpl.com and GEMBA
+ * within seconds of their rows being cleared, and verified a Namecheap parking page as Simpl and a VR
+ * training company as GEMBA. Here the profile row is replaced in place and never absent, its refused
+ * hosts are kept (and any new ones added), the row's website, domain, and logo are set to the
+ * replacement's, and the Alexandria and Apollo facts go when the domain changes, since they were read
+ * for the old one. The row is in the pipeline's unresolved or record shape, with no profile, so a later
+ * read of the company still skips every refused host.
+ */
+export async function replaceProfile(handle: Db, companyId: string, r: ProfileReplacement): Promise<Enrichment> {
+  const domain = registrableDomain(r.website);
+  return handle.transaction(async (tx) => {
+    const [company] = await tx
+      .select({ domain: companies.domain, description: companies.description })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .for("update");
+    if (!company) throw new Error(`No company ${companyId}`);
+    if (domain) {
+      const [owner] = await tx
+        .select({ id: companies.id })
+        .from(companies)
+        .where(and(eq(companies.domain, domain), ne(companies.id, companyId)));
+      if (owner) throw new Error(`${domain} belongs to company ${owner.id}; fold the two rows instead`);
+    }
+    const [old] = await tx
+      .select({ data: enrichments.data })
+      .from(enrichments)
+      .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")))
+      .for("update");
+    const stored = (old?.data ?? null) as Partial<Enrichment> | null;
+    const refused = [
+      ...new Set(
+        [...refusedHostsOf(stored), ...(r.refuse ?? [])].map((h) =>
+          h
+            .trim()
+            .toLowerCase()
+            .replace(/^www\./, ""),
+        ),
+      ),
+    ].filter((h) => h && !(r.website && hostCovered(r.website, [h])));
+    const data: Enrichment = {
+      company_key: companyId,
+      company_website: r.website,
+      website_source: r.website ? "record" : "unverified",
+      context: [],
+      refused_hosts: refused,
+      unreadable_hosts: r.unreadable ?? [],
+      logo_url: null,
+      brand: null,
+      profile: null,
+      pricing_page_url: null,
+      pricing: null,
+      error: r.note,
+    };
+    const ownSentence = stored?.profile?.what_they_sell && stored.profile.what_they_sell === company.description;
+    await tx
+      .update(companies)
+      .set({
+        website: r.website,
+        domain,
+        logoUrl: null,
+        ...(r.description !== undefined ? { description: r.description } : ownSentence ? { description: null } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(companies.id, companyId));
+    if (company.domain !== domain)
+      await tx.delete(enrichments).where(and(eq(enrichments.companyId, companyId), inArray(enrichments.kind, ["alexandria", "apollo"])));
+    await tx
+      .insert(enrichments)
+      .values({ companyId, kind: "profile", data, sourceUrl: r.website })
+      .onConflictDoUpdate({
+        target: [enrichments.companyId, enrichments.kind],
+        set: { data, sourceUrl: r.website, fetchedAt: new Date() },
+      });
+    return data;
+  });
 }
 
 /**
@@ -369,6 +566,8 @@ export async function clearUnverifiedProfiles(handle: Db): Promise<{ cleared: nu
   let cleared = 0;
   for (const row of rows) {
     const stored = row.data as Partial<Enrichment> | null;
+    // A retry row is already cleared; the lane redoes it with its refused hosts kept.
+    if (stored?.retry) continue;
     const nothingFound = stored?.website_source === "none" && dossiers.has(row.companyId);
     // Nothing verified and nothing refused, only hosts the scrape could not read: unknown, so retry.
     // A site confirmed by links is settled, though its homepage could not be read.

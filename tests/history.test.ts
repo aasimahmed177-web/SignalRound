@@ -6,14 +6,18 @@
 process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
+import type { CompanyDossier, ExtractedItem, ExtractedRound } from "@fireround/core";
+import { hostOf, normalizeCompanyKey, priorKey } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { HistoryPrior } from "@fireround/core/db/schema";
 import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 
 import { getCompany } from "../lib/company";
 import { corroborateRecord } from "../lib/corroborate";
+import { saveDossier } from "../lib/deepdive";
 import { enqueueDeliveries, flushDeliveries } from "../lib/delivery";
 import {
   claimPrior,
@@ -39,6 +43,7 @@ import { demoStats, overview } from "../lib/stats";
 import { followRounds, trendingRoundIds } from "../lib/trending";
 import { record, testDb } from "./helpers";
 import {
+  dossier,
   isoDaysAgo,
   item,
   reader,
@@ -529,6 +534,251 @@ async function promoted(): Promise<{ handle: Db; companyId: string; id: string }
   if (!out.roundId) throw new Error("not promoted");
   return { handle, companyId, id: out.roundId };
 }
+
+// A round found by name must show on its page that it is the company's (historySourceTie); a prior round
+// the company's own checked dossier lists is exempt, and a host the company's homepage check refused
+// refuses either. The companies, sentences, titles, and URLs are the audit's real cases.
+describe("which history rounds the page-tie test holds", () => {
+  type Real = {
+    id: string;
+    name: string;
+    domain: string;
+    description: string;
+    sector: string;
+    hq: string;
+    feedQuote: string;
+    priors?: CompanyDossier["prior_rounds"];
+    refused?: string[];
+  };
+  /** A company with its feed round, its record, its profile's refused hosts, and a checked dossier listing `priors`. */
+  async function company(handle: Db, c: Real): Promise<string> {
+    await persistRecords(
+      handle,
+      [
+        record({
+          company_name: c.name,
+          company_key: normalizeCompanyKey(c.name),
+          company_domain: c.domain,
+          stage: "series_b",
+          stage_as_written: "Series B",
+          announced_date: isoDaysAgo(2),
+          evidence_quotes: [c.feedQuote],
+          sources: [{ url: `https://news.example/${c.domain}/series-b`, host: "news.example", title: c.feedQuote }],
+          confidence: 0.9,
+        }),
+      ],
+      "series-a-b",
+      "run-1",
+    );
+    await handle
+      .update(schema.companies)
+      .set({ description: c.description, sector: c.sector, hq: c.hq })
+      .where(eq(schema.companies.id, c.id));
+    if (c.refused) await handle.insert(schema.enrichments).values({ companyId: c.id, kind: "profile", data: { refused_hosts: c.refused } });
+    const at = new Date("2026-09-20T00:00:00Z");
+    const verification = {
+      version: 1 as const,
+      checked_at: at.toISOString(),
+      model: "test",
+      sources_checked: [],
+      searched: false,
+      kept: 1,
+      dropped: [],
+      citations: {},
+      rechecked: 0,
+      credits: 1,
+    };
+    await saveDossier(handle, c.id, dossier(c.priors ?? []), null, at, verification);
+    return c.id;
+  }
+  /** A lead the history lane found some other way than the dossier: a name search, a funding-event provider, a gap search. */
+  async function lead(handle: Db, companyId: string, prior: HistoryPrior, origin: "search" | "apollo" | "gap"): Promise<string> {
+    const key = priorKey(prior);
+    await handle
+      .insert(historyPromotions)
+      .values({ companyId, priorKey: key, prior, origin, status: "pending", nextAttemptAt: new Date(0) });
+    return key;
+  }
+  /** The page as the extractor reads it. */
+  function page(url: string, title: string, r: Partial<ExtractedRound>): ExtractedItem {
+    return { round: round(r), source: { url, host: hostOf(url), title }, page_kind: "article", grounded: true };
+  }
+
+  const CONVEO: Real = {
+    id: "conveo.ai",
+    name: "Conveo",
+    domain: "conveo.ai",
+    description: "an AI-driven consumer insights platform used by over 400 enterprises",
+    sector: "other",
+    hq: "Antwerp, Belgium",
+    feedQuote: "Conveo raised $23 million in a Series B led by Fund One.",
+  };
+  const CONVEO_SEED: HistoryPrior = {
+    stage_as_written: "seed round",
+    amount_as_written: "$5.3M",
+    announced_date: "2025-03-06",
+    lead_investors: [],
+  };
+  const CONVEO_URL = "https://tech.eu/2025/03/06/y-combinator-backed-conveo-raises-53m-seed-to-develop-ai-powered-research-coworker";
+  const conveoPage = () =>
+    page(CONVEO_URL, "Y-Combinator backed Conveo raises $5.3M Seed to develop AI-powered research coworker", {
+      company_name: "Conveo",
+      round_type_as_written: "Seed",
+      amount_as_written: "$5.3 million",
+      announced_date: "2025-03-06",
+      lead_investors: [],
+      sector: "ai",
+      evidence_quote: "Y-Combinator backed Conveo raises $5.3M Seed to develop AI-powered research coworker",
+    });
+
+  test("the Conveo case: its checked dossier's seed is promoted, though the page says the business in other words", async () => {
+    const handle = await testDb();
+    const id = await company(handle, { ...CONVEO, priors: [CONVEO_SEED] });
+    expect(await queueCompanyHistory(handle, id)).toEqual([priorKey(CONVEO_SEED)]);
+    const { reader: r } = reader({
+      search: [{ url: CONVEO_URL, title: "Conveo raises $5.3M Seed", via: "search" }],
+      pages: { [CONVEO_URL]: [conveoPage()] },
+    });
+    expect((await promotePrior(handle, r, id, priorKey(CONVEO_SEED), "history:test")).status).toBe("promoted");
+  });
+
+  test("the same Conveo page behind a name search's lead must tie to the company, and does not", async () => {
+    const handle = await testDb();
+    const id = await company(handle, CONVEO);
+    const key = await lead(handle, id, { ...CONVEO_SEED, source_url: CONVEO_URL }, "search");
+    const { reader: r, calls } = reader({ pages: { [CONVEO_URL]: [conveoPage()] } });
+    const out = await promotePrior(handle, r, id, key, "history:test");
+    expect(out.status).toBe("no_source");
+    expect(calls.verify).toBe(0);
+    const [ledger] = await handle.select().from(historyPromotions).where(eq(historyPromotions.priorKey, key));
+    expect(JSON.stringify(ledger.outcome)).toContain("refused: untied");
+  });
+
+  test("the Heidi Health case: its checked dossier's Series A is promoted from a page that calls it GP administration medtech", async () => {
+    const handle = await testDb();
+    const prior: HistoryPrior = {
+      stage_as_written: "Series A",
+      amount_as_written: "$10 million",
+      announced_date: "2023-10",
+      lead_investors: ["Blackbird Ventures"],
+    };
+    const id = await company(handle, {
+      id: "heidihealth.com",
+      name: "Heidi Health",
+      domain: "heidihealth.com",
+      description: "a healthtech startup focusing on clinical AI and medical documentation",
+      sector: "healthtech",
+      hq: "Melbourne, Australia",
+      feedQuote: "Heidi Health raised $65 million in a Series B led by Point72.",
+      priors: [prior],
+    });
+    await queueCompanyHistory(handle, id);
+    const url = "https://www.startupdaily.net/topic/funding/medtech-heidi-health-raises-10-million-series-a";
+    const { reader: r } = reader({
+      search: [{ url, title: "Medtech Heidi Health raises $10 million Series A", via: "search" }],
+      pages: {
+        [url]: [
+          page(url, "Medtech Heidi Health raises $10 million Series A", {
+            company_name: "Heidi Health",
+            round_type_as_written: "Series A",
+            amount_as_written: "$10 million",
+            announced_date: "2023-10-25",
+            lead_investors: ["Blackbird Ventures"],
+            sector: "medtech",
+            evidence_quote: "GP-focused administration medtech Heidi Health has raised $10 million in a Series A.",
+          }),
+        ],
+      },
+    });
+    expect((await promotePrior(handle, r, id, priorKey(prior), "history:test")).status).toBe("promoted");
+  });
+
+  test("the Primer case: Primer Technologies' $69M Series D from a name search is not promoted onto Primer", async () => {
+    const handle = await testDb();
+    const id = await company(handle, {
+      id: "primer.io",
+      name: "Primer",
+      domain: "primer.io",
+      description: "a payment orchestration infrastructure provider",
+      sector: "fintech",
+      hq: "London",
+      feedQuote: "Primer raised $50 million in a Series B.",
+    });
+    const url =
+      "https://www.prnewswire.com/news-releases/primer-announces-69m-in-funding-to-accelerate-ai-enabled-information-advantage-301850176.html";
+    const key = await lead(
+      handle,
+      id,
+      {
+        stage_as_written: "Series D round",
+        amount_as_written: "$69M",
+        announced_date: null,
+        lead_investors: [],
+        source_url: "https://primer.ai/news/primer-announces-69m-in-funding-to-accelerate-ai-enabled-information-advantage",
+      },
+      "search",
+    );
+    const { reader: r } = reader({
+      search: [{ url, title: "Primer Announces $69M in Funding to Accelerate AI-Enabled Information Advantage", via: "search" }],
+      pages: {
+        [url]: [
+          page(url, "Primer Announces $69M in Funding to Accelerate AI-Enabled Information Advantage", {
+            company_name: "Primer",
+            company_description: "an AI/ML technology firm specializing in AI-powered data analysis",
+            round_type_as_written: "Series D",
+            amount_as_written: "$69M",
+            announced_date: "2023-06-14",
+            lead_investors: [],
+            sector: "ai",
+            evidence_quote:
+              "Primer Technologies, an AI/ML technology firm specializing in AI-powered data analysis, today announced a Series D round with a first close of $69M to accelerate the delivery of trusted AI solutions for the U.S. Government and Commercial customers.",
+          }),
+        ],
+      },
+    });
+    const out = await promotePrior(handle, r, id, key, "history:test");
+    expect(out.status).toBe("no_source");
+    const [ledger] = await handle.select().from(historyPromotions).where(eq(historyPromotions.priorKey, key));
+    expect(JSON.stringify(ledger.outcome)).toContain("refused: untied");
+  });
+
+  test("the Hadrian case: a refused host refuses a round whatever its origin, a checked dossier's included", async () => {
+    const hadrian: Real = {
+      id: "hadrian.io",
+      name: "Hadrian",
+      domain: "hadrian.io",
+      description: "a world-class autonomous offensive security company",
+      sector: "cybersecurity",
+      hq: "London and Amsterdam",
+      feedQuote: "Hadrian raised $40 million co-led by Forgepoint Capital International and SmartFin.",
+      refused: ["hadrian.co"],
+    };
+    const prior: HistoryPrior = { stage_as_written: "Series C", amount_as_written: "$260M", announced_date: "2025-07", lead_investors: [] };
+    const url = "https://www.hadrian.co/press/hadrian-raises-260m-to-build-ai-powered-factories-for-america";
+    const pages = {
+      [url]: [
+        page(url, "Hadrian Raises $260M to Build AI-Powered Factories for America", {
+          company_name: "Hadrian",
+          round_type_as_written: "Series C",
+          amount_as_written: "$260 million",
+          announced_date: "2025-07-17",
+          lead_investors: ["Founders Fund"],
+          evidence_quote:
+            "Hadrian today announced $260 million in new capital and major expansions of its footprint in California and Arizona.",
+        }),
+      ],
+    };
+    for (const origin of ["dossier", "search"] as const) {
+      const handle = await testDb();
+      const id = await company(handle, { ...hadrian, priors: origin === "dossier" ? [prior] : [] });
+      const key = origin === "dossier" ? (await queueCompanyHistory(handle, id))[0] : await lead(handle, id, prior, origin);
+      const { reader: r } = reader({ search: [{ url, title: "Hadrian Raises $260M", via: "search" }], pages });
+      expect((await promotePrior(handle, r, id, key, "history:test")).status).toBe("no_source");
+      const [ledger] = await handle.select().from(historyPromotions).where(eq(historyPromotions.priorKey, key));
+      expect(JSON.stringify(ledger.outcome)).toContain("refused: namesake");
+    }
+  });
+});
 
 describe("what a history row is kept out of", () => {
   test("deliveries: never queued, and an outbox row for one is dead-lettered unsent", async () => {

@@ -82,6 +82,22 @@ export const companyAliases = pgTable(
   (t) => [primaryKey({ columns: [t.kind, t.aliasKey] })],
 );
 
+/**
+ * A company id folded into another by mergeCompanies, and the row it went into: the old id's page
+ * redirects to the survivor, so a link already sent keeps working (Slack deliveries linked the HEO
+ * Robotics and Sol Foundry pages before those rows were folded, and the links went to a 404). No
+ * foreign key: the survivor can be folded or removed in turn, and the fold moves with it.
+ */
+export const companyFolds = pgTable(
+  "company_folds",
+  {
+    fromId: text("from_id").primaryKey(),
+    intoId: text("into_id").notNull(),
+    foldedAt: timestamp("folded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_folds_into_idx").on(t.intoId)],
+);
+
 /** Verified company-owned sections, discovered from the homepage or a mapped linked site. */
 export const companyNewsrooms = pgTable(
   "company_newsrooms",

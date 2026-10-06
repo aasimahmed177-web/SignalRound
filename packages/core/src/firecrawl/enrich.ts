@@ -106,8 +106,17 @@ const pricingJsonSchema = z.toJSONSchema(PricingProfile, { target: "draft-07", i
 
 const NEWS_HOST =
   /(news|press|wire|journal|times|post|insider|tech|crunch|startup|axios|bloomberg|reuters|forbes|medium|substack|linkedin|dealroom|tracxn|fundz|vcnews|wikipedia|crunchbase|pitchbook)/i;
+// A registrar's parking page links little but the registrar: getsimpl.com, a "Namecheap Parking
+// Page", linked namecheap.com five times and its own cPanel and webmail, and passed as Simpl.
 const PARKED =
-  /(godaddy\.com\/forsale|forsale\.godaddy|namecheap\.com\/market|sedo\.com|dan\.com|afternic|hugedomains|parkingcrew|bodis\.com)/i;
+  /(godaddy\.com\/forsale|forsale\.godaddy|namecheap\.com|sedo\.com|sedoparking|dan\.com|afternic|hugedomains|parkingcrew|bodis\.com|above\.com|parklogic|parkingpage|domainmarket\.com|undeveloped\.com|squadhelp\.com|atom\.com\/name|hostinger\.[a-z.]+\/(?:parking|domain)|porkbun\.com|dynadot\.com\/market|uniregistry)/i;
+/** A hosting panel's own links on a fresh account's placeholder page. */
+const HOSTING_PANEL = /\/(cpanel|webmail)\/?$/i;
+/** What a parking or placeholder page says instead of a company's copy: the registrar's own words. */
+const PARKED_TITLE =
+  /\b(for sale|is for sale|domain parking|parked|parking page|parked free|domain (?:name )?(?:is )?registered|buy this domain|coming soon to|default web page|account suspended|future home of)\b/i;
+const PARKED_TEXT =
+  /\b(this domain (?:may be|is) for sale|buy this domain|this domain (?:name )?is parked|parked free,? courtesy of|hosting account was successfully created|nameservers have been set up properly|the domain owner has not yet|this domain is registered at|domain has (?:recently )?been registered|future home of something quite cool)\b/i;
 
 /** What the branding format read off the homepage: the logo file, the name as the site writes it, the primary colour. */
 export interface Brand {
@@ -157,6 +166,31 @@ export interface Enrichment {
   pricing_page_url: string | null;
   pricing: PricingProfile | null;
   error?: string;
+  /**
+   * The row a clear leaves when the old row had refused hosts: the profile is to be read again and
+   * the hosts stay refused. The enrich lane takes a retry row as it takes a company with no row.
+   */
+  retry?: true;
+}
+
+/**
+ * Whether a URL or host is one of `hosts`: the same host, or a host under a refused registrable
+ * domain (press.hadrian.co under a refused hadrian.co). A refused subdomain (web.barq.app) covers
+ * only itself, so a namesake's app subdomain never takes its parent's other sites with it.
+ */
+export function hostCovered(url: string | null | undefined, hosts: readonly string[]): boolean {
+  if (!url || hosts.length === 0) return false;
+  const host = hostOf(/^[a-z]+:\/\//i.test(url) ? url : `https://${url}`);
+  if (!host) return false;
+  const refused = new Set(
+    hosts.map((h) =>
+      h
+        .trim()
+        .toLowerCase()
+        .replace(/^www\./, ""),
+    ),
+  );
+  return refused.has(host) || refused.has(registrableDomain(host) ?? host);
 }
 
 /** A pricing page is a link on the company's own host whose path is /pricing or /plans. */
@@ -205,11 +239,19 @@ export function homepageLogo(home: { branding?: BrandingProfile; metadata?: { fa
   return brandFrom(home.branding, pageUrl)?.logo ?? logoFrom(home.metadata, pageUrl);
 }
 
-function looksParked(links: string[] | undefined, title: string | undefined): boolean {
-  if (title && /\b(for sale|is for sale|domain parking|parked)\b/i.test(title)) return true;
+/**
+ * Whether a homepage is a parked domain or a registrar's placeholder: its title or its text says so,
+ * or a quarter of its links go to a registrar or a parking service. A page like that has no company
+ * copy, so the identity check's verdict could only echo the record.
+ */
+export function looksParked(links: string[] | undefined, title: string | undefined, markdown?: string, url?: string): boolean {
+  if (title && PARKED_TITLE.test(title)) return true;
+  if (markdown && markdown.length < 4000 && PARKED_TEXT.test(markdown)) return true;
   if (!links || links.length === 0) return false;
   const total = links.length;
-  const parked = links.filter((l) => PARKED.test(l)).length;
+  // A registrar's own site links itself; only another domain's links to it are a parking page's.
+  const own = url ? registrableDomain(url) : null;
+  const parked = links.filter((l) => (PARKED.test(l) && registrableDomain(l) !== own) || HOSTING_PANEL.test(l)).length;
   return parked > 0 && parked >= total / 4;
 }
 
@@ -382,6 +424,12 @@ export interface EnrichInput {
   source_pages?: Array<{ url: string; title: string | null }>;
   /** The pages a deep dive on the company read: its own site is usually among them, often several times. */
   dossier_sources?: string[];
+  /**
+   * Hosts the company's stored profile already refused as a namesake's. None is read again, and each
+   * stays refused on the new row: GEMBA's thegemba.com, a VR training company, verified again seconds
+   * after a repair cleared its row, with the record's own sentence as the verdict.
+   */
+  refused_hosts?: string[];
 }
 
 /** The record's context that tells one company of a name from another; the fields a caller passes when it has them. */
@@ -482,13 +530,18 @@ const stem = (w: string) =>
     .replace(/(?:ies)$/, "y")
     .replace(/(?<=[a-z]{3})s$/, "");
 
+/** The record's words that name its line of business, stemmed, past the words every software site uses; empty when it names none. */
+export function businessWords(context: CompanyContext): string[] {
+  return [...new Set(distinguishingWords(context).map(stem))].filter((w) => !GENERIC_BUSINESS_WORDS.has(w));
+}
+
 /**
  * Whether a page's own text names the record's line of business: one of the words that tell the
  * company apart, past the words every software site uses (and a "Book a demo" button). useflai.com
  * says "dealerships"; flai.ai, a mapping-data namesake, never says dealership, car, or appointment.
  */
 export function sharesBusinessWords(pageText: string, context: CompanyContext): boolean {
-  const words = [...new Set(distinguishingWords(context).map(stem))].filter((w) => !GENERIC_BUSINESS_WORDS.has(w));
+  const words = businessWords(context);
   if (words.length === 0) return true;
   const page = new Set((pageText.toLowerCase().match(/\p{L}+/gu) ?? []).map(stem));
   return words.some((w) => page.has(w));
@@ -895,10 +948,14 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       // Evidence has its own budget, so namesake-heavy searches cannot use up its reads.
       const searchAttempts = () => all().filter((a) => a.origin === "record" || a.origin === "search").length;
       const evidenceAttempts = () => all().filter((a) => a.origin === "sources").length;
+      const refusedBefore = c.refused_hosts ?? [];
       const already = (url: string) => {
+        if (hostCovered(url, refusedBefore)) return true;
         const domain = registrableDomain(url) ?? hostOf(url);
         return all().some((a) => (registrableDomain(a.url) ?? a.host) === domain);
       };
+      /** This pass's refusals and the ones the stored profile carried in. */
+      const refusedHosts = () => [...new Set([...refusedBefore, ...tried.map((t) => t.host)])];
       type Verified = {
         url: string;
         home: Home;
@@ -939,7 +996,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
           return null;
         }
         pages++;
-        if (looksParked(home.links, home.metadata?.title)) {
+        if (looksParked(home.links, home.metadata?.title, home.markdown, url)) {
           tried.push({ url, host, origin, reason: "domain appears parked or for sale", parked: true });
           return null;
         }
@@ -1012,7 +1069,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       const describe = (list: Attempt[], reason?: string) => list.map((t) => `${t.host} (${reason ?? t.reason})`).join("; ");
       /** The row when nothing verified: the first kept host stays on it, with its source and no profile. */
       const unresolved = (): Enrichment => {
-        row.refused_hosts = tried.map((t) => t.host);
+        row.refused_hosts = refusedHosts();
         row.unreadable_hosts = unreadable.map((t) => t.host);
         // The record's own website outranks a search candidate; otherwise the first host kept. A host
         // only the bare name's search offered is no better than a guess when it cannot be read: hive.com,
@@ -1048,7 +1105,8 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
           if (verified) break;
         }
       }
-      if (!verified && c.company_website) verified = await verify(c.company_website, "record");
+      if (!verified && c.company_website && !hostCovered(c.company_website, refusedBefore))
+        verified = await verify(c.company_website, "record");
       if (!verified && !hasContext(c)) {
         // Nothing to check a search result against: a namesake would pass, so no search is made.
         unresolved();
@@ -1131,7 +1189,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
             row.website_source = u.origin;
             row.identity_basis = "linked";
             row.identity_evidence = [ownPage?.url ?? linkPage, listing?.url].filter((x): x is string => !!x);
-            row.refused_hosts = tried.map((t) => t.host);
+            row.refused_hosts = refusedHosts();
             row.unreadable_hosts = unreadable.map((t) => t.host);
             return row;
           }
@@ -1141,7 +1199,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       row.website_source = verified.origin;
       row.identity_basis = verified.basis;
       if (verified.about) row.identity_evidence = [verified.about];
-      row.refused_hosts = tried.map((t) => t.host);
+      row.refused_hosts = refusedHosts();
       row.unreadable_hosts = unreadable.map((t) => t.host);
       const { url: website, home, profile } = verified;
       row.company_website = website;

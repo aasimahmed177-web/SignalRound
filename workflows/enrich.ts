@@ -7,7 +7,7 @@
 
 import { INVESTOR_BACKLOG_PER_RUN, investorDomainCap } from "@fireround/core";
 import { schema } from "@fireround/core/db";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { start } from "workflow/api";
 import { type AlexandriaCompany, alexandriaBatch, pendingAlexandria } from "@/lib/alexandria";
 import { apolloBatch, pendingApollo } from "@/lib/apollo";
@@ -166,7 +166,9 @@ export async function pendingStep(presetSlug: string, limit: number): Promise<Pe
       and(
         eq(schema.fundingRounds.presetSlug, presetSlug),
         inArray(schema.fundingRounds.disposition, ["publish", "flagged"]),
-        isNull(schema.enrichments.companyId),
+        // No profile row, or the retry row a clear leaves with the old row's refused hosts. A company
+        // a repair has just cleared keeps a row the whole time, so the lane never takes it mid-repair.
+        or(isNull(schema.enrichments.companyId), sql`${schema.enrichments.data} ->> 'retry' = 'true'`),
       ),
     )
     .limit(limit);

@@ -8,8 +8,9 @@
 // the database nothing more than a quiet minute does. A few thousand short ids are a few hundred
 // kilobytes, so each warm function instance holds its own copy.
 
+import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { decodeParam, investorIdFromParam } from "@/lib/links";
 
@@ -119,3 +120,34 @@ export function visibilityCheck(load: () => Promise<VisibleIds>, timing: Snapsho
 
 /** Whether the page would show a visitor anything; null when the store could not say. */
 export const entityVisible = visibilityCheck(loadVisibleIds);
+
+/**
+ * Where a company id that no longer exists now lives, or null: the row mergeCompanies folded it into,
+ * followed through later folds. A fold from before folds were recorded left the old id behind in one
+ * of two places, which are read next: as the survivor's domain (Sol Foundry's solfoundry.co is Sol's
+ * domain now) or as a name it was seen under (HEO Robotics is a name alias of HEO). A live id never
+ * redirects.
+ */
+export async function foldedInto(handle: Db, id: string): Promise<string | null> {
+  const [live] = await handle.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.id, id)).limit(1);
+  if (live) return null;
+  const [fold] = await handle
+    .select({ id: schema.companies.id })
+    .from(schema.companyFolds)
+    .innerJoin(schema.companies, eq(schema.companies.id, schema.companyFolds.intoId))
+    .where(eq(schema.companyFolds.fromId, id))
+    .limit(1);
+  if (fold) return fold.id;
+  const [byDomain] = await handle
+    .select({ id: schema.companies.id })
+    .from(schema.companies)
+    .where(eq(schema.companies.domain, id))
+    .limit(1);
+  if (byDomain) return byDomain.id;
+  const [byName] = await handle
+    .select({ id: schema.companyAliases.companyId })
+    .from(schema.companyAliases)
+    .where(and(eq(schema.companyAliases.kind, "name"), eq(schema.companyAliases.aliasKey, id)))
+    .limit(1);
+  return byName?.id ?? null;
+}

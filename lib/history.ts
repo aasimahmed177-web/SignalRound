@@ -25,6 +25,7 @@ import type {
   ExtractTarget,
   FeedRecord,
   HistoryCandidate,
+  HistoryCompany,
   PageClassifier,
   PageVerdict,
   RateTable,
@@ -34,6 +35,7 @@ import {
   companySite,
   convertToUsd,
   DEFAULT_TIERS,
+  describingQuote,
   extractionCredits,
   extractRounds,
   fetchRates,
@@ -117,6 +119,45 @@ export interface HistorySubject {
   presetSlug: string;
   /** Prior round key to the pages the dossier check cited for it; `*` holds the ones it could not place. */
   citedUrls: Record<string, string[]>;
+  /** What the record says the company does, and the press sentence its own feed rounds describe it with. */
+  description: string | null;
+  evidence: string | null;
+  /** Hosts the company's homepage check refused as a namesake's: a page on one never promotes a round here. */
+  refusedHosts: string[];
+  sector: string | null;
+  headquarters: string | null;
+}
+
+/**
+ * The company as the page-tie test holds a round's page to it, by where the round came from. A prior
+ * round the company's own checked dossier lists was already read on pages about this company, and the
+ * check kept it; holding its announcement to the record's words as well refused right rounds whose page
+ * said the business another way (Conveo's "AI-powered research coworker" for "an AI-driven consumer
+ * insights platform", Heidi Health's "GP-focused administration medtech" for "clinical AI and medical
+ * documentation"). An audit's lead was checked by hand against the page that states it. Neither carries
+ * the record's words into the test, so only a refused host refuses them. Every other lead (a name
+ * search's, a funding-event provider's, a gap search's, one the dossier check dropped for want of
+ * evidence) found the round by name, which a namesake shares, and must pass it.
+ */
+function tiedBy(subject: HistorySubject, origin: HistoryOrigin): HistorySubject {
+  if (origin !== "dossier" && origin !== "audit") return subject;
+  return { ...subject, description: null, evidence: null, sector: null, headquarters: null };
+}
+
+/** The company as matchPriorRound reads it: its names and sites, and what ties a page to it rather than to a namesake. */
+function historyIdentity(subject: HistorySubject): HistoryCompany {
+  return {
+    name: subject.name,
+    nameKey: subject.nameKey,
+    domain: subject.domain,
+    aliasKeys: subject.aliasKeys,
+    sites: subject.sites,
+    description: subject.description,
+    evidence: subject.evidence,
+    refusedHosts: subject.refusedHosts,
+    sector: subject.sector,
+    headquarters: subject.headquarters,
+  };
 }
 
 /**
@@ -179,7 +220,7 @@ export async function historySubject(
   companyId: string,
   opts: { requireDossier?: boolean } = {},
 ): Promise<HistorySubject | null> {
-  const [[company], aliasRows, presetRows, checked] = await Promise.all([
+  const [[company], aliasRows, presetRows, checked, [profile], quoteRows] = await Promise.all([
     handle.select().from(companies).where(eq(companies.id, companyId)).limit(1),
     handle
       .select({ key: schema.companyAliases.aliasKey, kind: schema.companyAliases.kind })
@@ -193,8 +234,19 @@ export async function historySubject(
       .orderBy(sql`${fundingRounds.announcedOn} desc nulls last`)
       .limit(1),
     checkedDossier(handle, companyId),
+    handle
+      .select({ data: enrichments.data })
+      .from(enrichments)
+      .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")))
+      .limit(1),
+    // The feed's own rounds only: a promoted history row may be the namesake's this check keeps out.
+    handle
+      .select({ quotes: fundingRounds.evidenceQuotes })
+      .from(fundingRounds)
+      .where(and(eq(fundingRounds.companyId, companyId), eq(fundingRounds.history, false), ne(fundingRounds.disposition, "rejected"))),
   ]);
   if (!company || (!checked && opts.requireDossier !== false)) return null;
+  const refused = (profile?.data as { refused_hosts?: unknown } | undefined)?.refused_hosts;
   return {
     id: company.id,
     name: company.name,
@@ -205,6 +257,14 @@ export async function historySubject(
     sites: aliasRows.filter((a) => a.kind === "domain").map((a) => a.key),
     presetSlug: presetRows[0]?.preset ?? FALLBACK_PRESET,
     citedUrls: checked ? citedPriorUrls(checked.dossier, checked.citations) : {},
+    description: company.description,
+    evidence: describingQuote(
+      company.name,
+      quoteRows.flatMap((r) => r.quotes ?? []),
+    ),
+    refusedHosts: Array.isArray(refused) ? refused.filter((h): h is string => typeof h === "string") : [],
+    sector: company.sector,
+    headquarters: company.hq,
   };
 }
 
@@ -759,13 +819,7 @@ export async function readCandidates(
       tried.push({ url: c.url, result: d.rumor > 0 ? REPORTED_NOT_ANNOUNCED : `no rounds kept${why ? ` (${why})` : ""}` });
       continue;
     }
-    const identity = {
-      name: subject.name,
-      nameKey: subject.nameKey,
-      domain: subject.domain,
-      aliasKeys: subject.aliasKeys,
-      sites: subject.sites,
-    };
+    const identity = historyIdentity(subject);
     // An undated prior round has only the page to date it, and a company's own post carries the date
     // its site last published it (a migrated blog reads 2026 for a 2024 round); that date is not taken
     // unless the round's own sentence states it, or the post is the announcement itself ("announced
@@ -883,13 +937,7 @@ async function corroboration(
   label: string,
 ): Promise<{ record: FeedRecord | null; credits: number }> {
   const latest = found.announced_date && found.date_precision !== "day" ? periodEnd(found.announced_date, found.date_precision) : null;
-  const identity = {
-    name: subject.name,
-    nameKey: subject.nameKey,
-    domain: subject.domain,
-    aliasKeys: subject.aliasKeys,
-    sites: subject.sites,
-  };
+  const identity = historyIdentity(subject);
   let credits = 0;
   for (const c of candidates) {
     const extraction = await reader.extract([{ url: c.url, title: c.title, published: c.published, query: `history: ${subject.name}` }]);
@@ -1059,8 +1107,7 @@ export async function finishPromotion(
     });
     return { ...base, sourced: true, credits, reason };
   }
-  const identity = { name: subject.name, nameKey: subject.nameKey, domain: subject.domain, aliasKeys: subject.aliasKeys };
-  const again = matchPriorRound(prior, asCompanyRecord(checked, subject), identity);
+  const again = matchPriorRound(prior, asCompanyRecord(checked, subject), historyIdentity(tiedBy(subject, plan.origin)));
   if (!again.ok) {
     const reason = `the read-back no longer matches the dossier (${again.reason})`;
     await writeLedger(handle, companyId, key, {
@@ -1132,7 +1179,7 @@ export async function failPromotion(
 export async function readPlan(handle: Db, reader: HistoryReader, plan: HistoryPlan, now: Date = new Date()): Promise<HistoryReading> {
   const subject = await historySubject(handle, plan.companyId, { requireDossier: needsDossier(plan.origin) });
   if (!subject) return { record: null, url: null, tried: [], credits: 0 };
-  return readCandidates(handle, reader, subject, plan.prior, plan.candidates, now);
+  return readCandidates(handle, reader, tiedBy(subject, plan.origin), plan.prior, plan.candidates, now);
 }
 
 /** The three moves in one call, for a script or a test; the durable path makes each its own step. */

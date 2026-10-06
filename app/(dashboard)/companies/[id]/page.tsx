@@ -55,6 +55,7 @@ import {
 import { publicRequestStatus, STILL_CHECKING } from "@/lib/company-request-status";
 import { companyRequestFor, requestTally } from "@/lib/company-requests";
 import { db } from "@/lib/db";
+import { foldedInto } from "@/lib/entity-exists";
 import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageAsWrittenNote, usd } from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
 import { companyHref, decodeParam, investorHref, investorHrefByName } from "@/lib/links";
@@ -263,7 +264,12 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
     }
   }
   const dossierRunning = request?.status === "done" && request.dossierStatus === "running";
-  if (!view) notFound();
+  if (!view) {
+    // A folded company's old id (a link a Slack delivery already sent) goes to the row it was folded into.
+    const survivor = await foldedInto(await db(), companyId);
+    if (survivor) redirect(companyHref(survivor));
+    notFound();
+  }
   const { page, onX, buzz, ruledOut } = view;
   const { company, rounds, enrichment, alexandria, apollo, dossier, sources, investors, totals } = page;
   const plans = pricingView(enrichment?.plans ?? []);
