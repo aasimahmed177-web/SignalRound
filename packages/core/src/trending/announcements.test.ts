@@ -12,6 +12,7 @@ import {
   bioFromProfile,
   bioLinksCompany,
   CORROBORATION_SCHEDULE_HOURS,
+  companyFromFounderBio,
   companyFromHandle,
   companyInText,
   confirmsLead,
@@ -361,6 +362,18 @@ describe("the lane's September 25 fixes", () => {
     // Named in passing, with no role: not a link.
     expect(bioLinksCompany("Big fan of Parallax and good coffee", parallax)).toBe(false);
     expect(bioLinksCompany("CEO @ Parallel Systems", parallax)).toBe(false);
+  });
+
+  test("a founder's bio names the company the post names when no raise phrase does", () => {
+    const post =
+      "Today, I’m excited to share we’ve raised an additional $12.8M at a $500M valuation. ... @TaskletAI is built with collaboration, automation, security, and control at its core. Investors in the round include @usv, @359Capital, @patrickc and others.";
+    const bio = "Founder &amp; CEO of @TaskletAI &amp; @Shortwave. Previously founded @Firebase.";
+    expect(companyFromFounderBio(bio, post)).toEqual({ name: "Tasklet", handle: "TaskletAI" });
+    // No founder's role, no account the post names, or two of them: no company.
+    expect(companyFromFounderBio("Partner @usv. Views mine.", post)).toBeNull();
+    expect(companyFromFounderBio("Founder of @Shortwave", post)).toBeNull();
+    expect(companyFromFounderBio(bio, `${post} Thanks @Shortwave team too.`)).toBeNull();
+    expect(companyFromFounderBio("CEO @hifihq", "we raised $5M to run on HIFI, says @hifihq")).toEqual({ name: "HIFI", handle: "hifihq" });
   });
 
   test("a post-only record is dated by the page, so the late re-report hold can still set it aside", () => {

@@ -602,9 +602,33 @@ export function bioLinksCompany(
   return new RegExp(`(^|[^\\w])${name}(?![\\w])`).test(text);
 }
 
+const FOUNDER_ROLE = /\b(?:co-?founder|founder|ceo|cto|founding)\b/i;
+const MENTION = /(?:^|[^\w@])@(\w{3,15})\b/g;
+
+/**
+ * The company a founder's post announces when no raise phrase names it ("we've raised $12.8M ... @TaskletAI
+ * is built with ..."): the one account the author's bio gives them a founder's role at ("Founder & CEO of
+ * @TaskletAI & @Shortwave") that the post also names. Null when the bio states no founder's role, or when
+ * the post names none or several of the bio's accounts.
+ */
+export function companyFromFounderBio(bio: string, postText: string): { name: string; handle: string } | null {
+  if (!FOUNDER_ROLE.test(bio)) return null;
+  const inPost = new Set([...postText.matchAll(MENTION)].map((m) => m[1].toLowerCase()));
+  const named = [...new Set([...bio.matchAll(MENTION)].map((m) => m[1]))].filter((h) => inPost.has(h.toLowerCase()));
+  if (named.length !== 1) return null;
+  const handle = named[0];
+  const spelled = handle
+    .replace(/^(?:official|get|try|join|use|the|hello|meet)(?=[A-Z_])/, "")
+    .replace(/[_-]?(?:HQ|App|AI|Labs?|Inc|IO|Co|Team)$/, "");
+  return { handle, name: companyFromHandle(handle, postText) ?? (spelled.length >= 3 ? spelled : handle) };
+}
+
 /** The note a founder-landed record carries: who posted, why the account is the company's, who confirmed it. */
-export function founderLandedNote(lead: Pick<AnnouncementLead, "handle">, confirmedBy: readonly string[]): string {
-  return `announced on X by @${lead.handle}, whose X bio links the company, and confirmed within ${X_CONFIRMATION_WINDOW_HOURS} hours by ${confirmedBy.map((h) => `@${h}`).join(", ")}; no article confirms it yet`;
+export function founderLandedNote(lead: Pick<AnnouncementLead, "handle" | "companyHandle">, confirmedBy: readonly string[]): string {
+  const why = `announced on X by @${lead.handle}, whose X bio links the company`;
+  if (confirmedBy.length === 0)
+    return `announced on X by @${lead.handle}, whose X bio names them a founder of @${lead.companyHandle}, the account the post names; no article confirms it yet`;
+  return `${why}, and confirmed within ${X_CONFIRMATION_WINDOW_HOURS} hours by ${confirmedBy.map((h) => `@${h}`).join(", ")}; no article confirms it yet`;
 }
 
 /**

@@ -198,6 +198,8 @@ export interface LeadOutcome {
   selfCheckedAt?: Date;
   selfVerified?: boolean;
   note?: string | null;
+  /** The company, its handle, and the full post, when the search snippet named none and the post was read. */
+  company?: { name: string; handle: string; text: string };
 }
 
 /**
@@ -222,6 +224,7 @@ export async function finishAttempt(handle: Db, lead: LeadRow, outcome: LeadOutc
       ...(outcome.selfCheckedAt ? { selfCheckedAt: outcome.selfCheckedAt } : {}),
       ...(outcome.selfVerified !== undefined ? { selfVerified: outcome.selfVerified } : {}),
       ...(outcome.note !== undefined ? { note: outcome.note } : {}),
+      ...(outcome.company ? { company: outcome.company.name, companyHandle: outcome.company.handle, text: outcome.company.text } : {}),
       updatedAt: now,
     })
     .where(eq(announcementLeads.key, lead.key));

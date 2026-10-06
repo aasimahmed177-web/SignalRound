@@ -149,6 +149,8 @@ describe("naming the company", () => {
   test("a generic word of the name is not the name; an alias and the domain are", () => {
     expect(textNamesSubject("Research firm raises $140M", basecamp)).toBe(false);
     expect(textNamesSubject("Basecamp lands $140M", basecamp)).toBe(true);
+    expect(textNamesSubject("we've raised $12.8M. @TaskletAI is built for teams", { name: "Tasklet", domain: null })).toBe(true);
+    expect(textNamesSubject("thanks @taskletfan for the support", { name: "Tasklet", domain: null })).toBe(false);
     expect(textNamesSubject("A round for basecamp-research.com", basecamp)).toBe(true);
     expect(textNamesSubject("Old Name Bio raises $10M", { name: "New Name", aliases: ["Old Name Bio"] })).toBe(true);
     // A name made only of common words is matched as the whole phrase.

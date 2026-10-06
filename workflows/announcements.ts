@@ -10,6 +10,7 @@
 import type { FeedRecord } from "@fireround/core";
 import {
   bioLinksCompany,
+  companyFromFounderBio,
   DEFAULT_TIERS,
   domainInText,
   extractRounds,
@@ -21,6 +22,7 @@ import {
   leadAsItem,
   leadMatches,
   profileBio,
+  readXPost,
   reconcileModel,
   reconcileRecords,
   registrableDomain,
@@ -59,6 +61,10 @@ import { enrichPending } from "@/workflows/enrich";
 
 /** The note a lead keeps once its founder's bio was read and did not link the company, so it is not read again. */
 const FOUNDER_BIO_MISS = "founder bio: does not link the company";
+/** The note a lead keeps once its full post and its author's bio were read and named no company, so they are not read again. */
+const NO_COMPANY = "full post and bio: no company named";
+/** The note a lead keeps once its founder's bio linked the company but did not name the account the post names: it waits for a second account. */
+const FOUNDER_UNCONFIRMED = "founder bio: links the company; waiting for a second account";
 
 /** Leads worked per step: each is a search and at most three page reads, so a step stays well inside a function's time. */
 const ATTEMPT_BATCH = 6;
@@ -187,6 +193,8 @@ async function attemptStep(
     self_checks: 0,
     founder_checks: 0,
     founder_published: 0,
+    company_reads: 0,
+    company_found: 0,
     profiles_expired: 0,
     expired: 0,
     attempt_errors: 0,
@@ -217,10 +225,30 @@ async function attemptStep(
         await finishAttempt(handle, row, { status: "expired", note: "profile page: no dated post" }, now);
         continue;
       }
+      // A search snippet stops a few lines in, often before the post names its company ("... @TaskletAI is
+      // built with"). Once, a post with no company is read whole beside its author's bio, and the account the
+      // bio names them a founder of, when the post names it too, is the company.
+      let named: LeadOutcome["company"];
+      let founderBio: Awaited<ReturnType<typeof profileBio>> | null = null;
+      if (lead.kind === "post" && !lead.company && lead.handle && row.status === "pending" && row.note !== NO_COMPANY) {
+        counts.company_reads++;
+        const [post, bio] = await Promise.all([readXPost(client, lead.url), profileBio(client, lead.handle)]);
+        credits += post.credits + bio.credits;
+        founderBio = bio;
+        const text = post.post?.text ?? lead.text;
+        const found = companyFromFounderBio(bio.bio, text);
+        if (found) {
+          named = { ...found, text };
+          lead.company = found.name;
+          lead.companyHandle = found.handle;
+          lead.text = text;
+          counts.company_found++;
+        }
+      }
       const known = row.status === "pending" ? await knownRoundFor(handle, lead, now) : null;
       if (known) {
         counts.known++;
-        await finishAttempt(handle, row, { status: "known", roundId: known }, now);
+        await finishAttempt(handle, row, { status: "known", roundId: known, ...(named ? { company: named } : {}) }, now);
         continue;
       }
       const search = await searchLeadArticles(client, lead, row.readUrls);
@@ -229,6 +257,7 @@ async function attemptStep(
       const outcome: LeadOutcome = {
         status: row.status === "published" ? "published" : "pending",
         readUrls: [...row.readUrls, ...search.picks.map((p) => p.url)],
+        ...(named ? { company: named } : founderBio ? { note: NO_COMPANY } : {}),
       };
       if (search.picks.length > 0) {
         const ex = await extractRounds(
@@ -300,9 +329,10 @@ async function attemptStep(
           }
         }
       }
-      // A founder's post may land on its own too, flagged, when a second account confirms it within twelve
-      // hours and the founder's X bio links the company. Checked once a confirmation exists; a bio that
-      // does not link the company is not read again.
+      // A founder's post may land on its own too, flagged, when the founder's X bio links the company and
+      // either a second account confirms it within twelve hours or the bio names them a founder of the very
+      // account the post names. A bio that does not link the company is not read again; one that links it
+      // without naming the post's account is read again only once a confirmation exists.
       if (
         outcome.status === "pending" &&
         lead.kind === "post" &&
@@ -313,13 +343,13 @@ async function attemptStep(
         row.note !== FOUNDER_BIO_MISS
       ) {
         const confirmedBy = await confirmingLeads(handle, lead);
-        if (confirmedBy.length > 0) {
+        if (confirmedBy.length > 0 || (lead.companyHandle && row.note !== FOUNDER_UNCONFIRMED)) {
           counts.founder_checks++;
           const domain = domainInText(lead.text);
           const website = (await storedWebsite(handle, lead)) ?? (domain ? `https://${domain}` : null);
           const links = website ? await homepageHandles(client, website) : { handles: [], credits: 0 };
-          const bio = await profileBio(client, lead.handle);
-          credits += links.credits + bio.credits;
+          const bio = founderBio ?? (await profileBio(client, lead.handle));
+          credits += links.credits + (founderBio ? 0 : bio.credits);
           const tied = bioLinksCompany(bio.bio, {
             name: lead.company,
             domain: website ? registrableDomain(website) : null,
@@ -328,7 +358,10 @@ async function attemptStep(
             ),
             links: bio.links,
           });
+          const foundsPostAccount =
+            !!lead.companyHandle && companyFromFounderBio(bio.bio, lead.text)?.handle.toLowerCase() === lead.companyHandle.toLowerCase();
           if (!tied) outcome.note = FOUNDER_BIO_MISS;
+          else if (confirmedBy.length === 0 && !foundsPostAccount) outcome.note = FOUNDER_UNCONFIRMED;
           else {
             const r = resolveRounds([leadAsItem(lead, website)], {
               stages: table.stages,

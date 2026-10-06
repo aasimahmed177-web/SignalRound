@@ -233,7 +233,16 @@ function namesForm(text: string, form: NameForm, prefix: boolean): boolean {
 export function textNamesSubject(text: string | null | undefined, subject: SourceSubject): boolean {
   if (!text?.trim()) return false;
   if (subject.domain && text.toLowerCase().includes(subject.domain.toLowerCase())) return true;
-  return nameForms(subject).some((f) => namesForm(text, f, false));
+  const forms = nameForms(subject);
+  if (forms.some((f) => namesForm(text, f, false))) return true;
+  // The company's own X account names it too: "@TaskletAI" is Tasklet, "@seltz_ai" is Seltz.
+  const handles = [...text.matchAll(/(?:^|[^\w@])@(\w{3,15})\b/g)].map((m) =>
+    m[1]
+      .toLowerCase()
+      .replace(/_/g, "")
+      .replace(/(?:hq|app|ai|labs?|inc|io)$/, ""),
+  );
+  return forms.some((f) => f.key.replace(/\s+/g, "").length >= 4 && handles.includes(f.key.replace(/\s+/g, "")));
 }
 
 /** Whether a URL's path names the company (a slug runs words together, so prefixes count) or carries its domain. */
