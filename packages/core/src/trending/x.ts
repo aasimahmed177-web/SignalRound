@@ -1,11 +1,14 @@
 // The Trending layer's Firecrawl calls: X search for one round (search restricted to x.com, then
 // every result dated by its status id), the company's handle from its homepage links, and one
-// post read through Firecrawl's X scrape for its likes and reposts.
+// post read through Firecrawl's X scrape for its likes and reposts. The announcements lane also
+// searches X's own index through Alexandria's X provider, which sees a post minutes after it is posted.
 // https://docs.firecrawl.dev/features/search and https://docs.firecrawl.dev/features/scrape
 
 import type { Firecrawl, SearchResultWeb } from "firecrawl";
+import { alexandriaCall } from "../firecrawl/alexandria.ts";
 import { mapLimit, RATE, searchCredits } from "../firecrawl/credits.ts";
 import {
+  ANNOUNCEMENT_LOOKBACK_HOURS,
   type AnnouncementLead,
   bioFromProfile,
   type LeadRejection,
@@ -161,6 +164,48 @@ export async function searchAnnouncements(
   const queries = opts.queries ?? X_ANNOUNCEMENT_QUERIES;
   const byKey = new Map<string, AnnouncementLead>();
   const rejected: Partial<Record<LeadRejection, number>> = {};
+  const read = (x: XResult, title: string | undefined) => {
+    const lead = readAnnouncement(x, title, now, opts.lookbackHours);
+    if (typeof lead === "string") {
+      rejected[lead] = (rejected[lead] ?? 0) + 1;
+      return 0;
+    }
+    if (!byKey.has(lead.key)) byKey.set(lead.key, lead);
+    return 1;
+  };
+  // X's own index through Alexandria's X provider: a post is there minutes after it is posted, with its
+  // whole text, where web search sees it hours later as a clipped snippet. Same queries, same reading.
+  const since = new Date(now.getTime() - (opts.lookbackHours ?? ANNOUNCEMENT_LOOKBACK_HOURS) * 3_600_000).toISOString().slice(0, 10);
+  const live = await Promise.all(
+    queries.map(async ({ key, q }) => {
+      const call = await alexandriaCall(client, {
+        provider: "x-com",
+        capability: "posts/search",
+        options: { query: q.replace(/^site:x\.com\s+/, ""), limit: 10, from_date: since },
+      });
+      if (!call.ok)
+        return { key: `${key}:live`, results: 0, leads: 0, credits: 0, error: call.kind === "error" ? call.message : call.kind };
+      let leads = 0;
+      for (const p of call.records as LivePost[]) {
+        if (!p?.id || !p.username || !p.text) continue;
+        const handle = p.username.toLowerCase();
+        leads += read(
+          {
+            kind: "post",
+            statusId: p.id,
+            handle,
+            name: p.name,
+            url: `https://x.com/${handle}/status/${p.id}`,
+            text: p.text,
+            snippet: p.text,
+            postedAt: p.created_at ? new Date(p.created_at) : null,
+          },
+          undefined,
+        );
+      }
+      return { key: `${key}:live`, results: call.records.length, leads, credits: call.credits, error: null };
+    }),
+  );
   const calls = await Promise.all(
     queries.map(async ({ key, q }) => {
       try {
@@ -171,14 +216,7 @@ export async function searchAnnouncements(
         let leads = 0;
         for (const w of web) {
           const x = parseXResult(w, now);
-          if (!x) continue;
-          const lead = readAnnouncement(x, w.title, now, opts.lookbackHours);
-          if (typeof lead === "string") {
-            rejected[lead] = (rejected[lead] ?? 0) + 1;
-            continue;
-          }
-          leads++;
-          if (!byKey.has(lead.key)) byKey.set(lead.key, lead);
+          if (x) leads += read(x, w.title);
         }
         return { key, results: web.length, leads, credits: searchCredits(web.length), error: null };
       } catch (e) {
@@ -186,7 +224,17 @@ export async function searchAnnouncements(
       }
     }),
   );
-  return { leads: [...byKey.values()], rejected, calls, credits: calls.reduce((n, c) => n + c.credits, 0) };
+  const all = [...live, ...calls];
+  return { leads: [...byKey.values()], rejected, calls: all, credits: all.reduce((n, c) => n + c.credits, 0) };
+}
+
+/** A post as Alexandria's X provider returns it. */
+interface LivePost {
+  id: string | null;
+  username: string | null;
+  name: string | null;
+  text: string | null;
+  created_at: string | null;
 }
 
 /** The announcement searches' recency: the past day, sorted by date. */

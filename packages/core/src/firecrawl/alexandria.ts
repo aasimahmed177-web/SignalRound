@@ -82,10 +82,10 @@ export async function alexandriaCall(client: Firecrawl, call: AlexandriaCall): P
     const item = res.alexandria[0];
     if (!item) return { ok: false, kind: "error", message: "the call returned no result" };
     if (item.error) return { ok: false, kind: "error", message: item.error.message };
-    const data = item.data as { records?: unknown[]; companies?: unknown[]; organizations?: unknown[] } | undefined;
+    const data = item.data as { records?: unknown[]; companies?: unknown[]; organizations?: unknown[]; data?: unknown[] } | undefined;
     return {
       ok: true,
-      records: data?.records ?? data?.companies ?? data?.organizations ?? [],
+      records: data?.records ?? data?.companies ?? data?.organizations ?? data?.data ?? [],
       credits: item.creditsCost ?? res.creditsCost ?? 0,
     };
   } catch (e) {

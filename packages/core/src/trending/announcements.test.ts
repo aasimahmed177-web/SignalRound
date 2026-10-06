@@ -263,6 +263,50 @@ describe("the lane's September 25 fixes", () => {
     expect(r.rejected.profile).toBe(X_ANNOUNCEMENT_QUERIES.length);
   });
 
+  test("X's own index through Alexandria reads a post whole, minutes old, the same way a search result is read", async () => {
+    const calls: unknown[] = [];
+    const client = {
+      search: async () => ({ web: [] }),
+      scrape: async (req: { alexandria: { options: { query: string; from_date: string } } }) => {
+        calls.push(req.alexandria);
+        return {
+          alexandria: [
+            {
+              creditsCost: 30,
+              data: {
+                data: [
+                  {
+                    id: "2107163635810472259",
+                    username: "StartupAndrew",
+                    name: "Andrew Lee",
+                    text: "Today, I'm excited to share we've raised an additional $12.8M at a $500M valuation. @TaskletAI is built for teams.",
+                    created_at: new Date(NOW.getTime() - 20 * 60_000).toISOString(),
+                  },
+                ],
+              },
+            },
+          ],
+        };
+      },
+    } as unknown as Firecrawl;
+    const r = await searchAnnouncements(client, NOW, { queries: [{ key: "weve_raised", q: `site:x.com "we've raised" led by` }] });
+    expect(calls).toEqual([
+      {
+        provider: "x-com",
+        capability: "posts/search",
+        options: { query: `"we've raised" led by`, limit: 10, from_date: expect.any(String) },
+      },
+    ]);
+    expect(r.leads).toHaveLength(1);
+    expect(r.leads[0]).toMatchObject({
+      key: "2107163635810472259",
+      handle: "startupandrew",
+      amountAsWritten: "$12.8M",
+      url: "https://x.com/startupandrew/status/2107163635810472259",
+    });
+    expect(r.calls.find((c) => c.key === "weve_raised:live")).toMatchObject({ results: 1, leads: 1, credits: 30 });
+  });
+
   test("a profile page is never a lead: every one measured was an older post under the page's newest time", () => {
     // Oneleet's Series A from October 2025, returned on Sep 24, 2026 as a profile page "10 hours ago".
     expect(

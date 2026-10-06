@@ -1,5 +1,5 @@
 // The X announcements lane as a durable run, hourly. Search X for funding posts from the last few
-// hours and keep each as a lead; then work every lead whose next search is due: the store may
+// hours (X's own index through Alexandria, and web search) and keep each as a lead; then work every lead whose next search is due: the store may
 // already hold the round (known); else a search on the company and the amount looks for an article,
 // which is read through the normal pipeline (extract, resolve, read-back) and lands under the preset
 // that keeps it (corroborated). A lead from a status post whose account the company's own homepage
@@ -121,7 +121,8 @@ export async function announcementsWorkflow(
   }
   const queued = await deliverStep(changedByPreset, origin);
   counts.queued = queued;
-  const estimate = (found ? X_ANNOUNCEMENT_QUERIES.length * 4 : 0) + due.length * 2;
+  // Each query runs twice: a 4-credit web search and a 30-credit search of X's own index through Alexandria.
+  const estimate = (found ? X_ANNOUNCEMENT_QUERIES.length * (4 + 30) : 0) + due.length * 2;
   await recordRunStep({ id: runId, startedAt, estimate, measured: credits, counts });
   return {
     runId,
@@ -146,6 +147,7 @@ async function discoverStep(startedAt: string, lookbackHours: number): Promise<{
     search_errors: r.calls.filter((c) => c.error).length,
     results: r.calls.reduce((n, c) => n + c.results, 0),
     leads: r.leads.length,
+    live_leads: r.calls.filter((c) => c.key.endsWith(":live")).reduce((n, c) => n + c.leads, 0),
     new_leads: fresh,
   };
   for (const [reason, n] of Object.entries(r.rejected)) counts[`not_lead_${reason.replace(/\s+/g, "_")}`] = n ?? 0;
