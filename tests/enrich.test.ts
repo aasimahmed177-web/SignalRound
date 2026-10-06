@@ -77,10 +77,16 @@ const CONVEO = {
   sector: "ai",
 };
 
+/** The chrome every real homepage carries, so a fixture page has a page's worth of text. */
+const FOOTER =
+  "\\n\\nAbout us. Our story and our mission. Leadership and board. Careers: we are hiring across the globe, see open roles. Press and media kit. Blog and stories. Events and webinars. Partners and integrations. Contact sales. Help center and documentation. Status page. Privacy policy. Terms of service. Cookie settings. Accessibility statement. Subscribe to our newsletter for updates. Follow us on social media. Copyright, all rights reserved.";
+
 interface Page {
   json?: unknown;
   links?: string[];
   markdown?: string;
+  /** The page as given, with no site chrome added: a thin page. */
+  bare?: boolean;
   branding?: { brandName?: string; logo?: string };
   metadata?: { title?: string; favicon?: string };
 }
@@ -106,10 +112,10 @@ function fakeClient(searchUrls: string[], pages: Record<string, Page | Error>) {
 }
 
 /** A page that says in its own words what its verdict says it sells, as a real homepage does. */
-function ownWords<P extends { json?: unknown; markdown?: string }>(page: P): P {
+function ownWords<P extends { json?: unknown; markdown?: string; bare?: boolean }>(page: P): P {
   const profile = page.json as CompanyProfile | null | undefined;
-  if (!profile?.what_they_sell) return page;
-  return { markdown: profile.what_they_sell, ...page };
+  const text = page.markdown ?? profile?.what_they_sell ?? "";
+  return { ...page, markdown: page.bare ? text : text + FOOTER };
 }
 
 describe("grounded website search", () => {

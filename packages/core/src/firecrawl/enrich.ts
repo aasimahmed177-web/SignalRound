@@ -447,6 +447,28 @@ export function distinguishingWords(context: CompanyContext): string[] {
   return out;
 }
 
+/** A page behind a sign-in: a login form, a password reset, an SSO hop. It says nothing about who the company is. */
+const SIGN_IN_PATH = /\/(?:log-?in|sign-?in|sign-?up|auth|authori[sz]ation(?:\.do)?|sso|password|reset)(?:[/.?#]|$)/i;
+
+/** Pages with less prose than this cannot show a line of business: an app's login, a splash image. */
+export const MIN_PAGE_LETTERS = 300;
+
+/** The letters of a page's own prose: image and link targets dropped, a link's visible words kept. */
+export function proseLetters(markdown: string): number {
+  const prose = markdown.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
+  return (prose.match(/\p{L}/gu) ?? []).length;
+}
+
+/** Whether a homepage read landed on a sign-in page, by the URL it ended on. */
+export function isSignInPage(url: string | null | undefined): boolean {
+  try {
+    const u = new URL(url ?? "");
+    return SIGN_IN_PATH.test(u.pathname) || /^(?:login|signin|auth|sso|accounts?|reset)\./i.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Words any software or AI company's site uses, so sharing them says nothing about the line of business. */
 const GENERIC_BUSINESS_WORDS = new Set(
   "ai artificial intelligence software platform data technology technologies tech solution solutions tool tools app apps digital online service services system systems product products customer customers business businesses team teams startup automation automated book booking demo contact".split(
@@ -921,6 +943,14 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
           tried.push({ url, host, origin, reason: "domain appears parked or for sale", parked: true });
           return null;
         }
+        // A sign-in page is an app's door, not the company's site; whose app it is cannot be read off it
+        // (web.barq.app/login, a social app's, passed as a Saudi payments company's; a password-reset
+        // portal passed as an Amsterdam health clinic's). The identity verdict on such a page only echoes the record.
+        const landed = (home.metadata as { url?: string; sourceURL?: string } | undefined)?.url ?? url;
+        if (isSignInPage(landed) || isSignInPage(url)) {
+          tried.push({ url, host, origin, reason: "a sign-in page, not the company's site", parked: false });
+          return null;
+        }
         let basis: Verified["basis"] = "homepage";
         let aboutUrl: string | undefined;
         let profile: CompanyProfile | null = null;
@@ -958,10 +988,21 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
           tried.push({ url, host, origin, reason, parked: false });
           return null;
         }
+        // A page with almost no prose of its own cannot verify: its verdict can only echo the record. The
+        // record's own site or one the store's pages link stays as unknown (a stealth startup's splash page);
+        // one a search turned up is refused, so it is never kept as the website for want of a better one.
+        if (proseLetters(pageText) < MIN_PAGE_LETTERS) {
+          const reason = "too little text to tell what the company does";
+          if (origin === "search") tried.push({ url, host, origin, reason, parked: false });
+          else unreadable.push({ url, host, origin, reason });
+          return null;
+        }
         // A site the record's words found must show the record's line of business in its own text: the
         // verdict echoes the record it is given (flai.ai, a mapping-data company, and flai.app, an AI chat
-        // app, both came back as "AI software that books appointments for car dealerships"). A site the
-        // bare name found had no description to echo, so its verdict stands alone.
+        // app, both came back as "AI software that books appointments for car dealerships"). The bare-name
+        // search runs when those words found no homepage at all, usually because they describe the round
+        // rather than the company ("OpenAI to raise $40 billion in SoftBank-led round"), so they cannot
+        // judge its candidates either; the sign-in and thin-page guards above still apply to them.
         if (origin === "search" && !nameOnly.has(url) && !sharesBusinessWords(pageText, c)) {
           tried.push({ url, host, origin, reason: "its own text does not name the record's line of business", parked: false });
           return null;

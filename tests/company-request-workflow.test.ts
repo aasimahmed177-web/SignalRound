@@ -46,6 +46,7 @@ vi.mock("@/lib/firecrawl", () => ({
           same_company: true,
         },
         branding: { brandName: "Acme" },
+        markdown: HOME_TEXT,
         links: [],
         metadata: {},
       };
@@ -140,6 +141,10 @@ vi.mock("@/workflows/history", async (original) => {
 
 import { db } from "../lib/db";
 import { companyRequestWorkflow } from "../workflows/company-request";
+
+/** A homepage's worth of its own text: the identity check needs a page that says what the company does. */
+const HOME_TEXT =
+  "Acme builds software for finance teams: close the books faster, reconcile every account, and report with confidence. Trusted by finance leaders at growing companies around the world. About us, careers, press, blog, contact sales, help center, privacy policy, terms of service, cookie settings, and our newsletter for product updates and customer stories. See how teams automate approvals, forecast cash, and give every stakeholder a live view of the numbers, with integrations for the tools they already use.";
 
 beforeEach(async () => {
   Object.assign(log, { events: [], brandBeforeIdentity: null, active: 0, peak: 0, keys: [] });

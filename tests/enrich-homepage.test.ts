@@ -13,8 +13,11 @@ import {
   homepageOf,
   hostFit,
   identityPrompt,
+  isSignInPage,
   listingNamesCompany,
+  MIN_PAGE_LETTERS,
   pressLinks,
+  proseLetters,
   searchName,
   searchWebsites,
   siteCandidates,
@@ -28,10 +31,16 @@ import { clearUnverifiedProfiles, enrichBatch, isPending, isVerified } from "../
 import { persistRecords } from "../lib/persist";
 import { record, testDb } from "./helpers";
 
+/** The chrome every real homepage carries, so a fixture page has a page's worth of text. */
+const FOOTER =
+  "\n\nAbout us. Our story and our mission. Leadership and board. Careers: we are hiring across the globe, see open roles. Press and media kit. Blog and stories. Events and webinars. Partners and integrations. Contact sales. Help center and documentation. Status page. Privacy policy. Terms of service. Cookie settings. Accessibility statement. Subscribe to our newsletter for updates. Follow us on social media. Copyright, all rights reserved.";
+
 interface Page {
   json?: unknown;
   links?: string[];
   markdown?: string;
+  /** The page as given, with no site chrome added: a thin page. */
+  bare?: boolean;
   metadata?: { title?: string };
   branding?: { brandName?: string };
 }
@@ -65,7 +74,8 @@ function fakeClient(search: (query: string) => Hit[], pages: Record<string, Page
       if (page instanceof Error) throw page;
       // A page says in its own words what its verdict says it sells, unless the fixture gives its text.
       const sells = (page.json as { what_they_sell?: string } | undefined)?.what_they_sell;
-      return { links: [], metadata: { title: host }, markdown: sells ?? "", ...page };
+      const text = page.markdown ?? sells ?? "";
+      return { links: [], metadata: { title: host }, ...page, markdown: page.bare ? text : text + FOOTER };
     },
   };
   return { client: client as unknown as Firecrawl, calls };
@@ -99,6 +109,16 @@ const UPWIND = {
   headquarters: "San Francisco, USA",
   sector: "cybersecurity",
 };
+
+describe("pages that cannot show who a company is", () => {
+  test("a sign-in page by its path or host, and a page with little prose of its own", () => {
+    expect(isSignInPage("https://web.barq.app/login")).toBe(true);
+    expect(isSignInPage("https://reset.bluehealthintelligence.com/authorization.do")).toBe(true);
+    expect(isSignInPage("https://www.useflai.com/")).toBe(false);
+    expect(isSignInPage("https://acme.com/blog/login-flows-we-love")).toBe(false);
+    expect(proseLetters("![](https://flai.app/banner.jpg) [App Store](https://apps.apple.com/app)")).toBeLessThan(MIN_PAGE_LETTERS);
+  });
+});
 
 describe("how a host spells the company's name", () => {
   test("a host that drops the descriptor words fits loosely, where the old rule dropped it", () => {
@@ -481,6 +501,28 @@ describe("a homepage too big for the extraction", () => {
 });
 
 describe("the refusals that must hold", () => {
+  test("a sign-in page is refused whichever search found it: its verdict only echoes the record", async () => {
+    const { client } = fakeClient(() => [{ url: "https://web.barq.app/" }], {
+      "web.barq.app": {
+        json: same("A payments and digital wallet app for consumers in Saudi Arabia."),
+        metadata: { title: "BARQ!", url: "https://web.barq.app/login" } as never,
+      },
+    });
+    const { enrichments } = await enrichCompanies(client, [
+      {
+        company_key: "barq",
+        company_name: "Barq",
+        company_website: null,
+        company_description: null,
+        headquarters: "Riyadh",
+        sector: "fintech",
+        evidence: "Barq, a Saudi payments and wallet app, raised $329.5M",
+      },
+    ]);
+    expect(enrichments[0]?.company_website).toBeNull();
+    expect(enrichments[0]?.error).toContain("a sign-in page");
+  });
+
   test("the Flai case: a site a search found must name the record's line of business in its own text", async () => {
     const { client } = fakeClient(
       () => [
@@ -490,7 +532,11 @@ describe("the refusals that must hold", () => {
       ],
       {
         // An image-only landing page: the verdict wrote the record's sentence as the site's.
-        "flai.app": { json: same("AI software that books appointments for car dealerships."), markdown: "![](banner.jpg) App Store" },
+        "flai.app": {
+          json: same("AI software that books appointments for car dealerships."),
+          markdown: "![](banner.jpg) App Store",
+          bare: true,
+        },
         // A namesake the verdict called compatible because both use AI.
         "flai.ai": {
           json: same("AI spatial intelligence software that processes 3D point clouds for mapping and forestry."),
@@ -516,6 +562,7 @@ describe("the refusals that must hold", () => {
       },
     ]);
     expect(enrichments[0]?.company_website).toBe("https://useflai.com");
+    // The image-only page cannot verify on its own words, and a search candidate that cannot verify is refused.
     expect(enrichments[0]?.refused_hosts).toEqual(["flai.app", "flai.ai"]);
   });
 

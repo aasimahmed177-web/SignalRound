@@ -36,6 +36,10 @@ import { brandStep, researchHomepage } from "../workflows/company-request";
 import { record } from "./helpers";
 import { reader } from "./history-fixtures";
 
+/** A homepage's worth of its own text: the identity check needs a page that says what the company does. */
+const HOME_TEXT =
+  "Acme builds software for finance teams: close the books faster, reconcile every account, and report with confidence. Trusted by finance leaders at growing companies around the world. About us, careers, press, blog, contact sales, help center, privacy policy, terms of service, cookie settings, and our newsletter for product updates and customer stories. See how teams automate approvals, forecast cash, and give every stakeholder a live view of the numbers, with integrations for the tools they already use.";
+
 const url = "https://acme.example.com/path";
 const submit = (website = url, address = "203.0.113.4") =>
   POST(
@@ -172,6 +176,7 @@ describe("homepage identity", () => {
         same_company: true,
       },
       branding: { brandName: "Acme" },
+      markdown: HOME_TEXT,
       links: [],
       metadata: {},
     });
@@ -284,6 +289,7 @@ describe("sibling sites", () => {
         same_company: true,
       },
       branding: { brandName: "tldraw" },
+      markdown: HOME_TEXT,
       links: ["https://tldraw.dev/", "https://github.com/tldraw/tldraw", "https://tldraw.substack.com/", "https://canvas.io/"],
       metadata: {},
     });
@@ -323,6 +329,7 @@ describe("clean names", () => {
         same_company: true,
       },
       branding: { brandName: "Resend · Email for developers" },
+      markdown: HOME_TEXT,
       links: [],
       metadata: {},
     });
