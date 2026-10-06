@@ -374,15 +374,17 @@ const WATCH_QUERY_RUNS_PER_DAY: Record<CoveragePlan["watchSites"]["cadence"], nu
 const WATCH_QUERY_CREDITS = searchCredits(40);
 const WATCH_QUERY_NEW_PAGES_PER_QUERY_PER_DAY = 11;
 /**
- * The X announcements lane: twelve `site:x.com` searches (20 results, 4 credits each; the first-person
- * ones and, since September 25, 2026, the investor-side ones) on every run it searches (hourly on Max,
- * once a day on Deep), and for each new lead a search for its article (2 credits) on its schedule (six
+ * The X announcements lane: twelve queries, each a `site:x.com` search (20 results, 4 credits) and a
+ * search of X's own index through Alexandria (30 credits), on every run it searches (every quarter hour
+ * on Max, once a day on Deep), and for each new lead a search for its article (2 credits) on its schedule (six
  * for a status post; profile pages are no longer leads) with the pages that name the company read once.
  * Measured over 48 hours of posts (September 24, 2026): about 25 new leads a day, two in five with pages
  * worth reading, two or three pages each. A founder's post that a second account confirms gets its bio
  * read through the X scrape (30 credits) and the company's homepage links (1), a few a day.
  */
-const X_ANNOUNCEMENT_RUNS_PER_DAY: Record<CoveragePlan["watchSites"]["cadence"], number> = { daily: 1, hourly: 24 };
+const X_ANNOUNCEMENT_RUNS_PER_DAY: Record<CoveragePlan["watchSites"]["cadence"], number> = { daily: 1, hourly: 96 };
+/** Each query also searches X's own index through Alexandria's X provider: 30 credits a call. */
+const X_LIVE_SEARCH_CREDITS = 30;
 const X_ANNOUNCEMENT_SEARCHES = X_ANNOUNCEMENT_QUERIES.length;
 const X_LEADS_PER_DAY = { low: 15, high: 40 };
 const X_ARTICLE_SEARCHES_PER_LEAD = { low: 3, high: 6 };
@@ -567,7 +569,8 @@ export function estimateMonthlyCredits(plan: CoveragePlan, presets: Preset[], mo
         queries * WATCH_QUERY_NEW_PAGES_PER_QUERY_PER_DAY * extractionCredits(1);
       add("Stage-free searches (then new pages)", perDayQueries * DAYS_PER_MONTH);
     }
-    const xSearch = X_ANNOUNCEMENT_RUNS_PER_DAY[plan.watchSites.cadence] * X_ANNOUNCEMENT_SEARCHES * searchCredits(20);
+    const xSearch =
+      X_ANNOUNCEMENT_RUNS_PER_DAY[plan.watchSites.cadence] * X_ANNOUNCEMENT_SEARCHES * (searchCredits(20) + X_LIVE_SEARCH_CREDITS);
     const xLeads = (r: "low" | "high") =>
       X_LEADS_PER_DAY[r] * (X_ARTICLE_SEARCHES_PER_LEAD[r] * searchCredits(10) + X_ARTICLE_PAGES_PER_LEAD[r] * extractionCredits(1)) +
       X_FOUNDER_CHECKS_PER_DAY[r] * (X_PROFILE_READ_CREDITS + RATE.scrapePage);

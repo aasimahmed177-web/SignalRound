@@ -167,7 +167,7 @@ describe("resolveCoverage", () => {
 });
 
 describe("estimateMonthlyCredits", () => {
-  test("one preset, no monitor: Lite under 4k, Standard 8k to 32k, Deep 40k to 275k, Max above 500k", () => {
+  test("one preset, no monitor: Lite under 4k, Standard 8k to 32k, Deep 40k to 275k, Max 500k to 3M", () => {
     const lite = estimateMonthlyCredits(coverageFor("lite"), [preset], 0);
     expect(lite.low).toBeGreaterThan(1500);
     expect(lite.high).toBeLessThan(4000);
@@ -182,7 +182,8 @@ describe("estimateMonthlyCredits", () => {
     expect(deep.high).toBeLessThan(275_000);
     const max = estimateMonthlyCredits(coverageFor("max"), [preset], 0);
     expect(max.low).toBeGreaterThan(500_000);
-    expect(max.high).toBeLessThan(1_500_000);
+    // Max searches X every quarter hour, on X's own index (30 credits a query) as well as the web: about 1.2M a month.
+    expect(max.high).toBeLessThan(3_000_000);
     expect(lite.high).toBeLessThan(standard.low);
     expect(standard.high).toBeLessThan(deep.low);
     expect(deep.high).toBeLessThan(max.low);

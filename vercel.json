@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/announcements",
-      "schedule": "0 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/slack-digest",

@@ -1,5 +1,5 @@
-// The in-process schedule for hosts with no Vercel Cron. vercel.json ticks /api/cron/sweep,
-// /api/cron/trending, and /api/cron/announcements hourly, /api/cron/verify-rounds every quarter hour,
+// The in-process schedule for hosts with no Vercel Cron. vercel.json ticks /api/cron/sweep and
+// /api/cron/trending hourly, /api/cron/verify-rounds and /api/cron/announcements every quarter hour,
 // /api/cron/deliveries every six hours, /api/cron/accuracy at 05:00 UTC,
 // and /api/cron/slack-digest at 07:00 UTC on Vercel; everywhere else `pnpm start`
 // arms this instead, calling the same routes on the same hours from inside the server.
@@ -48,6 +48,9 @@ export function tickPaths(now: Date): string[] {
   if (now.getUTCHours() === 7) paths.push("/api/cron/slack-digest");
   return paths;
 }
+
+/** The routes the quarter-hour tick calls between the hourly ticks, which call them too. */
+export const QUARTER_HOUR_PATHS = ["/api/cron/verify-rounds", "/api/cron/announcements"];
 
 /** The globalThis slot HMR re-runs share, so register() arming twice still ticks once. */
 export const SCHEDULER_STARTED = Symbol.for("fireround.scheduler");
@@ -109,7 +112,7 @@ export function startScheduler(opts: SchedulerOpts): void {
     const now = new Date();
     const delay = nextVerifyDelayMs(now);
     const t = setTimeout(() => {
-      void tick(new Date(now.getTime() + delay), ["/api/cron/verify-rounds"]).finally(armVerification);
+      void tick(new Date(now.getTime() + delay), QUARTER_HOUR_PATHS).finally(armVerification);
     }, delay);
     t.unref?.();
   }

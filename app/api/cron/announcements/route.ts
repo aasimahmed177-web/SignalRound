@@ -1,8 +1,8 @@
-// The X announcements lane, hourly. Vercel Cron calls this with `Authorization: Bearer $CRON_SECRET`
-// (vercel.json); `pnpm start` ticks it from lib/scheduler.ts. It runs when the coverage rung has the
-// discovery lanes on (Deep and Max, the same switch as watch sites): the X search runs on the watch
-// cadence (every hour on Max, 06:00 UTC on Deep, looking back a day), and the leads due a search for
-// their article are worked every hour either way. `?force=1` runs the search now whatever the rung.
+// The X announcements lane, every quarter hour. Vercel Cron calls this with `Authorization: Bearer
+// $CRON_SECRET` (vercel.json); `pnpm start` ticks it from lib/scheduler.ts. It runs when the coverage rung
+// has the discovery lanes on (Deep and Max, the same switch as watch sites): the X search runs every
+// quarter hour on Max (X's own index has a post minutes after it is posted) and once at 06:00 UTC on
+// Deep, looking back a day, and the leads due a search for their article are worked on every tick. `?force=1` runs the search now whatever the rung.
 //
 //   curl -H "authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/announcements?force=1"
 
@@ -19,7 +19,7 @@ import { announcementsWorkflow } from "@/workflows/announcements";
 /** The route only queues the workflow and returns. */
 export const maxDuration = 60;
 
-/** How old a post may be to count: twelve hours on the hourly cadence, a day and two hours on the daily. */
+/** How old a post may be to count: twelve hours on the frequent cadence (lead keys stop repeats), a day and two hours on the daily. */
 const LOOKBACK_HOURS = { hourly: 12, daily: 26 } as const;
 
 export async function GET(request: Request) {
@@ -31,7 +31,9 @@ export async function GET(request: Request) {
   const plan = await getCoverage(await db());
   if (!force && !plan.watchSites.enabled) return NextResponse.json({ ok: true, skipped: "off at this coverage rung" });
   const cadence = plan.watchSites.cadence;
-  const lookback = force || laneDue(cadence, new Date()) ? LOOKBACK_HOURS[cadence] : null;
+  // The daily search runs on the first quarter of its hour only.
+  const due = laneDue(cadence, tick) && (cadence === "hourly" || tick.getUTCMinutes() < 15);
+  const lookback = force || due ? LOOKBACK_HOURS[cadence] : null;
   if (!(await claimCronTick(await db(), "announcements", tick))) return NextResponse.json({ ok: true, skipped: "already claimed" });
   const runId = `announcements:${randomUUID()}`;
   await start(announcementsWorkflow, [runId, origin, lookback]);

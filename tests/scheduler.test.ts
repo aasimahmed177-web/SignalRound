@@ -97,15 +97,17 @@ describe("startScheduler", () => {
       { url: "http://localhost:3000/api/cron/verify-rounds", authorization: "Bearer s3cret" },
     ]);
 
-    // Three intermediate checks run before the six-hour delivery mark at 12:00:05.
+    // Three quarter-hour ticks (verification and the X lane) run before the six-hour delivery mark at 12:00:05.
     await vi.advanceTimersByTimeAsync(3_600_000);
-    expect(calls).toHaveLength(12);
-    expect(calls.slice(4, 7).map((c) => c.url)).toEqual(Array(3).fill("http://localhost:3000/api/cron/verify-rounds"));
-    expect(calls[7].url).toBe("http://localhost:3000/api/cron/sweep");
-    expect(calls[8].url).toBe("http://localhost:3000/api/cron/trending");
-    expect(calls[9].url).toBe("http://localhost:3000/api/cron/announcements");
-    expect(calls[10].url).toBe("http://localhost:3000/api/cron/verify-rounds");
-    expect(calls[11].url).toBe("http://localhost:3000/api/cron/deliveries");
+    expect(calls).toHaveLength(15);
+    expect(calls.slice(4, 10).map((c) => c.url)).toEqual(
+      Array(3).fill(["http://localhost:3000/api/cron/verify-rounds", "http://localhost:3000/api/cron/announcements"]).flat(),
+    );
+    expect(calls[10].url).toBe("http://localhost:3000/api/cron/sweep");
+    expect(calls[11].url).toBe("http://localhost:3000/api/cron/trending");
+    expect(calls[12].url).toBe("http://localhost:3000/api/cron/announcements");
+    expect(calls[13].url).toBe("http://localhost:3000/api/cron/verify-rounds");
+    expect(calls[14].url).toBe("http://localhost:3000/api/cron/deliveries");
   });
 
   test("a rejected fetch is logged, not thrown, and the next tick still arms", async () => {
