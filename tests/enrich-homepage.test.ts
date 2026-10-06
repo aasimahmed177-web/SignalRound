@@ -63,7 +63,9 @@ function fakeClient(search: (query: string) => Hit[], pages: Record<string, Page
       const page = pages[`${host}${path}`] ?? pages[host];
       if (!page) throw new Error(`no fixture for ${url}`);
       if (page instanceof Error) throw page;
-      return { links: [], metadata: { title: host }, ...page };
+      // A page says in its own words what its verdict says it sells, unless the fixture gives its text.
+      const sells = (page.json as { what_they_sell?: string } | undefined)?.what_they_sell;
+      return { links: [], metadata: { title: host }, markdown: sells ?? "", ...page };
     },
   };
   return { client: client as unknown as Firecrawl, calls };
@@ -118,6 +120,8 @@ describe("how a host spells the company's name", () => {
   test("hosts that do not spell the name, or spell a short name with an affix, do not fit", () => {
     // An affix around a four-letter name spells too many other things.
     expect(hostFit("thehive.ai", "Hive")).toBeNull();
+    expect(hostFit("useflai.com", "Flai")).toBe("loose");
+    expect(hostFit("theflai.com", "Flai")).toBeNull();
     expect(hostFit("hive.com", "Hive")).toBe("exact");
     expect(hostFit("nilohealth.com", "Nilo")).toBeNull();
     expect(hostFit("saintpatrickscathedral.org", "Cathedral")).toBeNull();
@@ -477,6 +481,44 @@ describe("a homepage too big for the extraction", () => {
 });
 
 describe("the refusals that must hold", () => {
+  test("the Flai case: a site a search found must name the record's line of business in its own text", async () => {
+    const { client } = fakeClient(
+      () => [
+        { url: "https://flai.app/" },
+        { url: "https://flai.ai/" },
+        { url: "https://www.useflai.com/", title: "Flai — Bring more customers in" },
+      ],
+      {
+        // An image-only landing page: the verdict wrote the record's sentence as the site's.
+        "flai.app": { json: same("AI software that books appointments for car dealerships."), markdown: "![](banner.jpg) App Store" },
+        // A namesake the verdict called compatible because both use AI.
+        "flai.ai": {
+          json: same("AI spatial intelligence software that processes 3D point clouds for mapping and forestry."),
+          markdown: "Automate geospatial data processing. Point clouds to insights in minutes. Book a demo.",
+        },
+        "useflai.com": {
+          json: same("AI that books service appointments for car dealerships."),
+          markdown:
+            "# ThebestdealershipsrunonFlai. AI that brings customers in for car dealerships. Hi, I need to book an oil change. Book a demo",
+        },
+      },
+    );
+    const { enrichments } = await enrichCompanies(client, [
+      {
+        company_key: "flai",
+        company_name: "Flai",
+        company_website: null,
+        company_description: null,
+        headquarters: null,
+        sector: "AI",
+        evidence:
+          "Flai, a startup whose artificial intelligence software books appointments for car dealerships, has closed a $27 million Series A",
+      },
+    ]);
+    expect(enrichments[0]?.company_website).toBe("https://useflai.com");
+    expect(enrichments[0]?.refused_hosts).toEqual(["flai.app", "flai.ai"]);
+  });
+
   test("the Creem case: an exact-name namesake that names its business is refused and nothing is kept", async () => {
     const { client } = fakeClient(() => [], { "creem.com": { json: namesake("rock music magazine") } });
     const { enrichments } = await enrichCompanies(

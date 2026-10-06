@@ -80,6 +80,7 @@ const CONVEO = {
 interface Page {
   json?: unknown;
   links?: string[];
+  markdown?: string;
   branding?: { brandName?: string; logo?: string };
   metadata?: { title?: string; favicon?: string };
 }
@@ -98,10 +99,17 @@ function fakeClient(searchUrls: string[], pages: Record<string, Page | Error>) {
       const page = pages[host];
       if (!page) throw new Error(`no fixture for ${host}`);
       if (page instanceof Error) throw page;
-      return { links: [], metadata: { title: host }, ...page };
+      return { links: [], metadata: { title: host }, ...ownWords(page) };
     },
   };
   return { client: client as unknown as Firecrawl, calls };
+}
+
+/** A page that says in its own words what its verdict says it sells, as a real homepage does. */
+function ownWords<P extends { json?: unknown; markdown?: string }>(page: P): P {
+  const profile = page.json as CompanyProfile | null | undefined;
+  if (!profile?.what_they_sell) return page;
+  return { markdown: profile.what_they_sell, ...page };
 }
 
 describe("grounded website search", () => {
@@ -299,7 +307,7 @@ describe("enrichCompanies identity verification", () => {
           : { web: [{ url: "https://www.reuters.com/technology/openai-raise-40-billion" }, { url: "https://techcrunch.com/openai" }] };
       },
       async scrape(url: string) {
-        return { links: [], metadata: { title: "OpenAI" }, json: new URL(url).hostname === "openai.com" ? LAB : null };
+        return { links: [], metadata: { title: "OpenAI" }, ...ownWords({ json: new URL(url).hostname === "openai.com" ? LAB : null }) };
       },
     } as unknown as Firecrawl;
     const { enrichments } = await enrichCompanies(client, [OPENAI], { pricingPage: false });
@@ -475,7 +483,10 @@ describe("the benefit of the doubt for an exact-name host", () => {
   test("a second candidate that verifies still wins over a doubted first", async () => {
     const { client } = fakeClient(["https://zenergize.com/"], {
       "zenergize.in": { json: WORDING_QUIBBLE },
-      "zenergize.com": { json: { ...ASSISTANT, what_they_sell: "SiC inverters and EV chargers." } },
+      "zenergize.com": {
+        json: { ...ASSISTANT, what_they_sell: "SiC inverters and EV chargers." },
+        markdown: "SiC inverters and EV chargers, built on our silicon carbide power electronics.",
+      },
     });
     const { enrichments } = await enrichCompanies(client, [ZENERGIZE], { pricingPage: false });
     expect(enrichments[0]?.company_website).toBe("https://zenergize.com");

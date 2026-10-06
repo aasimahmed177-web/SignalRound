@@ -228,6 +228,7 @@ const NAME_DESCRIPTORS = new Set(
 
 /** Words a company's domain adds to its name: heyollie, getacme, regentcraft, nilotx, acmehq. */
 const DOMAIN_PREFIXES = ["get", "try", "use", "join", "go", "hey", "meet", "with", "the"];
+const ACTION_PREFIXES = ["get", "try", "use", "join"];
 const DOMAIN_SUFFIXES = [
   "hq",
   "app",
@@ -284,6 +285,9 @@ export function hostFit(host: string, name: string): "exact" | "loose" | null {
     // it needs the five letters the one-word rule above asks for.
     if (head.length >= 5 && (DOMAIN_SUFFIXES.some((s) => label === head + s) || DOMAIN_PREFIXES.some((p) => label === p + head)))
       return "loose";
+    // A product's call to action in front of a four-letter name (useflai.com for Flai) is a company's
+    // own choice, not a word that happens to contain it; "the" in front is still too common (thehive.ai).
+    if (head.length === 4 && ACTION_PREFIXES.some((p) => label === p + head)) return "loose";
   }
   return null;
 }
@@ -414,7 +418,7 @@ const QUERY_NOISE = new Set(
   (
     "a an the and or of for to in on at by with that is its it as from into their this which who whose was were be been " +
     "has have had are our we they them also than then over under about after before between through " +
-    "based company startup firm inc ltd llc co corp " +
+    "based company startup firm inc ltd llc co corp said says had " +
     "raised raises raise raising funding round rounds seed series pre investors investor led lead leads announced announces " +
     "million billion valuation capital ventures venture partners fund today closed secured backed"
   ).split(/\s+/),
@@ -441,6 +445,53 @@ export function distinguishingWords(context: CompanyContext): string[] {
     if (out.length === 6) break;
   }
   return out;
+}
+
+/** Words any software or AI company's site uses, so sharing them says nothing about the line of business. */
+const GENERIC_BUSINESS_WORDS = new Set(
+  "ai artificial intelligence software platform data technology technologies tech solution solutions tool tools app apps digital online service services system systems product products customer customers business businesses team teams startup automation automated book booking demo contact".split(
+    " ",
+  ),
+);
+
+const stem = (w: string) =>
+  w
+    .toLowerCase()
+    .replace(/(?:ies)$/, "y")
+    .replace(/(?<=[a-z]{3})s$/, "");
+
+/**
+ * Whether a page's own text names the record's line of business: one of the words that tell the
+ * company apart, past the words every software site uses (and a "Book a demo" button). useflai.com
+ * says "dealerships"; flai.ai, a mapping-data namesake, never says dealership, car, or appointment.
+ */
+export function sharesBusinessWords(pageText: string, context: CompanyContext): boolean {
+  const words = [...new Set(distinguishingWords(context).map(stem))].filter((w) => !GENERIC_BUSINESS_WORDS.has(w));
+  if (words.length === 0) return true;
+  const page = new Set((pageText.toLowerCase().match(/\p{L}+/gu) ?? []).map(stem));
+  return words.some((w) => page.has(w));
+}
+
+/**
+ * The press sentence that says most about what the company does: of a round's evidence quotes, the
+ * one with the most distinguishing words. "Flai said it had raised $27 million ... led by Base10" says
+ * nothing about Flai; "Flai, a startup whose AI software books appointments for car dealerships" does.
+ */
+export function describingQuote(company: string, quotes: readonly string[]): string | null {
+  let best: string | null = null;
+  let most = -1;
+  for (const q of quotes) {
+    const n = distinguishingWords({
+      company_name: company,
+      evidence: q,
+      company_description: null,
+      headquarters: null,
+      sector: null,
+      headline: null,
+    }).length;
+    if (n > most) [best, most] = [q, n];
+  }
+  return best;
 }
 
 /**
@@ -487,7 +538,9 @@ export function identityPrompt(context: CompanyContext, site?: { shortName: stri
     " in the record: the same or a near-same name, and a compatible line of business. Compatible means the same products, market,",
     " or technology, even when one side describes it more specifically or more generally than the other, or names the technology",
     " where the other names the products (silicon carbide power electronics and EV chargers or inverters are the same business).",
-    " Different wording is not a different company. Set same_company to true when it plausibly belongs to this company.",
+    " Different wording is not a different company, but a shared broad field is not a compatible business either: two companies",
+    " that both use AI, or both sell software, are different when one serves car dealerships and the other processes mapping",
+    " data. Compare what is sold and to whom. Set same_company to true when it plausibly belongs to this company.",
     ` Set same_company to false only when the site is clearly a different business: a company called "${name}" in a different`,
     " industry or product category, a personal site, a parked domain, or a directory, even if the name, city, or logo match.",
     ` A parent company, group, or sibling business of which "${name}" is only one unit or subsidiary (a carmaker whose robotics`,
@@ -799,7 +852,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
         hostFit(hostOf(url), c.company_name) === "loose" ? identityPrompt(c, { shortName: domainLabel(hostOf(url)).label }) : basePrompt;
       const scrapeHome = (url: string) =>
         client.scrape(url, {
-          formats: ["links", "branding", { type: "json", schema: companyJsonSchema, prompt: promptFor(url) }],
+          formats: ["markdown", "links", "branding", { type: "json", schema: companyJsonSchema, prompt: promptFor(url) }],
           onlyMainContent: false,
           timeout: 60_000,
         });
@@ -837,18 +890,18 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
        * exceeds the context window", as wonder.com and twelvelabs.io did). Its own about page is small
        * and says the same thing, so the identity check reads that instead.
        */
-      const readAbout = async (home: Home, url: string): Promise<{ profile: CompanyProfile; about: string } | null> => {
+      const readAbout = async (home: Home, url: string): Promise<{ profile: CompanyProfile; about: string; markdown: string } | null> => {
         const about = aboutLink(home.links, url);
         if (!about) return null;
         try {
           const page = await client.scrape(about, {
-            formats: [{ type: "json", schema: companyJsonSchema, prompt: promptFor(url) }],
+            formats: ["markdown", { type: "json", schema: companyJsonSchema, prompt: promptFor(url) }],
             onlyMainContent: true,
             timeout: 60_000,
           });
           pages++;
           const parsed = CompanyProfile.safeParse(page.json);
-          return parsed.success ? { profile: parsed.data, about } : null;
+          return parsed.success ? { profile: parsed.data, about, markdown: page.markdown ?? "" } : null;
         } catch {
           return null;
         }
@@ -871,6 +924,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
         let basis: Verified["basis"] = "homepage";
         let aboutUrl: string | undefined;
         let profile: CompanyProfile | null = null;
+        let pageText = home.markdown ?? "";
         const parsed = CompanyProfile.safeParse(home.json);
         if (parsed.success) profile = parsed.data;
         else {
@@ -879,6 +933,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
             profile = about.profile;
             basis = "about_page";
             aboutUrl = about.about;
+            pageText = about.markdown;
           }
         }
         if (!profile) {
@@ -901,6 +956,14 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
             return null;
           }
           tried.push({ url, host, origin, reason, parked: false });
+          return null;
+        }
+        // A site the record's words found must show the record's line of business in its own text: the
+        // verdict echoes the record it is given (flai.ai, a mapping-data company, and flai.app, an AI chat
+        // app, both came back as "AI software that books appointments for car dealerships"). A site the
+        // bare name found had no description to echo, so its verdict stands alone.
+        if (origin === "search" && !nameOnly.has(url) && !sharesBusinessWords(pageText, c)) {
+          tried.push({ url, host, origin, reason: "its own text does not name the record's line of business", parked: false });
           return null;
         }
         return { url, home, profile, origin, basis, about: aboutUrl };
@@ -957,9 +1020,9 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       const linkedBy = new Map<string, string>();
       if (!verified) {
         searches++;
-        // A host that spells only part of the name needs a record that says what the company does:
-        // with only a name to judge on, thehive.ai passes for any Hive.
-        const loose = Boolean(c.company_description?.trim());
+        // A host that spells only part of the name needs a record that says what the company does (its
+        // description, or a press sentence that describes it): with only a name, thehive.ai passes for any Hive.
+        const loose = distinguishingWords(c).length >= 3;
         const grounded = await searchWebsites(client, c, 3, { loose });
         for (const [k, v] of grounded.listings) listings.set(k, v);
         let candidates = grounded.homepages.filter((u) => !already(u));

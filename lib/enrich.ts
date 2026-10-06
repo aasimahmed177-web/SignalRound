@@ -8,7 +8,15 @@
 // retried on every sweep. The reverify script clears the pending rows so the next lane retries them.
 
 import type { Enrichment } from "@fireround/core";
-import { cleanBrandName, cleanHeadlineName, enrichCompanies, hostOf, normalizeCompanyKey, registrableDomain } from "@fireround/core";
+import {
+  cleanBrandName,
+  cleanHeadlineName,
+  describingQuote,
+  enrichCompanies,
+  hostOf,
+  normalizeCompanyKey,
+  registrableDomain,
+} from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
@@ -80,9 +88,14 @@ async function storeEvidence(handle: Db, companies: EnrichCompany[]): Promise<Ma
  * The subquery names funding_rounds.id outright: drizzle writes a bare "id" for a one-table select,
  * which inside the subquery would mean the source's id and find no headline at all.
  */
-async function roundContext(handle: Db, companyIds: string[]): Promise<Map<string, { evidence: string | null; headline: string | null }>> {
+async function roundContext(
+  handle: Db,
+  companies: Array<{ id: string; name: string }>,
+): Promise<Map<string, { evidence: string | null; headline: string | null }>> {
   const out = new Map<string, { evidence: string | null; headline: string | null }>();
-  if (companyIds.length === 0) return out;
+  if (companies.length === 0) return out;
+  const names = new Map(companies.map((c) => [c.id, c.name]));
+  const companyIds = companies.map((c) => c.id);
   const rows = await handle
     .select({
       companyId: fundingRounds.companyId,
@@ -98,7 +111,7 @@ async function roundContext(handle: Db, companyIds: string[]): Promise<Map<strin
     .orderBy(sql`${fundingRounds.announcedOn} desc nulls last`);
   for (const r of rows) {
     if (out.has(r.companyId)) continue;
-    out.set(r.companyId, { evidence: r.evidence?.[0] ?? null, headline: r.headline ?? null });
+    out.set(r.companyId, { evidence: describingQuote(names.get(r.companyId) ?? "", r.evidence ?? []), headline: r.headline ?? null });
   }
   return out;
 }
@@ -146,13 +159,7 @@ export async function readProfiles(
   batch: EnrichCompany[],
   options: { pricingPage: boolean },
 ): Promise<{ enrichments: Enrichment[]; credits: number }> {
-  const [context, evidence] = await Promise.all([
-    roundContext(
-      handle,
-      batch.map((c) => c.id),
-    ),
-    storeEvidence(handle, batch),
-  ]);
+  const [context, evidence] = await Promise.all([roundContext(handle, batch), storeEvidence(handle, batch)]);
   const result = await enrichCompanies(
     client,
     batch.map((c) => ({
