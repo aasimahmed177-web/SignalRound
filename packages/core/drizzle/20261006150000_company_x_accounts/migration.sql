@@ -1,0 +1,1 @@
+ALTER TYPE alias_kind ADD VALUE IF NOT EXISTS 'x';

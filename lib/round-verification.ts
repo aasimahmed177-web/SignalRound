@@ -47,6 +47,7 @@ export function visibilityEvidence(
   investorDomains: readonly string[] = [],
   tiers: Record<string, number> = DEFAULT_TIERS,
   historicalCompany?: { name: string; sites: readonly string[] },
+  ownAccounts: readonly string[] = [],
 ): boolean {
   const independent = new Set<string>();
   const titles = new Set<string>();
@@ -55,6 +56,9 @@ export function visibilityEvidence(
     const domain = registrableDomain(source.url);
     if (!domain || isFundingAggregatorUrl(source.url)) continue;
     if (domain === companyDomain || investorDomains.includes(domain) || WIRES.has(domain) || FILINGS.has(domain)) return true;
+    // A post from one of the company's own X accounts is the company announcing, as its own site is.
+    const account = /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/(\w+)\/status\//i.exec(source.url)?.[1]?.toLowerCase();
+    if (account && ownAccounts.includes(account)) return true;
     if (historicalCompany && companyDomain) {
       const site = companySite(source.url, { domain: companyDomain, sites: historicalCompany.sites });
       if (site === "own" || (site === "sibling" && namesCompany(`${source.title ?? ""} ${source.evidence ?? ""}`, historicalCompany.name)))
@@ -96,7 +100,18 @@ export async function storedVisibilityEvidence(
     row.company.domain,
     investorDomains,
     tiers,
+    undefined,
+    await companyAccounts(handle, row.company.id),
   );
+}
+
+/** The company's own X accounts, lowercased, as the X lane recorded them. */
+export async function companyAccounts(handle: Db, companyId: string): Promise<string[]> {
+  const rows = await handle
+    .select({ key: schema.companyAliases.aliasKey })
+    .from(schema.companyAliases)
+    .where(and(eq(schema.companyAliases.companyId, companyId), eq(schema.companyAliases.kind, "x")));
+  return rows.map((r) => r.key);
 }
 
 /** An invariant, an identity collision, or a person's Review is not cleared by a successful search. */

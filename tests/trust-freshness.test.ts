@@ -60,6 +60,35 @@ describe("audit trust and freshness regressions", () => {
     expect(visibilityEvidence([{ url: "https://reuters.com/report", title: "Report" }], null)).toBe(true);
   });
 
+  test("a post from one of the company's own X accounts is the company's word, and stays so when the row is weighed again", async () => {
+    const handle = await testDb();
+    const post = "https://x.com/startupandrew/status/2107163635810472259";
+    const tasklet = record({
+      company_name: "Tasklet",
+      announced_date: "2026-10-05",
+      sources: [{ url: post, host: "x.com", title: "Andrew Lee on X" }],
+      verification: { status: "unverified", notes: [], url: post },
+    });
+    expect(visibilityEvidence([{ url: post, title: "Andrew Lee on X" }], null)).toBe(false);
+    expect(visibilityEvidence([{ url: post, title: "Andrew Lee on X" }], null, [], undefined, undefined, ["startupandrew"])).toBe(true);
+    expect(
+      visibilityEvidence([{ url: "https://x.com/someone/status/1", title: "x" }], null, [], undefined, undefined, ["startupandrew"]),
+    ).toBe(false);
+
+    await persistRecords(handle, [tasklet], "series-a", "x", { startIn: "flagged", ownAccounts: ["StartupAndrew"] });
+    const held = (r: { verification: unknown }) => JSON.stringify(r.verification).includes("source fidelity");
+    let [row] = await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, tasklet.id));
+    expect(held(row)).toBe(false);
+    // What is left is the earliest-report search every new row waits on before it is shown.
+    expect((row.verification as { notes: string[] }).notes.filter((n) => n.startsWith("held for review:"))).toEqual([
+      "held for review: earliest-report search pending",
+    ]);
+    // A later reading without the option still finds the account recorded on the company.
+    await persistRecords(handle, [{ ...tasklet, evidence_quotes: ["Tasklet raised $12.8M."] }], "series-a", "again");
+    [row] = await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, tasklet.id));
+    expect(held(row)).toBe(false);
+  });
+
   test("a checked historical announcement uses its issuer's sibling or verified alias without a news freshness search", async () => {
     const handle = await testDb();
     await handle.insert(schema.companies).values({ id: "tldraw.com", name: "tldraw", nameKey: "tldraw", domain: "tldraw.com" });

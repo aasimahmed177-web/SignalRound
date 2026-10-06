@@ -33,7 +33,7 @@ import { knownRounds } from "./apollo.ts";
 import { holdLateReports } from "./late-report.ts";
 import { publicLane, publicVerifier } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
-import { visibilityEvidence } from "./round-verification.ts";
+import { companyAccounts, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
 
 const { companies, fundingRounds, investors, pageVerdicts, roundInvestors, sources, roundSources, enrichments, roundMerges } = schema;
@@ -118,6 +118,12 @@ export interface PersistOptions {
   history?: boolean;
   /** The company row every record in the batch belongs to, when the caller knows it (the history lane does). */
   companyId?: string;
+  /**
+   * X accounts shown to speak for the company: a status post the company's homepage links, or a founder's
+   * whose bio names them founder of the account the post names. Recorded on the company, so a post from
+   * one counts as the company's own word whenever the row is weighed again.
+   */
+  ownAccounts?: string[];
 }
 
 /**
@@ -1048,12 +1054,19 @@ export async function persistRecords(
           .from(schema.companyAliases)
           .where(and(eq(schema.companyAliases.companyId, companyId), eq(schema.companyAliases.kind, "domain")))
       : [];
+    const accounts = (options.ownAccounts ?? []).map((a) => a.toLowerCase());
+    if (accounts.length)
+      await handle
+        .insert(schema.companyAliases)
+        .values(accounts.map((a) => ({ companyId, kind: "x" as const, aliasKey: a, alias: `@${a}`, sourceUrl: r.sources[0]?.url ?? null })))
+        .onConflictDoNothing();
     const trusted = visibilityEvidence(
       [...r.sources, ...(prev?.sourceIds ?? []).map((url) => ({ url, title: titles.get(url), evidence: excerpts.get(`${r.id}:${url}`) }))],
       r.company_domain,
       investorDomains.flatMap((i) => (i.domain ? [i.domain] : [])),
       tiers,
       options.history ? { name: r.company_name, sites: companySites.map((s) => s.domain) } : undefined,
+      await companyAccounts(handle, companyId),
     );
     // A namesake doubt from an earlier pass lifts once the company's own site states the round: that page settles whose round it is.
     const ownSite =

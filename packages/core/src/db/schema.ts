@@ -25,7 +25,8 @@ export const amountKindEnum = pgEnum("amount_kind", AMOUNT_KINDS);
 export const recordStatusEnum = pgEnum("record_status", ["new", "updated", "seen"]);
 export const dispositionEnum = pgEnum("disposition", ["publish", "flagged", "review", "rejected"]);
 export const investorRoleEnum = pgEnum("investor_role", ["lead", "participant", "unknown"]);
-export const aliasKindEnum = pgEnum("alias_kind", ["name", "domain", "linkedin"]);
+/** x: an X account whose posts are the company's own word (its account, or a founder's its homepage or their bio ties to it). */
+export const aliasKindEnum = pgEnum("alias_kind", ["name", "domain", "linkedin", "x"]);
 export const enrichmentKindEnum = pgEnum("enrichment_kind", ["profile", "pricing", "founders", "deep_dive", "alexandria", "apollo"]);
 export const deliveryChannelEnum = pgEnum("delivery_channel", ["slack", "webhook", "email"]);
 export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "sent", "failed", "dead_letter"]);

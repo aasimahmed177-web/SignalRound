@@ -53,7 +53,7 @@ import { db } from "@/lib/db";
 import { flushDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
 import { getFirecrawl } from "@/lib/firecrawl";
-import { recordRun } from "@/lib/persist";
+import { type PersistOptions, recordRun } from "@/lib/persist";
 import { enqueueRouted, persistRouted, routingTable } from "@/lib/routing";
 import { loadAliases, loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
@@ -202,7 +202,7 @@ async function attemptStep(
   const changedByPreset: Record<string, string[]> = {};
   const insertedByPreset: Record<string, string[]> = {};
   let credits = 0;
-  const persist = async (records: FeedRecord[], options: { startIn?: "flagged" } = {}) => {
+  const persist = async (records: FeedRecord[], options: PersistOptions = {}) => {
     const s = await persistRouted(handle, records, null, runId, options, table.presets);
     if (s.persistedIds.length) await invalidateEntityPages(handle, { roundIds: s.persistedIds });
     for (const [slug, ids] of Object.entries(s.changedByPreset)) changedByPreset[slug] = [...(changedByPreset[slug] ?? []), ...ids];
@@ -321,7 +321,7 @@ async function attemptStep(
             });
             const records = r.kept.map((k) => xOnlyRecord(k, selfPublishedNote(lead), lead.url));
             if (records.length > 0) {
-              await persist(records, { startIn: "flagged" });
+              await persist(records, { startIn: "flagged", ownAccounts: [lead.handle] });
               counts.published++;
               outcome.status = "published";
               outcome.roundId = records[0].id;
@@ -374,7 +374,7 @@ async function attemptStep(
             });
             const records = r.kept.map((k) => xOnlyRecord(k, founderLandedNote(lead, confirmedBy), lead.url));
             if (records.length > 0) {
-              await persist(records, { startIn: "flagged" });
+              await persist(records, { startIn: "flagged", ownAccounts: [lead.handle] });
               counts.published++;
               counts.founder_published++;
               outcome.status = "published";
