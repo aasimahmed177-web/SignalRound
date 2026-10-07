@@ -1,6 +1,6 @@
 // The in-process schedule for hosts with no Vercel Cron. vercel.json ticks /api/cron/sweep and
 // /api/cron/trending hourly, /api/cron/verify-rounds and /api/cron/announcements every quarter hour,
-// /api/cron/deliveries every six hours, /api/cron/accuracy at 05:00 UTC,
+// /api/cron/deliveries hourly, /api/cron/accuracy at 05:00 UTC,
 // and /api/cron/slack-digest at 07:00 UTC on Vercel; everywhere else `pnpm start`
 // arms this instead, calling the same routes on the same hours from inside the server.
 // `pnpm dev` stays off unless SCHEDULE=1 asks for it; SCHEDULE=0 turns a self-host's off.
@@ -38,11 +38,10 @@ export function nextVerifyDelayMs(now: Date): number {
 
 /**
  * The routes one tick calls, mirroring vercel.json: the sweep, Trending, and X announcements hourly,
- * deliveries every six hours, the accuracy check at 05:00 UTC, the Slack digest at 07:00 UTC.
+ * deliveries (with the X lane) hourly, the accuracy check at 05:00 UTC, the Slack digest at 07:00 UTC.
  */
 export function tickPaths(now: Date): string[] {
-  const paths = ["/api/cron/sweep", "/api/cron/trending", "/api/cron/announcements", "/api/cron/verify-rounds"];
-  if (now.getUTCHours() % 6 === 0) paths.push("/api/cron/deliveries");
+  const paths = ["/api/cron/sweep", "/api/cron/trending", "/api/cron/announcements", "/api/cron/verify-rounds", "/api/cron/deliveries"];
   if (now.getUTCHours() === 5) paths.push("/api/cron/accuracy");
   if (now.getUTCHours() === 6) paths.push("/api/cron/company-newsrooms");
   if (now.getUTCHours() === 7) paths.push("/api/cron/slack-digest");

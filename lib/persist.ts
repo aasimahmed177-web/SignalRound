@@ -2251,8 +2251,10 @@ export async function applyRoundMerge(handle: Db, m: RoundMerge): Promise<void> 
         target: [roundInvestors.roundId, roundInvestors.investorId],
         set: { role: sql`case when excluded.role = 'lead' then excluded.role else ${roundInvestors.role} end` },
       });
+  // An X row is never dropped: when both copies were posted, the duplicate's post moves over under its own
+  // target so the X lane can find and delete it (lib/x-posts.ts), and the survivor is never posted again.
   await handle.execute(
-    sql`insert into deliveries (round_id, channel, target, status, attempts, next_attempt_at, last_error, created_at) select ${keepId}, channel, target, status, attempts, next_attempt_at, last_error, created_at from deliveries where round_id = ${dupId} on conflict do nothing`,
+    sql`insert into deliveries (round_id, channel, target, status, attempts, next_attempt_at, last_error, external_id, snapshot, created_at) select ${keepId}, d.channel, case when d.channel = 'x' and exists (select 1 from deliveries k where k.round_id = ${keepId} and k.channel = d.channel and k.target = d.target) then d.target || ':' || ${dupId} else d.target end, d.status, d.attempts, d.next_attempt_at, d.last_error, d.external_id, d.snapshot, d.created_at from deliveries d where d.round_id = ${dupId} on conflict do nothing`,
   );
   await handle
     .update(fundingRounds)

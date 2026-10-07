@@ -275,7 +275,7 @@ export async function failingTargets(handle: Db, now: Date): Promise<FailingTarg
     const sub = r.target.startsWith("sub:") ? r.target.slice(4) : null;
     const label = sub
       ? (subNames.get(sub) ?? `Slack subscription ${sub.slice(0, 8)}`)
-      : (labels.get(r.target) ?? `${r.channel} target ${r.target.slice(0, 8)}`);
+      : (labels.get(r.target) ?? (r.channel === "x" ? "Posting to X" : `${r.channel} target ${r.target.slice(0, 8)}`));
     return { label, rows: Number(r.rows), dead: Number(r.dead), lastError: r.last_error };
   });
 }

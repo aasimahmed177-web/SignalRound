@@ -7,7 +7,7 @@
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, eq, inArray, lte, notLike, sql } from "drizzle-orm";
+import { and, eq, inArray, lte, ne, notLike, sql } from "drizzle-orm";
 import { acceptsCertainty, deliverableRounds, newsBlocks } from "./deliverable.ts";
 import type { DigestCadence, DigestState } from "./digest.ts";
 import { digestDue, digestHtml, digestKey, digestSubject, digestText, digestUnsubscribeUrl, parseDigestState } from "./digest.ts";
@@ -274,10 +274,11 @@ export async function flushDeliveries(handle: Db, origin: string, fetchImpl: typ
         inArray(deliveries.status, ["pending", "failed"]),
         lte(deliveries.nextAttemptAt, sql`now()`),
         notLike(deliveries.target, "sub:%"),
+        ne(deliveries.channel, "x"),
       ),
     )
     .limit(limit);
-  // Subscription rows go through their own sender, which batches a burst per channel.
+  // Subscription rows go through their own sender, which batches a burst per channel; X rows are the X lane's (lib/x-posts.ts).
   const subs = await flushSubscriptionDeliveries(handle, origin, fetchImpl);
   const summary: FlushSummary = { sent: subs.sent, failed: subs.failed, deadLettered: subs.deadLettered };
   if (due.length === 0) return summary;

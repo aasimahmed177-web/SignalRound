@@ -35,6 +35,9 @@ Every environment variable, in one table. Only `FIRECRAWL_API_KEY` is required; 
 | `SLACK_WEBHOOK_KEY` | required for Slack deliveries | 32+ characters that encrypt admin delivery targets and public subscription webhook URLs, and sign public manage links. Set before upgrading an existing Slack install and keep it stable ([slack.md](slack.md)) |
 | `SLACK_SIGNING_SECRET` | required for Slack lifecycle events | Slack app signing secret; verifies `app_uninstalled` and `tokens_revoked` at `/api/webhooks/slack` so credentials can be deleted when Slack revokes them |
 | `SLACK_SUBSCRIPTION_CAP` | optional | Live public Slack channels the instance accepts; default 500 |
+| `X_POSTING` | optional | `off` (default), `dry_run`, or `live`: post significant rounds to X ([deploy.md](deploy.md#posting-to-x)) |
+| `X_CONSUMER_KEY`, `X_CONSUMER_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET` | for `X_POSTING=live` | The X developer portal's OAuth 1.0a keys for the posting account, with Read and write permission |
+| `X_MIN_USD_MILLIONS`, `X_TRENDING_TOP`, `X_MAX_POSTS_PER_DAY`, `X_REVIEW_SLACK_TARGET` | optional | What qualifies for X ($50M+, or Trending's top 5; `X_TRENDING_TOP=0` turns that rule off), the daily cap (6), and the Slack delivery target (its label or id) a dry run is posted to for review |
 | `RESEND_API_KEY`, `DIGEST_FROM` | optional | Email digests through Resend, a self-host option; both needed to send, and the public pages mention email only when both are set. Each digest carries a one-click unsubscribe link and `List-Unsubscribe` headers, signed with the Resend key |
 | `EDGAR_USER_AGENT` | optional | The User-Agent the Form D lane sends to EDGAR, `your-app/version (you@example.com)` |
 | `HOUSE_DOMAIN` | optional | The company the feed is built on gets a featured strip and its own mark; default `firecrawl.dev`, `off` turns it off |

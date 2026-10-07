@@ -29,12 +29,13 @@ describe("nextVerifyDelayMs", () => {
 });
 
 describe("tickPaths", () => {
-  test("the sweep, Trending, X announcements, and round verification every hour; deliveries on six-hour marks, accuracy at 05:00, Slack digest at 07:00", () => {
+  test("the sweep, Trending, X announcements, round verification, and deliveries every hour; accuracy at 05:00, Slack digest at 07:00", () => {
     expect(tickPaths(new Date("2026-09-22T05:00:05Z"))).toEqual([
       "/api/cron/sweep",
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
+      "/api/cron/deliveries",
       "/api/cron/accuracy",
     ]);
     expect(tickPaths(new Date("2026-09-22T06:00:05Z"))).toEqual([
@@ -50,6 +51,7 @@ describe("tickPaths", () => {
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
+      "/api/cron/deliveries",
       "/api/cron/slack-digest",
     ]);
     expect(tickPaths(new Date("2026-09-22T08:00:05Z"))).toEqual([
@@ -57,6 +59,7 @@ describe("tickPaths", () => {
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
+      "/api/cron/deliveries",
     ]);
   });
 });
@@ -95,19 +98,20 @@ describe("startScheduler", () => {
       { url: "http://localhost:3000/api/cron/trending", authorization: "Bearer s3cret" },
       { url: "http://localhost:3000/api/cron/announcements", authorization: "Bearer s3cret" },
       { url: "http://localhost:3000/api/cron/verify-rounds", authorization: "Bearer s3cret" },
+      { url: "http://localhost:3000/api/cron/deliveries", authorization: "Bearer s3cret" },
     ]);
 
-    // Three quarter-hour ticks (verification and the X lane) run before the six-hour delivery mark at 12:00:05.
+    // Three quarter-hour ticks (verification and the X announcements lane) run before the next hourly tick at 12:00:05.
     await vi.advanceTimersByTimeAsync(3_600_000);
-    expect(calls).toHaveLength(15);
-    expect(calls.slice(4, 10).map((c) => c.url)).toEqual(
+    expect(calls).toHaveLength(16);
+    expect(calls.slice(5, 11).map((c) => c.url)).toEqual(
       Array(3).fill(["http://localhost:3000/api/cron/verify-rounds", "http://localhost:3000/api/cron/announcements"]).flat(),
     );
-    expect(calls[10].url).toBe("http://localhost:3000/api/cron/sweep");
-    expect(calls[11].url).toBe("http://localhost:3000/api/cron/trending");
-    expect(calls[12].url).toBe("http://localhost:3000/api/cron/announcements");
-    expect(calls[13].url).toBe("http://localhost:3000/api/cron/verify-rounds");
-    expect(calls[14].url).toBe("http://localhost:3000/api/cron/deliveries");
+    expect(calls[11].url).toBe("http://localhost:3000/api/cron/sweep");
+    expect(calls[12].url).toBe("http://localhost:3000/api/cron/trending");
+    expect(calls[13].url).toBe("http://localhost:3000/api/cron/announcements");
+    expect(calls[14].url).toBe("http://localhost:3000/api/cron/verify-rounds");
+    expect(calls[15].url).toBe("http://localhost:3000/api/cron/deliveries");
   });
 
   test("a rejected fetch is logged, not thrown, and the next tick still arms", async () => {
@@ -126,13 +130,13 @@ describe("startScheduler", () => {
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     await vi.advanceTimersByTimeAsync(15_000);
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
   });
 
   test("SCHEDULE_TICK_ON_START=1 ticks immediately, off by default", async () => {
     vi.stubEnv("SCHEDULE_TICK_ON_START", "1");
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     await vi.advanceTimersByTimeAsync(0);
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
   });
 });

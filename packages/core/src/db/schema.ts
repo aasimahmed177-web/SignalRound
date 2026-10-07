@@ -29,8 +29,9 @@ export const investorRoleEnum = pgEnum("investor_role", ["lead", "participant", 
 export const aliasKindEnum = pgEnum("alias_kind", ["name", "domain", "linkedin", "x"]);
 /** "apollo" is a retired kind kept in the database type; nothing writes it. */
 export const enrichmentKindEnum = pgEnum("enrichment_kind", ["profile", "pricing", "founders", "deep_dive", "alexandria", "apollo"]);
-export const deliveryChannelEnum = pgEnum("delivery_channel", ["slack", "webhook", "email"]);
-export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "sent", "failed", "dead_letter"]);
+export const deliveryChannelEnum = pgEnum("delivery_channel", ["slack", "webhook", "email", "x"]);
+/** previewed: a dry run wrote what it would send and sent nothing; retracted: sent, then taken down (lib/x-posts.ts). */
+export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "sent", "failed", "dead_letter", "previewed", "retracted"]);
 
 export const cronLeases = pgTable(
   "cron_leases",
@@ -394,6 +395,14 @@ export const candidates = pgTable(
   (t) => [primaryKey({ columns: [t.monitorId, t.url] })],
 );
 
+/** What an X post said, when, and in which mode: the company, stage, and figure are what a correction is judged on. */
+export interface DeliverySnapshot {
+  mode: "dry_run" | "live";
+  at: string;
+  text: string;
+  facts: { company: string; stage: string; amount: string };
+}
+
 /** Fan-out outbox: one row per (record, channel). A duplicate step run sees `sent` and exits. */
 export const deliveries = pgTable(
   "deliveries",
@@ -408,6 +417,10 @@ export const deliveries = pgTable(
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
     lastError: text("last_error"),
+    /** The id the receiving service gave what was sent: an X post's id. */
+    externalId: text("external_id"),
+    /** What went out and the facts it stated, kept to judge a later correction (an X post, lib/x-posts.ts). */
+    snapshot: jsonb("snapshot").$type<DeliverySnapshot>(),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.roundId, t.channel, t.target] })],
@@ -416,7 +429,8 @@ export const deliveries = pgTable(
 /** Where new records go: a Slack incoming webhook, a Standard Webhooks endpoint, an email. */
 export const deliveryTargets = pgTable("delivery_targets", {
   id: text("id").primaryKey(),
-  channel: deliveryChannelEnum("channel").notNull(),
+  /** X is a lane of its own (lib/x-posts.ts), never a target. */
+  channel: deliveryChannelEnum("channel").$type<"slack" | "webhook" | "email">().notNull(),
   target: text("target").notNull(),
   slackTeamId: text("slack_team_id"),
   slackBotUserId: text("slack_bot_user_id"),

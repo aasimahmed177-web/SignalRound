@@ -6,7 +6,7 @@ Everything past the quick start: hosting on Vercel or anywhere else, running a p
 
 Press the Deploy button in the README, or import the repo and add `FIRECRAWL_API_KEY` plus a Neon database from the Vercel Marketplace. Migrations apply at build.
 
-Set `CRON_SECRET` too (any random string of 16+ characters): Vercel sends it as the bearer on every cron call, and without it the scheduled sweep answers 401. `vercel.json` runs `/api/cron/sweep`, `/api/cron/trending`, and `/api/cron/announcements` hourly, `/api/cron/deliveries` every 6 hours, `/api/cron/accuracy` at 05:00 UTC (the daily accuracy check), `/api/cron/slack-digest` at 07:00 UTC (the public Slack digest, a no-op without it), and `/api/cron/health` every 10 minutes ([production alerts](#production-alerts)); the hourly tick is a clock, and the coverage rung decides which hours sweep.
+Set `CRON_SECRET` too (any random string of 16+ characters): Vercel sends it as the bearer on every cron call, and without it the scheduled sweep answers 401. `vercel.json` runs `/api/cron/sweep`, `/api/cron/trending`, and `/api/cron/announcements` hourly, `/api/cron/deliveries` hourly (outbox retries and [posting to X](#posting-to-x)), `/api/cron/accuracy` at 05:00 UTC (the daily accuracy check), `/api/cron/slack-digest` at 07:00 UTC (the public Slack digest, a no-op without it), and `/api/cron/health` every 10 minutes ([production alerts](#production-alerts)); the hourly tick is a clock, and the coverage rung decides which hours sweep.
 
 Set `AI_GATEWAY_API_KEY` to read every record back against its sources with a model. A deployed function does not see Vercel's OIDC token in its environment, so the key is needed on Vercel too; without one, the judge reads the primary page with Firecrawl alone.
 
@@ -146,6 +146,32 @@ Each check looks at:
 - **Freshness**: no new visible round for longer than the sweep's interval under the plan plus 12 hours: 13 hours on Max, a week and a half-day on Lite.
 
 A message goes out only when something changes: a condition must fail on two checks in a row to open an incident, the incident sends one message (not one per check), and a single "recovered" follows after two passing checks. Conditions confirmed on the same check share one message, and at most 5 messages open incidents per UTC day; past that they wait for the next day, while recoveries still go out. Each message names what fails, since when, the likely cause, and one link; it never mentions `@channel`. The incident state lives in the `settings` table under the `health` key. If the database itself is down, the state cannot be saved: the check confirms the failure a second time 20 seconds later within the same run, alerts, and remembers it in the function's memory, so a cold instance may repeat that one alert or miss its recovery.
+
+## Posting to X
+
+Fireround can post significant rounds to an X account. It is off until `X_POSTING` says otherwise, and runs inside the hourly `/api/cron/deliveries` call.
+
+A round qualifies when every one of these holds: the news rule every channel shares lets it through (`lib/deliverable.ts`: not history, not held, not merged away, not old news), it is announced (not reported or expected), published (not flagged or in review) with a confirmed or corrected read-back, it was announced today or in the two days before, it names a lead investor or an amount, its company page has a clean URL (no `:identity:` id and no spaces; such rounds are skipped with `x: skipped (unclean company url)` in the log), and it is either at least `X_MIN_USD_MILLIONS` (50) or in Trending's top `X_TRENDING_TOP` (5). Each run posts at most one round, the best first (Trending's top rounds by rank, then the largest), no sooner than 24 hours divided by `X_MAX_POSTS_PER_DAY` (6, so four hours) after the last, and never more than that many in 24 hours.
+
+A post is one short sentence and the company page, whose share card X renders:
+
+```
+Spiko raised a $90M Series B led by New Enterprise Associates.
+https://fireround.dev/companies/spiko
+```
+
+The company's trailing legal form is dropped ("NexBank Capital, Inc." reads "NexBank Capital", "AnaCardio AB" reads "AnaCardio"). Two leads are named at most, then "and others", and a lead's descriptive clause is cut so one investor never reads as two ("Kembara, Mundi Ventures' European scale-up fund" reads "Kembara"). The company's own line follows the sentence only when it is short, makes no claim ("leading", "first"), and the company's homepage passed the identity check. `@`, `#`, and `$TICKER` never reach X, so no investor is tagged. A post never runs past 280 characters.
+
+Every round gets one row in the deliveries outbox on channel `x`, so it is posted at most once, and a merge carries the row to the surviving round. The row keeps the post's id and the company, stage, and figure it stated. When a posted round is later rejected, corrected on any of those three, or merged into a round that was posted too, the next run deletes the post and marks the row `retracted` with the reason. A 429 waits for X's own reset time; a 403 or any other failure retries on the outbox's backoff and then dead-letters, and the lane posts nothing while a failure is backing off.
+
+To turn it on:
+
+1. In the X developer portal, give the account's app **Read and write** permission and generate its OAuth 1.0a keys. Set `X_CONSUMER_KEY`, `X_CONSUMER_SECRET`, `X_ACCESS_TOKEN`, and `X_ACCESS_TOKEN_SECRET`.
+2. Set `APP_ORIGIN` to the public origin, since posts link to it.
+3. Set `X_POSTING=dry_run` and redeploy. Each run writes `x: would post ...` with the exact text to the function log and stores it on the row as `previewed`. To review in Slack too, set `X_REVIEW_SLACK_TARGET` to a Slack delivery target's label as Settings, Delivery shows it (`#x-review · Acme`), or its id; a disabled target works, so a review channel can take the previews and nothing else. Nothing is sent to X.
+4. Once the dry runs read right, set `X_POSTING=live`. A round a dry run previewed can still be posted live; going back to `off` stops everything at once.
+
+The cron response carries what the run did under `x`.
 
 ## Slack
 
