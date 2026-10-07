@@ -136,11 +136,14 @@ export async function planHoldLifts(handle: Db): Promise<HoldLift[]> {
   });
 }
 
-/** Investors on these rounds whose shown name a fuller spelling in their rounds' own text replaces; one per investor. */
+/**
+ * Investors on these rounds whose shown name a fuller spelling in their rounds' own text replaces, when
+ * the investor's own domain confirms that spelling (lib/investor-names.ts); one per investor.
+ */
 export async function planNameExpansions(handle: Db, roundIds: string[]): Promise<NameExpansion[]> {
   if (roundIds.length === 0) return [];
   const links = await handle
-    .select({ roundId: roundInvestors.roundId, investorId: investors.id, name: investors.name })
+    .select({ roundId: roundInvestors.roundId, investorId: investors.id, name: investors.name, domain: investors.domain })
     .from(roundInvestors)
     .innerJoin(investors, eq(investors.id, roundInvestors.investorId))
     .where(inArray(roundInvestors.roundId, roundIds));
@@ -150,6 +153,7 @@ export async function planNameExpansions(handle: Db, roundIds: string[]): Promis
     const fuller = fullerNameIn(
       l.name,
       (texts.get(l.roundId) ?? []).map((t) => t.text),
+      l.domain,
     );
     if (fuller)
       byInvestor.set(l.investorId, [
@@ -157,7 +161,7 @@ export async function planNameExpansions(handle: Db, roundIds: string[]): Promis
         { investorId: l.investorId, from: l.name, to: fuller, roundId: l.roundId },
       ]);
   }
-  // Rounds that disagree on the fuller spelling leave the name as it is.
+  // Rounds that disagree on the confirmed spelling leave the name as it is.
   return [...byInvestor.values()].flatMap((list) => (new Set(list.map((e) => e.to)).size === 1 && list[0] ? [list[0]] : []));
 }
 
@@ -171,7 +175,7 @@ const VALUATION_PAGES = 2;
  */
 export async function planUndisclosed(
   handle: Db,
-  rows: Pick<RoundRow, "id" | "company" | "valuation_as_written" | "valuation_disclosed" | "sources">[],
+  rows: Pick<RoundRow, "id" | "company" | "stage" | "valuation_as_written" | "valuation_disclosed" | "sources">[],
   client?: Firecrawl | null,
 ): Promise<{ list: Undisclosed[]; credits: number }> {
   const open = rows.filter((r) => !r.valuation_as_written && r.valuation_disclosed === null);
@@ -183,7 +187,7 @@ export async function planUndisclosed(
   let credits = 0;
   for (const r of open) {
     const stored = texts.get(r.id) ?? [];
-    let quote = stored.map((t) => undisclosedSentence(t.text, r.company.name, t.title)).find((q) => q !== null) ?? null;
+    let quote = stored.map((t) => undisclosedSentence(t.text, r.company.name, t.title, r.stage)).find((q) => q !== null) ?? null;
     if (!quote && client) {
       const read = new Set(stored.flatMap((t) => (t.url ? [t.url] : [])));
       const pages = r.sources
@@ -194,7 +198,7 @@ export async function planUndisclosed(
         try {
           const doc = await client.scrape(page.url, { formats: ["markdown"], onlyMainContent: true, timeout: 30_000 });
           credits += 1;
-          quote = undisclosedSentence(doc.markdown ?? "", r.company.name, page.title);
+          quote = undisclosedSentence(doc.markdown ?? "", r.company.name, page.title, r.stage);
         } catch {}
         if (quote) break;
       }

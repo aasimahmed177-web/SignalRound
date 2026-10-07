@@ -67,6 +67,13 @@ describe("a withheld valuation", () => {
     ).toBe("The round's valuation was not disclosed.");
   });
 
+  test("a sentence about another of the company's rounds does not count", () => {
+    const text = "The Y Combinator alum raised a $108 million Series A in January at an undisclosed valuation.";
+    expect(undisclosedSentence(text, "Corgi", "Corgi raises $160M Series B", "series_b")).toBeNull();
+    expect(undisclosedSentence(text, "Corgi", "Corgi raises $108M Series A", "series_a")).not.toBeNull();
+    expect(undisclosedSentence("Groq did not disclose its new valuation.", "Groq", null, "growth")).not.toBeNull();
+  });
+
   test("a roundup's other deals, a stated valuation, and silence never count", () => {
     expect(
       statesValuationUndisclosed("The valuation was not disclosed.", "Firecrawl", "Weekly funding roundup: Firecrawl, Acme and more"),
@@ -80,19 +87,28 @@ describe("a withheld valuation", () => {
 });
 
 describe("investor names", () => {
-  test("only vehicle words added, and only the same investor", () => {
-    expect(fullerInvestorName("Nexus", "Nexus Venture Partners")).toBe("Nexus Venture Partners");
-    expect(fullerInvestorName("Freestyle", "Freestyle Capital")).toBe("Freestyle Capital");
-    expect(fullerInvestorName("Nexus", "Nexus VP")).toBeNull();
-    expect(fullerInvestorName("Sequoia Capital", "Sequoia Capital China")).toBeNull();
-    expect(fullerInvestorName("Index", "Index")).toBeNull();
-    expect(fullerInvestorName("Accel", "Accelerate Partners")).toBeNull();
+  test("only vehicle words added, only the same investor, and only when its own domain spells the fuller name", () => {
+    expect(fullerInvestorName("Nexus", "Nexus Venture Partners", "nexusvp.com")).toBe("Nexus Venture Partners");
+    expect(fullerInvestorName("Uncork", "Uncork Capital", "uncorkcapital.com")).toBe("Uncork Capital");
+    expect(fullerInvestorName("Salesforce", "Salesforce Ventures", "salesforceventures.com")).toBe("Salesforce Ventures");
+    // The short name is the firm's own domain: the fuller one is another firm (a venture arm, a sibling fund).
+    expect(fullerInvestorName("Google", "Google Ventures", "google.com")).toBeNull();
+    expect(fullerInvestorName("Bain Capital", "Bain Capital Ventures", "baincapital.com")).toBeNull();
+    expect(fullerInvestorName("Nvidia", "Nvidia Ventures", "nvidia.com")).toBeNull();
+    // A domain that spells neither, or none at all, changes nothing.
+    expect(fullerInvestorName("Freestyle", "Freestyle Capital", "freestyle.vc")).toBeNull();
+    expect(fullerInvestorName("Nexus", "Nexus Venture Partners", null)).toBeNull();
+    expect(fullerInvestorName("Nexus", "Nexus VP", "nexusvp.com")).toBeNull();
+    expect(fullerInvestorName("Sequoia Capital", "Sequoia Capital China", "sequoiacap.com")).toBeNull();
+    expect(fullerInvestorName("Accel", "Accelerate Partners", "acceleratepartners.com")).toBeNull();
   });
 
-  test("a round's text must settle on one fuller spelling", () => {
-    expect(fullerNameIn("Nexus", ["with Altos, Nexus Venture Partners, Y Combinator"])).toBe("Nexus Venture Partners");
-    expect(fullerNameIn("Nexus", ["Nexus Venture Partners led", "Nexus Ventures joined"])).toBeNull();
-    expect(fullerNameIn("Nexus", ["Nexus led the round"])).toBeNull();
+  test("a round's text must settle on one confirmed spelling that ends the name", () => {
+    expect(fullerNameIn("Nexus", ["with Altos, Nexus Venture Partners, Y Combinator"], "nexusvp.com")).toBe("Nexus Venture Partners");
+    expect(fullerNameIn("Nexus", ["Nexus Venture Partners led", "Nexus Ventures joined"], "nexusvp.com")).toBe("Nexus Venture Partners");
+    expect(fullerNameIn("Nexus", ["Nexus led the round"], "nexusvp.com")).toBeNull();
+    expect(fullerNameIn("China Merchants", ["China Merchants Venture Capital Fund"], "cmvc.com")).toBeNull();
+    expect(fullerNameIn("J.P. Morgan", ["J.P. Morgan Investment Management led"], "jpmorgan.com")).toBeNull();
   });
 });
 
@@ -224,6 +240,8 @@ describe("in the store", () => {
         },
       ],
     });
+    // The firm is first seen as "Nexus"; its own site, nexusvp.com, spells the full name.
+    await db.insert(schema.investors).values({ id: "nexus", name: "Nexus", domain: "nexusvp.com" });
     await persistRecords(db, [seriesB, seriesA], "series-a-b", "run-1");
     await db.update(schema.fundingRounds).set({ disposition: "publish" }).where(eq(schema.fundingRounds.id, seriesB.id));
     return { db, seriesB, seriesA };

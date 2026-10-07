@@ -1216,6 +1216,7 @@ export async function persistRecords(
         r.valuation_as_written,
         [...r.evidence_quotes, ...r.sources.flatMap((s) => (s.evidence ? [s.evidence] : []))],
         r.company_name,
+        r.stage,
       ),
       financingTotalAsWritten: r.financing_total_as_written ?? null,
       financingTotalQuote: r.financing_total_quote ?? null,
@@ -1471,10 +1472,14 @@ export async function syncRoundInvestors(
     if (!investorId) continue;
     const role = leadIds.has(investorId) ? "lead" : "participant";
     const [stored] = await handle.insert(investors).values({ id: investorId, name }).onConflictDoNothing().returning({ id: investors.id });
-    // A firm first seen by its short name shows its full one once a reading spells it out (lib/investor-names.ts).
+    // A firm first seen by its short name shows its full one once a reading spells it out and its own domain confirms it (lib/investor-names.ts).
     if (!stored) {
-      const [row] = await handle.select({ name: investors.name }).from(investors).where(eq(investors.id, investorId)).limit(1);
-      const fuller = row ? fullerInvestorName(row.name, name) : null;
+      const [row] = await handle
+        .select({ name: investors.name, domain: investors.domain })
+        .from(investors)
+        .where(eq(investors.id, investorId))
+        .limit(1);
+      const fuller = row ? fullerInvestorName(row.name, name, row.domain) : null;
       if (fuller) await handle.update(investors).set({ name: fuller }).where(eq(investors.id, investorId));
     }
     await handle
