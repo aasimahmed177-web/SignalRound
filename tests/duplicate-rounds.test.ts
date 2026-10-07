@@ -196,7 +196,7 @@ describe("one round under two company names", () => {
     expect(rows[0].disposition).toBe("review");
     // The row remembers the other name, so a third run that says "Ultraviolette" finds it by key alone.
     const aliases = await db.execute(sql`select company_id, alias_key from company_aliases`);
-    expect(aliases.rows).toEqual([{ company_id: "ultraviolette automotive", alias_key: "ultraviolette" }]);
+    expect(aliases.rows).toEqual([{ company_id: "ultraviolette-automotive", alias_key: "ultraviolette" }]);
   });
 
   test("without a shared source or identifying fact, one stage and amount do not join two names", async () => {

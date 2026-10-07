@@ -86,7 +86,7 @@ describe("a pasted URL", () => {
     const rows = await (await db()).select().from(schema.fundingRounds);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      companyId: "solcoa industries",
+      companyId: "solcoa-industries",
       presetSlug: "series-a-b",
       stage: "other",
       stageAsWritten: "financing",

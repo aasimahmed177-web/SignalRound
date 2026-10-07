@@ -137,7 +137,7 @@ describe("the watch lane reads back before persist", () => {
     expect(read.records[0]?.map((r) => r.company_key).sort()).toEqual(["acme robotics", "globex"]);
     const handle = await db();
     const rows = await handle.select().from(schema.fundingRounds);
-    expect(rows.map((r) => r.companyId)).toEqual(["acme robotics"]);
+    expect(rows.map((r) => r.companyId)).toEqual(["acme-robotics"]);
     expect((rows[0]?.verification as FeedRecord["verification"])?.status).toBe("confirmed");
     expect(summary.records).toBe(1);
     const [run] = await handle.select().from(schema.runs);

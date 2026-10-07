@@ -46,6 +46,7 @@
     "purge-third-party-firmographics": "node --env-file-if-exists=.env scripts/maintenance/purge-third-party-firmographics.ts",
     "backfill-homepage-facts": "node --env-file-if-exists=.env scripts/maintenance/backfill-homepage-facts.ts",
     "repair-audit": "node --env-file-if-exists=.env scripts/maintenance/repair-audit.ts",
+    "clean-company-ids": "node --env-file-if-exists=.env scripts/maintenance/clean-company-ids.ts",
     "eval-jev": "node --env-file-if-exists=.env scripts/eval-jev.ts",
     "jev-shadow": "node --env-file-if-exists=.env scripts/jev-shadow.ts",
     "bench-publication-audit": "node --env-file-if-exists=.env scripts/bench-publication-audit.ts"

@@ -95,6 +95,8 @@ export const companyFolds = pgTable(
     fromId: text("from_id").primaryKey(),
     intoId: text("into_id").notNull(),
     foldedAt: timestamp("folded_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The same company under a new, clean id (lib/company-ids.ts), not two companies merged: its old URL moves for good. */
+    renamed: boolean("renamed").notNull().default(false),
   },
   (t) => [index("company_folds_into_idx").on(t.intoId)],
 );

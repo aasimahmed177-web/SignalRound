@@ -28,8 +28,9 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, desc, eq, gte, inArray, isNull, lt, lte, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, lt, lte, or, type SQL, sql } from "drizzle-orm";
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
+import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
@@ -45,8 +46,37 @@ function rankSql(column: typeof fundingRounds.datePrecision) {
   return sql`CASE ${column} WHEN 'day' THEN 3 WHEN 'week' THEN 2 WHEN 'month' THEN 1 ELSE 0 END`;
 }
 
+/** The id a record's company would get: its domain, else its name key hyphenated (lib/company-ids.ts). */
 function companyIdFor(r: FeedRecord): string {
-  return r.company_domain ?? r.company_key;
+  return r.company_domain ?? companySlug(r.company_key);
+}
+
+/**
+ * The id a new company row takes. A namesake that must not share a row with the company already
+ * holding its id takes the next free number ("ghost-2"), never another site's host; an id a folded or
+ * renamed row left behind is never handed out again, so an old link cannot land on a stranger. Until
+ * the rename backfill has run (`pnpm clean-company-ids`), a row still under its old unclean id keeps it.
+ */
+async function newCompanyId(handle: Db, r: FeedRecord, namesake: boolean): Promise<string> {
+  const base = companyIdFor(r);
+  if (!r.company_domain && !isCleanCompanyId(r.company_key)) {
+    const [legacy] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.id, r.company_key)).limit(1);
+    if (legacy && !namesake) return legacy.id;
+  }
+  if (!namesake) return base;
+  const slug = companySlug(r.company_key);
+  const [live, folded] = await Promise.all([
+    handle
+      .select({ id: companies.id })
+      .from(companies)
+      .where(or(eq(companies.id, base), eq(companies.id, slug), like(companies.id, `${slug}-%`))),
+    handle
+      .select({ id: schema.companyFolds.fromId })
+      .from(schema.companyFolds)
+      .where(or(eq(schema.companyFolds.fromId, base), eq(schema.companyFolds.fromId, slug), like(schema.companyFolds.fromId, `${slug}-%`))),
+  ]);
+  const taken = new Set([...live, ...folded].map((row) => row.id));
+  return r.company_domain && !taken.has(base) ? base : nextFreeId(slug, new Set([...taken, slug]));
 }
 
 function fingerprint(r: { amountAsWritten: string | null; announcedOn: string | null; leads: string[] }): string {
@@ -145,7 +175,7 @@ export async function mergeCompanies(handle: Db, fromId: string, intoId: string)
  * later record under that name still finds the company; its domain moves over when the survivor
  * has none. False when there was nothing to fold.
  */
-async function foldCompany(handle: Db, fromId: string, intoId: string): Promise<boolean> {
+async function foldCompany(handle: Db, fromId: string, intoId: string, renamed = false): Promise<boolean> {
   if (fromId === intoId) return false;
   const [from] = await handle.select().from(companies).where(eq(companies.id, fromId));
   if (!from) return false;
@@ -173,12 +203,22 @@ async function foldCompany(handle: Db, fromId: string, intoId: string): Promise<
   );
   await handle.delete(schema.companyNewsroomScans).where(eq(schema.companyNewsroomScans.companyId, fromId));
   await handle.update(schema.companyRequests).set({ companyId: intoId }).where(eq(schema.companyRequests.companyId, fromId));
+  // Trending's state and the accuracy check's flags and memory follow it too; the last two would go with the row otherwise.
+  await handle.update(schema.trendingRounds).set({ companyId: intoId }).where(eq(schema.trendingRounds.companyId, fromId));
+  await handle.execute(
+    sql`insert into accuracy_flags (company_id, rule, severity, reason, subjects, remedy, first_seen_at, last_seen_at, cleared_at, dismissed_at, dismissed_note, dismissed_subjects, remedied_at, remedy_note, remedy_attempts) select ${intoId}, rule, severity, reason, subjects, remedy, first_seen_at, last_seen_at, cleared_at, dismissed_at, dismissed_note, dismissed_subjects, remedied_at, remedy_note, remedy_attempts from accuracy_flags where company_id = ${fromId} on conflict do nothing`,
+  );
+  await handle.delete(schema.accuracyFlags).where(eq(schema.accuracyFlags.companyId, fromId));
+  await handle.execute(
+    sql`insert into accuracy_memory (company_id, dossier_at, founders, previous_founders, updated_at) select ${intoId}, dossier_at, founders, previous_founders, updated_at from accuracy_memory where company_id = ${fromId} on conflict do nothing`,
+  );
+  await handle.delete(schema.accuracyMemory).where(eq(schema.accuracyMemory.companyId, fromId));
   // The old id stays reachable: its page, and the pages of ids folded into it before, redirect to the survivor.
   await handle.update(schema.companyFolds).set({ intoId }).where(eq(schema.companyFolds.intoId, fromId));
   await handle
     .insert(schema.companyFolds)
-    .values({ fromId, intoId })
-    .onConflictDoUpdate({ target: schema.companyFolds.fromId, set: { intoId, foldedAt: new Date() } });
+    .values({ fromId, intoId, renamed })
+    .onConflictDoUpdate({ target: schema.companyFolds.fromId, set: { intoId, renamed, foldedAt: new Date() } });
   await handle.delete(schema.companyFolds).where(eq(schema.companyFolds.fromId, intoId));
   // The domain is unique, so the row that goes is deleted before the survivor takes its domain.
   await handle.delete(companies).where(eq(companies.id, fromId));
@@ -198,6 +238,34 @@ async function foldCompany(handle: Db, fromId: string, intoId: string): Promise<
     .where(eq(companies.id, intoId));
   await rememberNameKey(handle, intoId, from.nameKey, from.name, null);
   return true;
+}
+
+/**
+ * Move a company to a new id: a copy of its row under `toId`, then the fold that carries every round,
+ * enrichment, alias, ledger, and flag over and leaves the old id redirecting for good (a renamed fold).
+ * One transaction, so a rename cut short leaves the company where it was. False when `fromId` is gone
+ * or `toId` is already another company.
+ */
+export async function renameCompany(handle: Db, fromId: string, toId: string): Promise<boolean> {
+  if (fromId === toId) return false;
+  return handle.transaction(async (txn) => {
+    const tx = txn as unknown as Db;
+    const [from] = await tx.select().from(companies).where(eq(companies.id, fromId)).for("update");
+    if (!from) return false;
+    // The domain is unique: the copy starts without it, and the fold moves it over once the old row is gone.
+    const made = await tx
+      .insert(companies)
+      .values({ ...from, id: toId, domain: null })
+      .onConflictDoNothing()
+      .returning({ id: companies.id });
+    if (made.length === 0) return false;
+    if (!(await foldCompany(tx, fromId, toId, true))) return false;
+    // The enrichments that recorded the company's id record the new one.
+    await tx.execute(
+      sql`update enrichments set data = jsonb_set(data, '{company_key}', to_jsonb(${toId}::text)) where company_id = ${toId} and data->>'company_key' = ${fromId}`,
+    );
+    return true;
+  });
 }
 
 /**
@@ -918,8 +986,9 @@ export async function persistRecords(
       existingById.get(r.id)?.companyId ??
         options.companyId ??
         (identityCollision
-          ? `${companyIdFor(r)}:identity:${registrableDomain(r.sources[0]?.url) ?? r.id}`
-          : (candidates.find((c) => identityAgrees(c, r) && companyMatch(c, recordIdentity(r)))?.companyId ?? companyIdFor(r))),
+          ? await newCompanyId(handle, r, true)
+          : (candidates.find((c) => identityAgrees(c, r) && companyMatch(c, recordIdentity(r)))?.companyId ??
+            (await newCompanyId(handle, r, false)))),
       r.company_domain,
     );
     await handle

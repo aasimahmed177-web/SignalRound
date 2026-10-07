@@ -331,7 +331,7 @@ describe("the store's own evidence names the site before any search", () => {
       "run-1",
     );
     await db.insert(schema.enrichments).values({
-      companyId: "cornelis networks",
+      companyId: "cornelis-networks",
       kind: "deep_dive",
       data: { sources: ["https://www.cornelis.com/company", "https://www.hpcwire.com/2026/cornelis-raises"] },
     });
@@ -341,7 +341,7 @@ describe("the store's own evidence names the site before any search", () => {
       client,
       [
         {
-          id: "cornelis networks",
+          id: "cornelis-networks",
           name: "Cornelis Networks",
           website: null,
           description: CORNELIS.company_description,
@@ -353,7 +353,7 @@ describe("the store's own evidence names the site before any search", () => {
     );
     expect(r.resolved).toBe(1);
     expect(calls.search).toEqual([]);
-    const [company] = await db.select().from(schema.companies).where(eq(schema.companies.id, "cornelis networks"));
+    const [company] = await db.select().from(schema.companies).where(eq(schema.companies.id, "cornelis-networks"));
     expect(company?.domain).toBe("cornelis.com");
   });
 });

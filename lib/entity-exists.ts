@@ -123,31 +123,37 @@ export const entityVisible = visibilityCheck(loadVisibleIds);
 
 /**
  * Where a company id that no longer exists now lives, or null: the row mergeCompanies folded it into,
- * followed through later folds. A fold from before folds were recorded left the old id behind in one
+ * followed through later folds, or the row it was renamed to (`permanent`: the same company under a
+ * clean id, so the old URL moves for good). A fold from before folds were recorded left the old id behind in one
  * of two places, which are read next: as the survivor's domain (Sol Foundry's solfoundry.co is Sol's
  * domain now) or as a name it was seen under (HEO Robotics is a name alias of HEO). A live id never
  * redirects.
  */
-export async function foldedInto(handle: Db, id: string): Promise<string | null> {
+export async function companyRedirect(handle: Db, id: string): Promise<{ id: string; permanent: boolean } | null> {
   const [live] = await handle.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.id, id)).limit(1);
   if (live) return null;
   const [fold] = await handle
-    .select({ id: schema.companies.id })
+    .select({ id: schema.companies.id, renamed: schema.companyFolds.renamed })
     .from(schema.companyFolds)
     .innerJoin(schema.companies, eq(schema.companies.id, schema.companyFolds.intoId))
     .where(eq(schema.companyFolds.fromId, id))
     .limit(1);
-  if (fold) return fold.id;
+  if (fold) return { id: fold.id, permanent: fold.renamed };
   const [byDomain] = await handle
     .select({ id: schema.companies.id })
     .from(schema.companies)
     .where(eq(schema.companies.domain, id))
     .limit(1);
-  if (byDomain) return byDomain.id;
+  if (byDomain) return { id: byDomain.id, permanent: false };
   const [byName] = await handle
     .select({ id: schema.companyAliases.companyId })
     .from(schema.companyAliases)
     .where(and(eq(schema.companyAliases.kind, "name"), eq(schema.companyAliases.aliasKey, id)))
     .limit(1);
-  return byName?.id ?? null;
+  return byName ? { id: byName.id, permanent: false } : null;
+}
+
+/** Where a company id that no longer exists now lives (companyRedirect's row), or null. */
+export async function foldedInto(handle: Db, id: string): Promise<string | null> {
+  return (await companyRedirect(handle, id))?.id ?? null;
 }

@@ -15,6 +15,7 @@ import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import { ImageResponse } from "next/og";
 import { db } from "@/lib/db";
+import { foldedInto } from "@/lib/entity-exists";
 import { hostLabel } from "@/lib/format";
 import { decodeParam } from "@/lib/links";
 import { initialOf, investorInitials } from "@/lib/logo";
@@ -73,12 +74,17 @@ async function subject(kind: string, id: string): Promise<{ mark: string; domain
       .limit(1);
     return investor ? { mark: investorInitials(investor.name), domain: investor.domain, logoUrl: investor.logoUrl } : null;
   }
-  const [company] = await handle
-    .select({ name: schema.companies.name, domain: schema.companies.domain, logoUrl: schema.companies.logoUrl })
-    .from(schema.companies)
-    .where(eq(schema.companies.id, id))
-    .limit(1);
-  return company ? { mark: initialOf(company.name), domain: company.domain, logoUrl: company.logoUrl } : null;
+  const company = async (companyId: string) =>
+    (
+      await handle
+        .select({ name: schema.companies.name, domain: schema.companies.domain, logoUrl: schema.companies.logoUrl })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, companyId))
+        .limit(1)
+    )[0];
+  // A message already sent carries the id the company had then: a folded or renamed id draws the row it lives in now.
+  const found = (await company(id)) ?? (await foldedInto(handle, id).then((moved) => (moved ? company(moved) : undefined)));
+  return found ? { mark: initialOf(found.name), domain: found.domain, logoUrl: found.logoUrl } : null;
 }
 
 /** The query a tile may carry (lib/logo.ts logoSrc): anything else is a cache-buster, refused before any work. */
