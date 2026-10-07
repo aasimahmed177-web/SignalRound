@@ -151,7 +151,8 @@ describe("applyGapFill", () => {
     expect(after.company.domain).toBe("gapco.com");
     expect(after.company.hq).toBe("Austin, TX");
     expect(after.evidence_quotes).toHaveLength(1);
-    expect(after.sources.map((s) => s.host)).toEqual(["reuters.com", "gapco.com"]);
+    // The company's own page leads the sources (lib/source-order.ts).
+    expect(after.sources.map((s) => s.host)).toEqual(["gapco.com", "reuters.com"]);
     // A change to a row nobody has read stays new; a seen row would flip to updated.
     expect(after.status).toBe("new");
   });

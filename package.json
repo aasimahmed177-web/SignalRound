@@ -47,6 +47,7 @@
     "backfill-homepage-facts": "node --env-file-if-exists=.env scripts/maintenance/backfill-homepage-facts.ts",
     "repair-audit": "node --env-file-if-exists=.env scripts/maintenance/repair-audit.ts",
     "clean-company-ids": "node --env-file-if-exists=.env scripts/maintenance/clean-company-ids.ts",
+    "repair-round-records": "node --env-file-if-exists=.env scripts/maintenance/repair-round-records.ts",
     "eval-jev": "node --env-file-if-exists=.env scripts/eval-jev.ts",
     "jev-shadow": "node --env-file-if-exists=.env scripts/jev-shadow.ts",
     "bench-publication-audit": "node --env-file-if-exists=.env scripts/bench-publication-audit.ts"

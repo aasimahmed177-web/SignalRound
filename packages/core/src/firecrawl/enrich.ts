@@ -167,6 +167,8 @@ export interface Enrichment {
   pricing: PricingProfile | null;
   /** The company's LinkedIn page as the verified homepage links it; absent on rows written before it was read. */
   linkedin_url?: string | null;
+  /** The verified homepage's own one-line description of the company (its meta description), when it reads as one (siteOneLiner). */
+  site_description?: string | null;
   error?: string;
   /**
    * The row a clear leaves when the old row had refused hosts: the profile is to be read again and
@@ -307,6 +309,60 @@ function imageUrl(raw: string | null | undefined, pageUrl: string, opts: { inlin
 }
 
 /** The favicon a scrape reported, absolute against the page. A relative or unusable value yields null. */
+/** Boilerplate a meta description carries instead of a description: a cookie notice, a sign-in prompt, a placeholder. */
+const NOT_A_DESCRIPTION =
+  /\b(?:cookies?|sign in|log ?in|javascript|enable js|coming soon|under construction|page not found|404|lorem ipsum|default description)\b/i;
+/** A title segment that is the site's furniture, not what the company does. */
+const NOT_A_TAGLINE = /^(?:home(?:page)?|welcome|official (?:site|website)|index|about(?: us)?|blog|news)$/i;
+
+/** Self-praise is a claim, not a description. */
+const SELF_PRAISE =
+  /\b(?:fastest|easiest|best|leading|world['\u2019]s (?:first|best|largest|leading)|#1|number one|revolutionary|unrivall?ed|unmatched)\b/i;
+
+function readable(line: string, min: number, max: number): boolean {
+  return (
+    line.length >= min &&
+    line.length <= max &&
+    !NOT_A_DESCRIPTION.test(line) &&
+    !SELF_PRAISE.test(line) &&
+    /\p{L}{3,}/u.test(line) &&
+    !/https?:\/\//i.test(line)
+  );
+}
+
+/**
+ * Whether a description is the press's thin appositive ("an AI data access company", "a commercial
+ * insurance broker"): the company's own line replaces only that, or nothing.
+ */
+export function thinDescription(description: string | null | undefined): boolean {
+  const d = description?.trim();
+  return !d || (/^(?:a|an|the)\s/i.test(d) && d.split(/\s+/).length <= 5);
+}
+
+/**
+ * The company's own line from its verified homepage, or null and the record's description stands. Its
+ * meta description's first sentence when that sentence names the company ("PlannerPal automates admin
+ * tasks for financial advisers"), else what its title says beside its name ("Firecrawl | Web Data API
+ * for AI Agents" reads "Web Data API for AI Agents"). A slogan that names nothing ("Your strategy deserves
+ * execution.") is not a description, and neither is self-praise ("the fastest, easiest quoting").
+ */
+export function siteOneLiner(
+  metadata: { title?: unknown; description?: unknown; ogDescription?: unknown } | undefined,
+  companyName: string,
+): string | null {
+  const raw = [metadata?.description, metadata?.ogDescription].find((d): d is string => typeof d === "string" && d.trim().length > 0);
+  const text = raw?.replace(/\s+/g, " ").trim() ?? "";
+  const first = (/^.+?[.!?](?=\s|$)/.exec(text)?.[0] ?? text).trim();
+  if (first && readable(first, 20, 200) && namesCompany(first, companyName, { share: 1 })) return first;
+  const title = typeof metadata?.title === "string" ? metadata.title.replace(/\s+/g, " ").trim() : "";
+  const segments = title.split(/\s+[|\u2013\u2014:-]\s+|\s*\|\s*/).map((s) => s.trim());
+  if (!segments.some((s) => namesCompany(s, companyName, { share: 1 }))) return null;
+  const tagline = segments.find(
+    (s) => !namesCompany(s, companyName, { share: 1 }) && !NOT_A_TAGLINE.test(s) && s.split(" ").length >= 2 && !/\.[a-z]{2,}$/i.test(s),
+  );
+  return tagline && readable(tagline, 12, 100) ? tagline : null;
+}
+
 export function logoFrom(metadata: { favicon?: string | null } | undefined, pageUrl: string): string | null {
   return imageUrl(metadata?.favicon, pageUrl);
 }
@@ -1307,6 +1363,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       row.profile = profile;
       row.pricing_page_url = pricingLink(home.links, website);
       row.linkedin_url = linkedinFromLinks(home.links, { name: c.company_name, homepage: website });
+      row.site_description = siteOneLiner(home.metadata, c.company_name);
       const domain = registrableDomain(website);
       if (!row.linkedin_url && domain) {
         const found = await findLinkedinPage(client, { name: c.company_name, domain });

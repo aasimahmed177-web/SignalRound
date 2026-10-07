@@ -41,7 +41,10 @@ function searchFact(query: string | null): string {
  * x.com, each post dated by its status id); the step shows when any were.
  */
 export function builtWithSteps(row: BuiltWithInput, opts: { dossier?: boolean; xPeople?: number } = {}): BuiltWithStep[] {
-  const steps: BuiltWithStep[] = [{ key: "search", fact: searchFact(row.sources[0]?.query ?? null) }];
+  // Sources list the company's own announcement first, often one a later cross-check found; the
+  // record was found by the first page no cross-check brought.
+  const found = row.sources.find((s) => laneLabel(s.query)?.label !== "Corroboration") ?? row.sources[0];
+  const steps: BuiltWithStep[] = [{ key: "search", fact: searchFact(found?.query ?? null) }];
   const hosts = [...new Set(row.sources.map((s) => hostLabel(s.host)))].slice(0, 3);
   steps.push({
     key: "scrape",

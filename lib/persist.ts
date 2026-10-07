@@ -32,12 +32,15 @@ import { and, desc, eq, gte, inArray, isNull, like, lt, lte, or, type SQL, sql }
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
 import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
+import { fullerInvestorName } from "./investor-names.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
 import { publicLane, publicVerifier } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
 import { companyAccounts, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
+import { orderSources, type PrimarySource, primarySourceOf } from "./source-order.ts";
+import { valuationDisclosed } from "./valuation-disclosure.ts";
 
 const { companies, fundingRounds, investors, pageVerdicts, roundInvestors, sources, roundSources, enrichments, roundMerges } = schema;
 
@@ -258,6 +261,11 @@ export async function renameCompany(handle: Db, fromId: string, toId: string): P
       .onConflictDoNothing()
       .returning({ id: companies.id });
     if (made.length === 0) return false;
+    // The same company under a new id: a round's passed audit still holds, so its fingerprint moves with
+    // it in the same write (the publication gate compares the two, and a stale one sends the round back to review).
+    await tx.execute(
+      sql`update funding_rounds r set company_id = ${toId}, audit_facts = case when r.audit_facts is not null and r.audit_facts = round_audit_facts(r) then round_audit_facts_as(r, ${toId}) else r.audit_facts end where r.company_id = ${fromId}`,
+    );
     if (!(await foldCompany(tx, fromId, toId, true))) return false;
     // The enrichments that recorded the company's id record the new one.
     await tx.execute(
@@ -1125,12 +1133,15 @@ export async function persistRecords(
           .from(investors)
           .where(inArray(investors.id, investorNames.map(investorKeyForMerge)))
       : [];
-    const companySites = options.history
-      ? await handle
-          .select({ domain: schema.companyAliases.aliasKey })
-          .from(schema.companyAliases)
-          .where(and(eq(schema.companyAliases.companyId, companyId), eq(schema.companyAliases.kind, "domain")))
-      : [];
+    const companySites = await handle
+      .select({ domain: schema.companyAliases.aliasKey })
+      .from(schema.companyAliases)
+      .where(and(eq(schema.companyAliases.companyId, companyId), eq(schema.companyAliases.kind, "domain")));
+    const [storedCompany] = await handle.select({ domain: companies.domain }).from(companies).where(eq(companies.id, companyId)).limit(1);
+    // The company's own sites: the record's domain, the row's (a history record often carries none), and the domains it is known by.
+    const ownDomains = [r.company_domain, storedCompany?.domain ?? null, ...companySites.map((s) => s.domain)].filter((d): d is string =>
+      Boolean(d),
+    );
     const accounts = (options.ownAccounts ?? []).map((a) => a.toLowerCase());
     if (accounts.length)
       await handle
@@ -1142,13 +1153,13 @@ export async function persistRecords(
       r.company_domain,
       investorDomains.flatMap((i) => (i.domain ? [i.domain] : [])),
       tiers,
-      options.history ? { name: r.company_name, sites: companySites.map((s) => s.domain) } : undefined,
+      options.history ? { name: r.company_name, sites: ownDomains } : undefined,
       await companyAccounts(handle, companyId),
     );
     // A namesake doubt from an earlier pass lifts once the company's own site states the round: that page settles whose round it is.
-    const ownSite =
-      Boolean(r.company_domain) &&
-      [...r.sources.map((s) => s.url), ...(prev?.sourceIds ?? [])].some((url) => registrableDomain(url) === r.company_domain);
+    const ownSite = [...r.sources.map((s) => s.url), ...(prev?.sourceIds ?? [])].some((url) =>
+      ownDomains.includes(registrableDomain(url) ?? ""),
+    );
     const namesake =
       identityCollision ||
       (!ownSite && Boolean(prev?.verificationNotes?.some((note) => note.includes("same-name company identity is unverified"))));
@@ -1201,6 +1212,11 @@ export async function persistRecords(
       fxDate: r.amount.fx_date,
       valuationAsWritten: r.valuation_as_written,
       valuationClaims: r.valuation_claims?.length ? r.valuation_claims : null,
+      valuationDisclosed: valuationDisclosed(
+        r.valuation_as_written,
+        [...r.evidence_quotes, ...r.sources.flatMap((s) => (s.evidence ? [s.evidence] : []))],
+        r.company_name,
+      ),
       financingTotalAsWritten: r.financing_total_as_written ?? null,
       financingTotalQuote: r.financing_total_quote ?? null,
       amountScope: r.amount_scope ?? null,
@@ -1284,6 +1300,8 @@ export async function persistRecords(
           // Decided above from the row's claims and this reading's: a retraction clears it, a pin holds it.
           valuationAsWritten: r.valuation_as_written,
           valuationClaims: r.valuation_claims?.length ? r.valuation_claims : null,
+          // A stated valuation is disclosed; otherwise a reading that says nothing keeps what an earlier one found.
+          valuationDisclosed: r.valuation_as_written ? true : keep(derived.valuationDisclosed, fundingRounds.valuationDisclosed),
           financingTotalAsWritten: keep(r.financing_total_as_written ?? null, fundingRounds.financingTotalAsWritten),
           financingTotalQuote: keep(r.financing_total_quote ?? null, fundingRounds.financingTotalQuote),
           amountScope: keep(r.amount_scope ?? null, fundingRounds.amountScope),
@@ -1452,7 +1470,13 @@ export async function syncRoundInvestors(
     const investorId = investorKeyForMerge(name);
     if (!investorId) continue;
     const role = leadIds.has(investorId) ? "lead" : "participant";
-    await handle.insert(investors).values({ id: investorId, name }).onConflictDoNothing();
+    const [stored] = await handle.insert(investors).values({ id: investorId, name }).onConflictDoNothing().returning({ id: investors.id });
+    // A firm first seen by its short name shows its full one once a reading spells it out (lib/investor-names.ts).
+    if (!stored) {
+      const [row] = await handle.select({ name: investors.name }).from(investors).where(eq(investors.id, investorId)).limit(1);
+      const fuller = row ? fullerInvestorName(row.name, name) : null;
+      if (fuller) await handle.update(investors).set({ name: fuller }).where(eq(investors.id, investorId));
+    }
     await handle
       .insert(roundInvestors)
       .values({ roundId, investorId, role })
@@ -1610,6 +1634,8 @@ export interface RoundRow {
   financing_total_quote: string | null;
   amount_scope: string | null;
   valuation_as_written: string | null;
+  /** true: a valuation is stated; false: a source says it was not disclosed; null: no source says (lib/valuation-disclosure.ts). */
+  valuation_disclosed: boolean | null;
   announced_on: string | null;
   certainty: RoundCertainty;
   reported_on: string | null;
@@ -1628,7 +1654,12 @@ export interface RoundRow {
   } | null;
   lead_investors: string[];
   other_investors: string[];
+  /** In reading order (lib/source-order.ts): the company's own announcement, a wire's release, established outlets, the rest. */
   sources: Array<{ url: string; title: string | null; host: string; published: string | null; query: string | null }>;
+  /** The round's official announcement: the company's own page, else a wire's release; null when the sources hold neither. */
+  primary_source: PrimarySource | null;
+  /** The company's other visible rounds announced before this one, newest first (at most PREVIOUS_ROUNDS_MAX). */
+  previous_rounds: PreviousRound[];
   evidence_quotes: string[];
   confidence: number;
   status: "new" | "updated" | "seen";
@@ -1665,8 +1696,26 @@ export interface RoundRow {
   company_facts: CompanyFacts;
 }
 
+/** An earlier round as a later one lists it: enough to name it and follow it to its announcement. */
+export interface PreviousRound {
+  id: string;
+  stage: Stage;
+  stage_as_written: string;
+  amount: { as_written: string | null; usd_millions: number | null };
+  announced_on: string | null;
+  lead_investors: string[];
+  /** The round's official announcement when it has one, else its first source in reading order. */
+  url: string | null;
+}
+
+/** How many earlier rounds a round carries; a company page or `company=` lists every round in full. */
+export const PREVIOUS_ROUNDS_MAX = 10;
+
 /** What the feed table renders per row: RoundRow without the fields no cell or detail reads, so a page of rows is a fraction of the payload. */
-export type FeedRow = Omit<RoundRow, "sources" | "evidence_quotes" | "enrichment" | "date_basis" | "last_seen_at" | "hold" | "pinned"> & {
+export type FeedRow = Omit<
+  RoundRow,
+  "sources" | "evidence_quotes" | "enrichment" | "date_basis" | "last_seen_at" | "hold" | "pinned" | "previous_rounds"
+> & {
   reported_later?: boolean;
   sources: Array<Pick<RoundRow["sources"][number], "url" | "title" | "host" | "query">>;
   /** The detail reads the first quote and the count, so only the first leaves the store. */
@@ -1689,6 +1738,7 @@ export function toFeedRow(r: RoundRow): FeedRow {
     financing_total_quote: r.financing_total_quote,
     amount_scope: r.amount_scope,
     valuation_as_written: r.valuation_as_written,
+    valuation_disclosed: r.valuation_disclosed,
     announced_on: r.announced_on,
     certainty: r.certainty,
     reported_on: r.reported_on,
@@ -1699,6 +1749,7 @@ export function toFeedRow(r: RoundRow): FeedRow {
     lead_investors: r.lead_investors,
     other_investors: r.other_investors,
     sources: r.sources.map((s) => ({ url: s.url, title: s.title, host: s.host, query: publicLane(s.query) })),
+    primary_source: r.primary_source,
     evidence_quotes: r.evidence_quotes.slice(0, 1),
     confidence: r.confidence,
     status: r.status,
@@ -1804,6 +1855,95 @@ export async function countRounds(handle: Db, q: RoundQuery = {}): Promise<numbe
   return row?.n ?? 0;
 }
 
+interface VisibleRound {
+  id: string;
+  stage: Stage;
+  stageAsWritten: string;
+  amountAsWritten: string | null;
+  amountUsdMillions: string | null;
+  announcedOn: string | null;
+  leads: string[];
+  sources: Array<{ url: string; published: string | null }>;
+}
+
+/**
+ * Every visible round (published or flagged, history included, never unconfirmed) of these companies,
+ * with its leads and source links: what each row's `previous_rounds` is read from. Three queries for
+ * the whole page.
+ */
+async function visibleRoundsOf(handle: Db, companyIds: string[]): Promise<Map<string, VisibleRound[]>> {
+  if (companyIds.length === 0) return new Map();
+  const rounds = await handle
+    .select({
+      id: fundingRounds.id,
+      companyId: fundingRounds.companyId,
+      stage: fundingRounds.stage,
+      stageAsWritten: fundingRounds.stageAsWritten,
+      amountAsWritten: fundingRounds.amountAsWritten,
+      amountUsdMillions: fundingRounds.amountUsdMillions,
+      announcedOn: fundingRounds.announcedOn,
+    })
+    .from(fundingRounds)
+    .where(
+      and(
+        inArray(fundingRounds.companyId, companyIds),
+        inArray(fundingRounds.disposition, ["publish", "flagged"]),
+        sql`${fundingRounds.certainty} <> 'unconfirmed'`,
+      ),
+    );
+  if (rounds.length === 0) return new Map();
+  const roundIds = rounds.map((r) => r.id);
+  const [leads, links] = await Promise.all([
+    handle
+      .select({ roundId: roundInvestors.roundId, name: investors.name })
+      .from(roundInvestors)
+      .innerJoin(investors, eq(investors.id, roundInvestors.investorId))
+      .where(and(inArray(roundInvestors.roundId, roundIds), eq(roundInvestors.role, "lead"))),
+    handle
+      .select({ roundId: roundSources.roundId, url: sources.url, published: sources.publishedAt })
+      .from(roundSources)
+      .innerJoin(sources, eq(sources.id, roundSources.sourceId))
+      .where(inArray(roundSources.roundId, roundIds)),
+  ]);
+  const leadsOf = groupBy(leads, (l) => l.roundId);
+  const linksOf = groupBy(links, (l) => l.roundId);
+  const out = new Map<string, VisibleRound[]>();
+  for (const r of rounds) {
+    out.set(r.companyId, [
+      ...(out.get(r.companyId) ?? []),
+      {
+        ...r,
+        leads: (leadsOf.get(r.id) ?? []).map((l) => l.name),
+        sources: (linksOf.get(r.id) ?? []).map((l) => ({ url: l.url, published: l.published ?? null })),
+      },
+    ]);
+  }
+  return out;
+}
+
+/** The company's rounds announced before this one, newest first: a round on the same day or undated is not earlier. */
+export function previousRounds(
+  visible: readonly VisibleRound[],
+  round: { id: string; announcedOn: string | null },
+  companyDomains: readonly string[],
+): PreviousRound[] {
+  if (!round.announcedOn) return [];
+  const before = round.announcedOn;
+  return visible
+    .filter((r) => r.id !== round.id && r.announcedOn !== null && r.announcedOn < before)
+    .sort((a, b) => (b.announcedOn ?? "").localeCompare(a.announcedOn ?? "") || (a.id < b.id ? -1 : 1))
+    .slice(0, PREVIOUS_ROUNDS_MAX)
+    .map((r) => ({
+      id: r.id,
+      stage: r.stage,
+      stage_as_written: r.stageAsWritten,
+      amount: { as_written: r.amountAsWritten, usd_millions: r.amountUsdMillions === null ? null : Number(r.amountUsdMillions) },
+      announced_on: r.announcedOn,
+      lead_investors: r.leads,
+      url: primarySourceOf(r.sources, companyDomains)?.url ?? orderSources(r.sources, companyDomains)[0]?.url ?? null,
+    }));
+}
+
 export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows: RoundRow[]; nextCursor: string | null }> {
   const limit = Math.min(q.limit ?? 50, 200);
   const sort: RoundSort = q.sort ?? "";
@@ -1840,7 +1980,7 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   const companyIds = [...new Set(page.map((r) => r.company.id))];
   // The page's investors, sources, and enrichments are three independent reads: together they cost
   // one round trip to the database, not three.
-  const [inv, src, enrichRows, dossierByCompany, checks] = await Promise.all([
+  const [inv, src, enrichRows, dossierByCompany, checks, domainAliases, earlier] = await Promise.all([
     ids.length
       ? handle
           .select({ roundId: roundInvestors.roundId, role: roundInvestors.role, name: investors.name })
@@ -1879,6 +2019,13 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
           .from(schema.roundVerification)
           .where(inArray(schema.roundVerification.roundId, ids))
       : [],
+    companyIds.length
+      ? handle
+          .select({ companyId: schema.companyAliases.companyId, domain: schema.companyAliases.aliasKey })
+          .from(schema.companyAliases)
+          .where(and(inArray(schema.companyAliases.companyId, companyIds), eq(schema.companyAliases.kind, "domain")))
+      : [],
+    visibleRoundsOf(handle, companyIds),
   ]);
   const checksByRound = new Map(
     checks.map((c) => [c.roundId, { attempts: c.attempts, last_checked_at: c.lastCheckedAt?.toISOString() ?? null }]),
@@ -1890,68 +2037,81 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   // Grouped once by round, in row order, so each row reads its own lists instead of scanning every row's.
   const invByRound = groupBy(inv, (i) => i.roundId);
   const srcByRound = groupBy(src, (s) => s.roundId);
+  const aliasDomains = groupBy(domainAliases, (a) => a.companyId);
+  const domainsOf = (company: { id: string; domain: string | null }) =>
+    [company.domain, ...(aliasDomains.get(company.id) ?? []).map((a) => a.domain)].filter((d): d is string => Boolean(d));
 
-  const out: RoundRow[] = page.map(({ round, company }) => ({
-    id: round.id,
-    company: {
-      id: company.id,
-      name: company.name,
-      domain: company.domain,
-      website: company.website,
-      logo_url: company.logoUrl,
-      description: company.description,
-      sector: company.sector,
-      hq: company.hq,
-    },
-    stage: round.stage,
-    stage_as_written: round.stageAsWritten,
-    is_extension: round.isExtension,
-    amount: {
-      value: round.amountValue === null ? null : Number(round.amountValue),
-      currency: round.amountCurrency,
-      as_written: round.amountAsWritten,
-      usd_millions: round.amountUsdMillions === null ? null : Number(round.amountUsdMillions),
-    },
-    financing_total_as_written: round.financingTotalAsWritten,
-    financing_total_quote: round.financingTotalQuote,
-    amount_scope: round.amountScope,
-    valuation_as_written: round.valuationAsWritten,
-    announced_on: round.announcedOn,
-    certainty: round.certainty,
-    reported_on: round.reportedOn,
-    date_precision: round.datePrecision as RoundRow["date_precision"],
-    date_basis: (round.dateBasis as RoundRow["date_basis"]) ?? null,
-    freshness_checked_on: round.freshnessCheckedOn,
-    verification: (round.verification as RoundRow["verification"]) ?? null,
-    lead_investors: (invByRound.get(round.id) ?? []).filter((i) => i.role === "lead").map((i) => i.name),
-    other_investors: (invByRound.get(round.id) ?? []).filter((i) => i.role === "participant").map((i) => i.name),
-    sources: (srcByRound.get(round.id) ?? []).map((s) => ({
-      url: s.url,
-      title: s.title,
-      host: s.host,
-      published: s.published ?? null,
-      query: s.query ?? null,
-    })),
-    evidence_quotes: round.evidenceQuotes,
-    confidence: Number(round.confidence),
-    // A history row is never unread, whichever write path last touched its status.
-    status: round.history ? "seen" : round.status,
-    disposition: round.disposition,
-    preset_slug: round.presetSlug,
-    history: round.history,
-    hold: round.hold,
-    pinned: round.pinned ?? null,
-    first_seen_at: round.firstSeenAt.toISOString(),
-    verification_checks: checksByRound.get(round.id) ?? null,
-    last_seen_at: round.lastSeenAt.toISOString(),
-    enrichment: toEnrichment(profileByCompany.get(company.id)),
-    alexandria: toAlexandria(alexandriaByCompany.get(company.id)),
-    company_facts: companyFacts(
-      toAlexandria(alexandriaByCompany.get(company.id))?.yc,
-      dossierByCompany.get(company.id),
-      profileLinkedin(profileByCompany.get(company.id)),
-    ),
-  }));
+  const out: RoundRow[] = page.map(({ round, company }) => {
+    const domains = domainsOf(company);
+    const ordered = orderSources(
+      (srcByRound.get(round.id) ?? []).map((s) => ({
+        url: s.url,
+        title: s.title,
+        host: s.host,
+        published: s.published ?? null,
+        query: s.query ?? null,
+      })),
+      domains,
+    );
+    return {
+      id: round.id,
+      company: {
+        id: company.id,
+        name: company.name,
+        domain: company.domain,
+        website: company.website,
+        logo_url: company.logoUrl,
+        description: company.description,
+        sector: company.sector,
+        hq: company.hq,
+      },
+      stage: round.stage,
+      stage_as_written: round.stageAsWritten,
+      is_extension: round.isExtension,
+      amount: {
+        value: round.amountValue === null ? null : Number(round.amountValue),
+        currency: round.amountCurrency,
+        as_written: round.amountAsWritten,
+        usd_millions: round.amountUsdMillions === null ? null : Number(round.amountUsdMillions),
+      },
+      financing_total_as_written: round.financingTotalAsWritten,
+      financing_total_quote: round.financingTotalQuote,
+      amount_scope: round.amountScope,
+      valuation_as_written: round.valuationAsWritten,
+      valuation_disclosed: round.valuationAsWritten ? true : round.valuationDisclosed === false ? false : null,
+      announced_on: round.announcedOn,
+      certainty: round.certainty,
+      reported_on: round.reportedOn,
+      date_precision: round.datePrecision as RoundRow["date_precision"],
+      date_basis: (round.dateBasis as RoundRow["date_basis"]) ?? null,
+      freshness_checked_on: round.freshnessCheckedOn,
+      verification: (round.verification as RoundRow["verification"]) ?? null,
+      lead_investors: (invByRound.get(round.id) ?? []).filter((i) => i.role === "lead").map((i) => i.name),
+      other_investors: (invByRound.get(round.id) ?? []).filter((i) => i.role === "participant").map((i) => i.name),
+      sources: ordered,
+      primary_source: primarySourceOf(ordered, domains),
+      previous_rounds: previousRounds(earlier.get(company.id) ?? [], round, domains),
+      evidence_quotes: round.evidenceQuotes,
+      confidence: Number(round.confidence),
+      // A history row is never unread, whichever write path last touched its status.
+      status: round.history ? "seen" : round.status,
+      disposition: round.disposition,
+      preset_slug: round.presetSlug,
+      history: round.history,
+      hold: round.hold,
+      pinned: round.pinned ?? null,
+      first_seen_at: round.firstSeenAt.toISOString(),
+      verification_checks: checksByRound.get(round.id) ?? null,
+      last_seen_at: round.lastSeenAt.toISOString(),
+      enrichment: toEnrichment(profileByCompany.get(company.id)),
+      alexandria: toAlexandria(alexandriaByCompany.get(company.id)),
+      company_facts: companyFacts(
+        toAlexandria(alexandriaByCompany.get(company.id))?.yc,
+        dossierByCompany.get(company.id),
+        profileLinkedin(profileByCompany.get(company.id)),
+      ),
+    };
+  });
 
   const last = page[page.length - 1];
   const nextCursor = rows.length > limit && last ? roundCursorAfter(sort, last.round) : null;

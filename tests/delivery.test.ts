@@ -149,8 +149,9 @@ describe("outbox", () => {
       "*Sector*\nFintech",
       "*Also in*\nFund Two, Fund Three, Fund Four and 1 more",
     ]);
+    // The company's own page leads the sources (lib/source-order.ts), then the rest by URL.
     expect(context.type === "context" && context.elements[0].type === "mrkdwn" && context.elements[0].text).toBe(
-      "*Verified* against 4 sources · <https://news.example/acme|news.example>, <https://www.wire.example/acme|wire.example>, <https://three.example/a|three.example> and 1 more",
+      "*Verified* against 4 sources · <https://acme.dev/press/a|acme.dev>, <https://news.example/acme|news.example>, <https://three.example/a|three.example> and 1 more",
     );
     const buttons = actions.type === "actions" ? actions.elements : [];
     expect(buttons.map((b) => [b.text.text, b.url])).toEqual([

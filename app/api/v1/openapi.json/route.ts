@@ -70,6 +70,11 @@ export function GET(request: Request) {
           "A larger total the source states beside this round's money (funding to date, a series' running total); never the round's amount",
       },
       valuation_as_written: { type: ["string", "null"] },
+      valuation_disclosed: {
+        type: ["boolean", "null"],
+        description:
+          "true when a valuation is stated (valuation_as_written); false when a source says outright that the valuation was not disclosed; null when no source says either way. A null valuation_as_written with valuation_disclosed false is a known non-disclosure, not a gap.",
+      },
       announced_on: { type: ["string", "null"], format: "date" },
       date_precision: {
         type: "string",
@@ -102,7 +107,35 @@ export function GET(request: Request) {
       other_investors: { type: "array", items: { type: "string" } },
       sources: {
         type: "array",
+        description:
+          "In reading order: the company's own announcement first, then a newswire's release of it, then established outlets, then the rest; within each, the earlier page first",
         items: { type: "object", properties: { url: { type: "string" }, title: { type: ["string", "null"] }, host: { type: "string" } } },
+      },
+      primary_source: {
+        type: ["object", "null"],
+        description:
+          "The round's official announcement: the company's own page (kind company), else its release on a newswire (kind wire); null when the sources hold neither. Always the first of sources when present.",
+        properties: { url: { type: "string" }, kind: { type: "string", enum: ["company", "wire"] } },
+      },
+      previous_rounds: {
+        type: "array",
+        description:
+          "The company's other visible rounds announced before this one, newest first, at most 10 (earlier rounds verified against their own announcement included). company= lists every round in full.",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            stage: { type: "string", enum: [...STAGES] },
+            stage_as_written: { type: "string" },
+            amount: {
+              type: "object",
+              properties: { as_written: { type: ["string", "null"] }, usd_millions: { type: ["number", "null"] } },
+            },
+            announced_on: { type: ["string", "null"], format: "date" },
+            lead_investors: { type: "array", items: { type: "string" } },
+            url: { type: ["string", "null"], description: "The round's official announcement when it has one, else its first source" },
+          },
+        },
       },
       alexandria: {
         type: ["object", "null"],

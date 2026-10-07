@@ -17,6 +17,7 @@ import {
   hostOf,
   normalizeCompanyKey,
   registrableDomain,
+  thinDescription,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
@@ -350,9 +351,18 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
           .where(eq(companies.id, companyId));
     }
     if (e.profile) {
+      // The company's own line from its verified homepage outranks a press description ("an AI data
+      // access company"); without one, the profile's sentence fills a company that has none.
+      const [row] = await handle.select({ description: companies.description }).from(companies).where(eq(companies.id, companyId)).limit(1);
       await handle
         .update(companies)
-        .set({ description: sql`coalesce(${companies.description}, ${e.profile.what_they_sell})`, updatedAt: new Date() })
+        .set({
+          description:
+            e.site_description && thinDescription(row?.description)
+              ? e.site_description
+              : sql`coalesce(${companies.description}, ${e.profile.what_they_sell})`,
+          updatedAt: new Date(),
+        })
         .where(eq(companies.id, companyId));
     }
     if (e.logo_url) {
@@ -386,6 +396,7 @@ export async function clearProfile(handle: Db, companyId: string): Promise<{ cle
     set.domain = null;
   }
   if (stored.profile?.what_they_sell && stored.profile.what_they_sell === row.description) set.description = null;
+  if (stored.site_description && stored.site_description === row.description) set.description = null;
   await handle.update(companies).set(set).where(eq(companies.id, companyId));
   // The alexandria row goes too: it was keyed on the domain this profile vouched for.
   await handle.delete(enrichments).where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "alexandria")));

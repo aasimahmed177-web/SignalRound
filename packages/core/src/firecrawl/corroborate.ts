@@ -466,6 +466,8 @@ export interface CorroborationResult {
   readings?: FeedRecord[];
   /** Same company, stage and stated day, but a different amount; not attached as the same round. */
   disputed?: FeedRecord[];
+  /** Readings of pages on the company's own site refused only because the page names its round under another name (a product's). */
+  ownSite?: FeedRecord[];
   /** Pages that stated rounds, none of them this one: another company with the name, or the same name and different facts. */
   rejected: number;
   creditsEstimated: number;
@@ -690,7 +692,6 @@ export async function corroborate(
   opts: CorroborationOptions = {},
 ): Promise<CorroborationResult> {
   const now = opts.now ?? new Date();
-  const stage = input.stage ?? classifyStage(input.stage_as_written).stage;
   // The company's own page first, when the site can be mapped; then the search's best pages.
   const [newsroom, searched] = await Promise.all([
     mapNewsroom(client, input, Boolean(opts.broad)),
@@ -708,8 +709,25 @@ export async function corroborate(
   };
   if (search.candidates.length === 0)
     return { search, extraction: null, fragment: null, rejected: 0, creditsEstimated: search.creditsEstimated };
+  const read = await readCandidates(client, input, search.candidates, { ...opts, now });
+  return { search, ...read, creditsEstimated: search.creditsEstimated + read.creditsEstimated };
+}
 
-  const extraction = await extractRounds(client, search.candidates, { concurrency: 10 });
+/**
+ * Extract these pages and judge each on its own, as corroborate does after its search: the readings
+ * that describe this round (acceptCorroboration, and a page that is a source for the company), the
+ * same-day same-stage readings that disagree only on the amount, and how many pages described a round
+ * that is not this one. The credits are the extraction's alone.
+ */
+export async function readCandidates(
+  client: Firecrawl,
+  input: CorroborationInput,
+  candidates: CorroborationCandidate[],
+  opts: CorroborationOptions = {},
+): Promise<Omit<CorroborationResult, "search">> {
+  const now = opts.now ?? new Date();
+  const stage = input.stage ?? classifyStage(input.stage_as_written).stage;
+  const extraction = await extractRounds(client, candidates, { concurrency: 10 });
   const byPage = new Map<string, ExtractedItem[]>();
   for (const item of extraction.items) byPage.set(item.source.url, [...(byPage.get(item.source.url) ?? []), item]);
 
@@ -718,6 +736,7 @@ export async function corroborate(
   const subjectAmount = { amountValue: parsedAmount.value, amountCurrency: parsedAmount.currency };
   const accepted: FeedRecord[] = [];
   const disputed: FeedRecord[] = [];
+  const ownSite: FeedRecord[] = [];
   let rejected = 0;
   for (const items of byPage.values()) {
     const resolved = resolveRounds(items, {
@@ -741,6 +760,15 @@ export async function corroborate(
         (r.company_key === normalizeCompanyKey(input.company_name) || r.company_domain === input.company_domain)
       )
         disputed.push(r);
+      // A post on the company's own site may be read under its product's name ("Introducing Alexandria
+      // and Firecrawl's $75M Series B" read as Alexandria's round): kept aside, for a caller that checks the facts itself.
+      if (
+        !verdict.accept &&
+        verdict.reason === "company" &&
+        input.company_domain &&
+        r.sources.every((s) => registrableDomain(s.url) === input.company_domain)
+      )
+        ownSite.push(r);
       return verdict.accept;
     });
     if (ours.length === 0) rejected++;
@@ -748,13 +776,5 @@ export async function corroborate(
   }
   const fragment = accepted.length > 0 ? foldFragments(accepted, stage) : null;
   const pages = extraction.pages.filter((p) => p.ok).map((p) => p.url);
-  return {
-    search,
-    extraction,
-    fragment,
-    readings: accepted,
-    disputed,
-    rejected,
-    creditsEstimated: search.creditsEstimated + extractionCredits(pages),
-  };
+  return { extraction, fragment, readings: accepted, disputed, ownSite, rejected, creditsEstimated: extractionCredits(pages) };
 }

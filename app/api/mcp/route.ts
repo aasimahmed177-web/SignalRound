@@ -73,6 +73,8 @@ function compactRound(r: RoundRow) {
     certainty: r.certainty,
     amount: r.amount.as_written,
     amount_usd_millions: r.amount.usd_millions,
+    valuation: r.valuation_as_written,
+    valuation_disclosed: r.valuation_disclosed,
     lead_investors: r.lead_investors,
     other_investors: r.other_investors,
     announced_on: r.announced_on,
@@ -81,7 +83,16 @@ function compactRound(r: RoundRow) {
     status: r.status,
     // An earlier round promoted from the company's checked dossier, verified against its own announcement.
     history: r.history,
+    // The company's own announcement first, then a wire's release, established outlets, the rest.
     sources: r.sources.map((s) => s.url),
+    primary_source: r.primary_source?.url ?? null,
+    previous_rounds: r.previous_rounds.map((p) => ({
+      stage: p.stage,
+      amount: p.amount.as_written,
+      announced_on: p.announced_on,
+      lead_investors: p.lead_investors,
+      url: p.url,
+    })),
   };
 }
 

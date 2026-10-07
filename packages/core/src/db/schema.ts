@@ -143,6 +143,8 @@ export const fundingRounds = pgTable(
     fxRate: numeric("fx_rate", { precision: 18, scale: 8 }),
     fxDate: text("fx_date"),
     valuationAsWritten: text("valuation_as_written"),
+    /** true: a valuation is stated; false: a source says outright it was not disclosed; null: no source says (lib/valuation-disclosure.ts). */
+    valuationDisclosed: boolean("valuation_disclosed"),
     /** Every reading's valuation with the sentence and page that state it (records/valuation.ts); the column above is the one they support. */
     valuationClaims: jsonb("valuation_claims").$type<Array<{ value: string; quote: string | null; url: string; tier: number }>>(),
     /** A larger total the page states beside the new money (a series' running total), with its sentence; never the amount, never a valuation. */
