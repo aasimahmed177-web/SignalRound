@@ -184,10 +184,9 @@ async function foldCompany(handle: Db, fromId: string, intoId: string, renamed =
     sql`insert into enrichments (company_id, kind, data, schema_version, source_url, fetched_at) select ${intoId}, kind, data, schema_version, source_url, fetched_at from enrichments where company_id = ${fromId} on conflict do nothing`,
   );
   await handle.delete(enrichments).where(eq(enrichments.companyId, fromId));
-  await handle.execute(
-    sql`insert into company_aliases (company_id, kind, alias_key, alias, source_url, created_at) select ${intoId}, kind, alias_key, alias, source_url, created_at from company_aliases where company_id = ${fromId} on conflict do nothing`,
-  );
-  await handle.delete(schema.companyAliases).where(eq(schema.companyAliases.companyId, fromId));
+  // An alias is keyed on its kind and name alone, so a copy under the survivor would collide with the
+  // row it copies: the rows move instead.
+  await handle.update(schema.companyAliases).set({ companyId: intoId }).where(eq(schema.companyAliases.companyId, fromId));
   // The dossier moved above; its prior rounds' promotion ledger follows it, so nothing is searched twice.
   await handle.execute(
     sql`insert into history_promotions (company_id, prior_key, prior, status, attempts, next_attempt_at, claimed_by, round_id, source_url, outcome, credits, last_error, created_at, updated_at) select ${intoId}, prior_key, prior, status, attempts, next_attempt_at, claimed_by, round_id, source_url, outcome, credits, last_error, created_at, updated_at from history_promotions where company_id = ${fromId} on conflict do nothing`,

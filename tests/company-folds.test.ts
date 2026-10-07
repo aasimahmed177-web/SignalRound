@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { db } from "../lib/db";
 import { clearProfile, replaceProfile } from "../lib/enrich";
 import { foldedInto } from "../lib/entity-exists";
-import { mergeCompanies, persistRecords } from "../lib/persist";
+import { mergeCompanies, persistRecords, renameCompany } from "../lib/persist";
 import { pendingStep } from "../workflows/enrich";
 import { record } from "./helpers";
 
@@ -51,6 +51,37 @@ describe("a folded company's old id", () => {
       .values({ companyId: "heo:identity:substack.com", kind: "name", aliasKey: "heo robotics", alias: "HEO Robotics" });
     expect(await foldedInto(handle, "solfoundry.co")).toBe("sol");
     expect(await foldedInto(handle, "heo robotics")).toBe("heo:identity:substack.com");
+  });
+});
+
+describe("a fold keeps the company's aliases", () => {
+  const aliases = async () =>
+    (await (await db()).select().from(schema.companyAliases)).map((a) => [a.companyId, a.kind, a.aliasKey]).sort();
+
+  test("a merge moves every alias to the survivor and adds the folded row's name", async () => {
+    const handle = await db();
+    await handle.insert(schema.companies).values([
+      { id: "upwind security", name: "Upwind Security", nameKey: "upwind security", domain: "upwind.io" },
+      { id: "upwind-2", name: "Upwind", nameKey: "upwind" },
+    ]);
+    await handle.insert(schema.companyAliases).values([
+      { companyId: "upwind security", kind: "name", aliasKey: "upwind", alias: "Upwind" },
+      { companyId: "upwind security", kind: "domain", aliasKey: "upwindsecurity.com", alias: "upwindsecurity.com" },
+    ]);
+    await mergeCompanies(handle, "upwind security", "upwind-2");
+    expect(await aliases()).toEqual([
+      ["upwind-2", "domain", "upwindsecurity.com"],
+      ["upwind-2", "name", "upwind"],
+      ["upwind-2", "name", "upwind security"],
+    ]);
+  });
+
+  test("a rename moves them too", async () => {
+    const handle = await db();
+    await handle.insert(schema.companies).values({ id: "heo robotics", name: "HEO Robotics", nameKey: "heo robotics" });
+    await handle.insert(schema.companyAliases).values({ companyId: "heo robotics", kind: "name", aliasKey: "heo", alias: "HEO" });
+    expect(await renameCompany(handle, "heo robotics", "heo-robotics")).toBe(true);
+    expect(await aliases()).toEqual([["heo-robotics", "name", "heo"]]);
   });
 });
 
