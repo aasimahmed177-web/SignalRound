@@ -2,15 +2,12 @@
 // they charge a subscription, and the pricing model when a pricing page exists.
 // The homepage must verify as the record's company before any of it is written.
 // Then the investors on those rounds get their website domain, and their logo off that homepage.
-// On the rungs that buy firmographics, Apollo reads the verified domains ten to a call, and the
-// funding events it lists that the store lacks start the company's history pass as leads.
 
 import { INVESTOR_BACKLOG_PER_RUN, investorDomainCap } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { start } from "workflow/api";
 import { type AlexandriaCompany, alexandriaBatch, pendingAlexandria } from "@/lib/alexandria";
-import { apolloBatch, pendingApollo } from "@/lib/apollo";
 import { db } from "@/lib/db";
 import { type EnrichCompany, enrichBatch } from "@/lib/enrich";
 import { invalidateAllEntityPages, invalidateEntityPages } from "@/lib/entity-invalidation";
@@ -35,10 +32,6 @@ export async function enrichWorkflow(
     resolved: r.resolved,
     pricing: r.pricing,
     alexandria: r.alexandria,
-    apollo: r.apollo,
-    apollo_matched: r.apolloMatched,
-    apollo_credits: r.apolloCredits,
-    apollo_leads: r.apolloLeads,
     investor_domains: r.investorDomains,
     investor_domains_resolved: r.investorDomainsResolved,
     investor_logos: r.investorLogos,
@@ -56,13 +49,8 @@ export interface EnrichPendingResult {
   pricing: number;
   credits: number;
   alexandria: number;
-  /** Every Alexandria credit this pass: the YC and FullEnrich lookups plus Apollo's. */
+  /** Every Alexandria credit this pass: the YC lookups. */
   alexandriaCredits: number;
-  /** Companies Apollo was asked about, how many it matched, its credits (inside alexandriaCredits), and the leads it queued. */
-  apollo: number;
-  apolloMatched: number;
-  apolloCredits: number;
-  apolloLeads: number;
   /** Investors searched for a website domain this pass, and how many resolved. */
   investorDomains: number;
   investorDomainsResolved: number;
@@ -104,16 +92,15 @@ export async function enrichPending(presetSlug: string, limit: number, scope: En
   const alexPending = await pendingAlexandriaStep(presetSlug, limit);
   let alexandria = 0;
   let alexandriaCredits = 0;
-  for (let i = 0; i < alexPending.companies.length; i += BATCH) {
-    const r = await alexandriaStep(alexPending.companies.slice(i, i + BATCH), alexPending.firmographics);
+  for (let i = 0; i < alexPending.length; i += BATCH) {
+    const r = await alexandriaStep(alexPending.slice(i, i + BATCH));
     alexandria += r.companies;
     alexandriaCredits += r.credits;
   }
-  // Apollo after the other two, on the same rungs as FullEnrich: ten domains a call, and the leads
-  // it queues start each company's history pass, which searches and verifies them.
-  const apollo = await apolloStep(presetSlug, limit);
-  alexandriaCredits += apollo.credits;
-  await startLeadHistoryStep([...pending.map((c) => c.id), ...apollo.leadCompanies], scope.roundIds);
+  await startLeadHistoryStep(
+    pending.map((c) => c.id),
+    scope.roundIds,
+  );
   // Investor websites last: this pass's own investors, capped in proportion to it (20 a round or
   // company in scope, 60 at most), then a slice of the preset's backlog, then logo reads for what in
   // scope already had a domain.
@@ -133,10 +120,6 @@ export async function enrichPending(presetSlug: string, limit: number, scope: En
     credits,
     alexandria,
     alexandriaCredits,
-    apollo: apollo.companies,
-    apolloMatched: apollo.matched,
-    apolloCredits: apollo.credits,
-    apolloLeads: apollo.leads,
     investorDomains: investorDomains.searched,
     investorDomainsResolved: investorDomains.resolved,
     investorLogos: investorDomains.logos,
@@ -191,51 +174,24 @@ export async function enrichStep(companies: PendingCompany[]): Promise<{ resolve
  * The companies Alexandria runs for this pass: those with a verified domain and no row yet.
  * The list doubles as the gate: the Lite rung buys none of it, so it returns empty.
  */
-export async function pendingAlexandriaStep(
-  presetSlug: string,
-  limit: number,
-): Promise<{ companies: AlexandriaCompany[]; firmographics: boolean }> {
+export async function pendingAlexandriaStep(presetSlug: string, limit: number): Promise<AlexandriaCompany[]> {
   "use step";
   const handle = await db();
   const plan = await getCoverage(handle);
-  if (plan.alexandria === "off") return { companies: [], firmographics: false };
-  return { companies: await pendingAlexandria(handle, presetSlug, limit), firmographics: plan.alexandria === "yc_firmographics" };
+  if (plan.alexandria === "off") return [];
+  return pendingAlexandria(handle, presetSlug, limit);
 }
 
-export async function alexandriaStep(
-  companies: AlexandriaCompany[],
-  firmographics: boolean,
-): Promise<{ companies: number; credits: number }> {
+export async function alexandriaStep(companies: AlexandriaCompany[]): Promise<{ companies: number; credits: number }> {
   "use step";
   if (companies.length === 0) return { companies: 0, credits: 0 };
   const handle = await db();
-  const { companies: n, credits } = await alexandriaBatch(handle, getFirecrawl(), companies, { firmographics });
+  const { companies: n, credits } = await alexandriaBatch(handle, getFirecrawl(), companies);
   await invalidateEntityPages(handle, { companyIds: companies.map((company) => company.id) });
   return { companies: n, credits };
 }
 
-/**
- * Apollo for this preset's verified companies without a row, on rungs that buy firmographics (the
- * plan's `yc_firmographics`), which is also where the history lane runs. Leads are queued here; the
- * searches run in each company's own history pass.
- */
-export async function apolloStep(
-  presetSlug: string,
-  limit: number,
-): Promise<{ companies: number; matched: number; credits: number; leads: number; leadCompanies: string[] }> {
-  "use step";
-  const none = { companies: 0, matched: 0, credits: 0, leads: 0, leadCompanies: [] };
-  const handle = await db();
-  const plan = await getCoverage(handle);
-  if (plan.alexandria !== "yc_firmographics") return none;
-  const pending = await pendingApollo(handle, presetSlug, limit);
-  if (pending.length === 0) return none;
-  const result = await apolloBatch(handle, getFirecrawl(), pending, { leads: true });
-  await invalidateEntityPages(handle, { companyIds: pending.map((company) => company.id) });
-  return result;
-}
-
-/** Start timeline recall for the feed's companies and Apollo's leads without making the sweep wait on the searches. */
+/** Start timeline recall for the feed's companies without making the sweep wait on the searches. */
 export async function startLeadHistoryStep(companyIds: string[], roundIds: string[] = []): Promise<void> {
   "use step";
   const handle = await db();
@@ -371,10 +327,6 @@ export async function recordEnrichmentStep(runId: string, r: EnrichPendingResult
     enrichment_credits: r.credits,
     alexandria: r.alexandria,
     alexandria_credits: r.alexandriaCredits,
-    apollo: r.apollo,
-    apollo_matched: r.apolloMatched,
-    apollo_credits: r.apolloCredits,
-    apollo_leads: r.apolloLeads,
     investor_domains: r.investorDomains,
     investor_domains_resolved: r.investorDomainsResolved,
     investor_domain_credits: r.investorDomainCredits,

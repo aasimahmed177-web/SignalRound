@@ -137,7 +137,7 @@ export async function requestTally(handle: Db, companyId: string) {
     .from(historyPromotions)
     .where(eq(historyPromotions.companyId, companyId))
     .orderBy(historyPromotions.createdAt);
-  // One round found by several sources (the search, Apollo, the dossier) is one line: the best outcome stands.
+  // One round found by several sources (the search, a gap search, the dossier) is one line: the best outcome stands.
   const rank = (row: LedgerPrior) => {
     const reason = ledgerReason(row);
     return reason === null ? 2 : reason === STILL_CHECKING ? 1 : 0;

@@ -205,7 +205,7 @@ export function pageDateline(markdown: string | undefined): string | null {
  * Whether the page links the website the extractor gave: the domain must occur as a link target or
  * an explicit URL, never merely as a word in the article. The extractor still writes
  * the name plus ".com" when the page links none: Creem's pages all linked creem.io, the record got
- * creem.com (a rock magazine), and a magazine's firmographics rode in on it.
+ * creem.com (a rock magazine), and a magazine's company facts rode in on it.
  */
 export function websiteOnPage(website: string | null | undefined, markdown: string): boolean {
   const domain = website ? registrableDomain(website) : null;

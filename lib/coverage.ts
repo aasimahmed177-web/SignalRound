@@ -36,8 +36,8 @@ const Corroboration = z.enum(["off", "new", "new_and_updated", "all"]);
 export type Corroboration = z.infer<typeof Corroboration>;
 const EnrichmentDepth = z.enum(["homepage", "homepage_pricing", "plus_corroboration", "weekly_reenrich"]);
 export type EnrichmentDepth = z.infer<typeof EnrichmentDepth>;
-/** Alexandria lookups per verified company: off, the YC catalogue, or YC plus FullEnrich and Apollo firmographics. */
-const Alexandria = z.enum(["off", "yc", "yc_firmographics"]);
+/** Alexandria lookups per verified company: off, or the YC catalogue. */
+const Alexandria = z.enum(["off", "yc"]);
 export type Alexandria = z.infer<typeof Alexandria>;
 
 export const CoveragePlan = z.object({
@@ -54,7 +54,7 @@ export const CoveragePlan = z.object({
   /** Read each new record's primary page once more with the record in hand, about 5 credits a record; publish requires its pass. */
   judge: z.boolean(),
   enrichment: EnrichmentDepth,
-  /** Alexandria records for each company with a verified domain: YC founders and batch, and FullEnrich and Apollo firmographics on the wider rungs. */
+  /** Alexandria records for each company with a verified domain: YC founders and batch. */
   alexandria: Alexandria,
   /** The Trending lane: X search on each new visible round at four checkpoints, Hacker News, and an hourly rescore. */
   trending: z.boolean(),
@@ -144,7 +144,7 @@ const TABLE: Record<CoverageTier, CoveragePlan> = {
     corroboration: "new_and_updated",
     judge: true,
     enrichment: "plus_corroboration",
-    alexandria: "yc_firmographics",
+    alexandria: "yc",
     trending: true,
     agent: { gapFill: "auto", deepDive: "threshold", deepDiveMinUsdMillions: 10, discoverySweep: "weekly" },
   },
@@ -158,7 +158,7 @@ const TABLE: Record<CoverageTier, CoveragePlan> = {
     corroboration: "all",
     judge: true,
     enrichment: "weekly_reenrich",
-    alexandria: "yc_firmographics",
+    alexandria: "yc",
     trending: true,
     agent: { gapFill: "auto", deepDive: "all", deepDiveMinUsdMillions: 10, discoverySweep: "daily" },
   },
@@ -315,19 +315,8 @@ function investorsPerRun(plan: CoveragePlan): number {
 const LITE_INVESTORS_PER_RUN = 25;
 /** Weekly re-enrichment reads every company's homepage again each week of the month. */
 const REENRICH_PASSES_PER_MONTH = WEEKS_PER_MONTH;
-/**
- * Alexandria per company with a verified domain: the YC search plus a company read on about a third
- * of them; FullEnrich adds its lookup (5), and Apollo 30 for each company it matches, a miss free. It
- * matched 21 of 26 visible companies in the September 2026 measurement, so 24 a company.
- */
-const APOLLO_CREDITS_PER_COMPANY = 24;
-const ALEXANDRIA_CREDITS: Record<Alexandria, number> = { off: 0, yc: 7, yc_firmographics: 12 + APOLLO_CREDITS_PER_COMPANY };
-/**
- * The funding events Apollo lists that the store lacks, queued as history leads: 18 across the same
- * 26 companies (a specific equity stage the store, the ledger, and the dossier did not already know),
- * each searched and verified at a prior round's price (HISTORY_CREDITS_PER_PRIOR).
- */
-const APOLLO_LEADS_PER_COMPANY = 0.7;
+/** Alexandria per company with a verified domain: the YC search plus a company read on about a third of them. */
+const ALEXANDRIA_CREDITS: Record<Alexandria, number> = { off: 0, yc: 7 };
 /** The Research button's cap per review item; about one record in ten lands in review. */
 const GAP_FILL_CREDITS = 400;
 const REVIEW_SHARE = 0.1;
@@ -590,17 +579,7 @@ export function estimateMonthlyCredits(plan: CoveragePlan, presets: Preset[], mo
   const passes = plan.enrichment === "weekly_reenrich" ? 1 + REENRICH_PASSES_PER_MONTH : 1;
   // Investor domains and logos are read once, not re-enriched; a month's new investors all get theirs across the passes.
   add("Enrichment", records * enrichmentPerCompany(plan) * passes + investorCredits(plan, records * NEW_INVESTORS_PER_RECORD));
-  if (plan.alexandria !== "off")
-    add(
-      plan.alexandria === "yc_firmographics" ? "Alexandria (YC, FullEnrich, and Apollo records)" : "Alexandria (YC records)",
-      records * ALEXANDRIA_CREDITS[plan.alexandria],
-    );
-  if (plan.alexandria === "yc_firmographics")
-    add(
-      "Apollo leads (each searched and verified as a history round)",
-      records * APOLLO_LEADS_PER_COMPANY * HISTORY_CREDITS_PER_PRIOR.low,
-      records * APOLLO_LEADS_PER_COMPANY * HISTORY_CREDITS_PER_PRIOR.high,
-    );
+  if (plan.alexandria !== "off") add("Alexandria (YC records)", records * ALEXANDRIA_CREDITS[plan.alexandria]);
 
   if (plan.trending) {
     const perRecord = (r: "low" | "high") =>

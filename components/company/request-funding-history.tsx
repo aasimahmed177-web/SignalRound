@@ -42,7 +42,7 @@ export function RequestFundingHistory({ tally, dossierRunning = false }: { tally
 type ListedRound = { stage: Stage; is_extension: boolean };
 
 /**
- * The rounds a request's searches and Apollo found that no announcement verified; the dossier's own
+ * The rounds a request's searches found that no announcement verified; the dossier's own
  * are listed with the rounds. One whose stage a round on the page already has is left off (a
  * database's "Series A $14.7M" beside the verified $10M Series A); the tally still counts it.
  */

@@ -59,6 +59,7 @@ function round(partial: Partial<RoundRow> = {}): RoundRow {
     last_seen_at: "2026-09-04T00:00:00Z",
     enrichment: null,
     alexandria: null,
+    company_facts: { founded_year: null, headcount: null, linkedin_url: null },
     ...partial,
   };
 }
@@ -74,7 +75,7 @@ function company(rounds: RoundRow[], description: string | null = "a sales prosp
     rounds,
     enrichment: null,
     alexandria: null,
-    apollo: null,
+    linkedin_url: null,
     dossier: null,
     sources: [],
     investors: [],

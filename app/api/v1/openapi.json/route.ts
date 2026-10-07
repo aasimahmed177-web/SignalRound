@@ -107,7 +107,7 @@ export function GET(request: Request) {
       alexandria: {
         type: ["object", "null"],
         description:
-          "Sourced company facts from Firecrawl Alexandria, keyed on the company's verified domain: the Y Combinator record (batch, team size, founding year, founder count), FullEnrich firmographics, and Apollo's headcount and LinkedIn page, each present only when that provider matched",
+          "The company's Y Combinator record through Firecrawl Alexandria, keyed on its verified domain; null when YC does not list it",
         properties: {
           yc: {
             type: ["object", "null"],
@@ -118,26 +118,23 @@ export function GET(request: Request) {
               founders_count: { type: "integer" },
             },
           },
-          firmographics: {
+        },
+      },
+      company_facts: {
+        type: "object",
+        description:
+          "Company facts with their source: yc (the Y Combinator record above) or dossier (the company research dossier, which keeps a claim only when a page it read states it). The LinkedIn page is the one the company's own verified homepage links.",
+        properties: {
+          founded_year: {
             type: ["object", "null"],
-            properties: {
-              headcount_range: { type: ["string", "null"] },
-              headcount: { type: ["integer", "null"] },
-              year_founded: { type: ["integer", "null"] },
-              company_type: { type: ["string", "null"] },
-              industry: { type: ["string", "null"] },
-              linkedin_url: { type: ["string", "null"] },
-            },
+            properties: { value: { type: "integer" }, source: { type: "string", enum: ["yc", "dossier"] } },
           },
-          apollo: {
+          headcount: {
             type: ["object", "null"],
-            description:
-              "Apollo's matched record, trimmed to what was measured accurate: an estimated headcount and a LinkedIn company page whose slug names the company. Its headquarters and funding figures are not exposed.",
-            properties: {
-              headcount: { type: ["integer", "null"] },
-              linkedin_url: { type: ["string", "null"] },
-            },
+            description: 'The team size as the source states it, e.g. "51 to 200", "about 40 people", or YC\'s count',
+            properties: { value: { type: "string" }, source: { type: "string", enum: ["yc", "dossier"] } },
           },
+          linkedin_url: { type: ["string", "null"] },
         },
       },
       evidence_quotes: { type: "array", items: { type: "string" } },

@@ -1,21 +1,20 @@
 // The Alexandria lane end to end on fixtures captured from the live API: the batch writer's
-// row and its safe fills, the pending list's domain gate, and the flattened shape the rows
-// and API carry.
+// row and its safe fills, the pending list's domain gate, and the company facts the rows and
+// API carry (YC's record, the checked dossier, and the LinkedIn page the homepage links).
 
 import { readFileSync } from "node:fs";
 import type { AlexandriaEnrichment } from "@fireround/core";
 import { ycFromRecord } from "@fireround/core";
 import { sql } from "drizzle-orm";
-import { type Firecrawl, SdkError } from "firecrawl";
+import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
-import { alexandriaBatch, alexandriaFacts, pendingAlexandria, refreshFirmographics, ycBatchShort, ycFoundedYear } from "../lib/alexandria";
-import { listRounds, persistRecords, setDisposition, toAlexandria } from "../lib/persist";
+import { alexandriaBatch, pendingAlexandria } from "../lib/alexandria";
+import { companyFacts, factChips, ycBatchShort, ycFoundedYear } from "../lib/company-facts";
+import { listRounds, persistRecords, setDisposition } from "../lib/persist";
 import { record, testDb } from "./helpers";
 
 const searchFixture = JSON.parse(readFileSync("tests/fixtures/alexandria/yc-search-firecrawl.json", "utf8"));
 const companyFixture = JSON.parse(readFileSync("tests/fixtures/alexandria/yc-company-firecrawl.json", "utf8"));
-const termsFixture = JSON.parse(readFileSync("tests/fixtures/alexandria/fullenrich-terms-required.json", "utf8"));
-const firmographicsFixture = JSON.parse(readFileSync("tests/fixtures/alexandria/fullenrich-agave.json", "utf8"));
 
 async function publishedCompany(db: Awaited<ReturnType<typeof testDb>>, name: string, key: string) {
   const item = record({
@@ -35,8 +34,7 @@ function fixtureClient(): Firecrawl {
       const capability = req.alexandria.capability;
       if (capability === "companies/search") return searchFixture.data;
       if (capability === "companies/company") return companyFixture.data;
-      // What the SDK does with the API's terms refusal: a typed throw carrying requiresAction.
-      throw new SdkError(termsFixture.error, 403, termsFixture.code, undefined, undefined, undefined, termsFixture.requiresAction);
+      throw new Error(`unexpected capability ${capability}`);
     },
   } as unknown as Firecrawl;
 }
@@ -68,41 +66,33 @@ describe("ycBatchShort", () => {
   });
 });
 
-describe("alexandriaFacts", () => {
-  test("batch, founded, people, each naming its provider; nothing when nothing matched", () => {
-    const flat = toAlexandria({
-      company_key: "acme",
-      domain: "acme.com",
-      credits: 10,
-      yc: {
-        status: "matched",
-        slug: "acme",
-        url: "https://www.ycombinator.com/companies/acme",
-        batch: "Winter 2025",
-        year_founded: 2024,
-        team_size: 3,
-        location: "SF",
-        one_liner: "Widgets",
-        tags: [],
-        yc_status: "Active",
-        founders: [],
-      },
-      firmographics: { status: "none" },
+describe("company facts", () => {
+  const yc = { batch: "Winter 2025", team_size: 3, year_founded: 2024 };
+  test("YC's batch, founding year, and team size, each naming its source; nothing when nothing is known", () => {
+    const facts = companyFacts(yc, null, null);
+    expect(facts).toEqual({
+      founded_year: { value: 2024, source: "yc" },
+      headcount: { value: "3", source: "yc" },
+      linkedin_url: null,
     });
-    expect(alexandriaFacts(flat).map((f) => f.label)).toEqual(["YC W25", "founded 2024", "3 people"]);
-    expect(alexandriaFacts(null)).toEqual([]);
-    expect(alexandriaFacts({ yc: null, firmographics: null })).toEqual([]);
+    expect(factChips(yc, facts)).toEqual([
+      { label: "YC W25", title: "From Y Combinator via Firecrawl Alexandria" },
+      { label: "founded 2024", title: "From Y Combinator via Firecrawl Alexandria" },
+      { label: "3 people", title: "From Y Combinator via Firecrawl Alexandria" },
+    ]);
+    expect(companyFacts(null, null, null)).toEqual({ founded_year: null, headcount: null, linkedin_url: null });
+    expect(factChips(null, null)).toEqual([]);
   });
 
-  test("the Firecrawl case: YC's founding year after its own batch and its application-time team size give way", () => {
-    const facts = alexandriaFacts({
-      yc: { batch: "Summer 2022", team_size: 3, year_founded: 2024 },
-      firmographics: { headcount_range: "11-50", headcount: 52, year_founded: 0 },
-      apollo: { headcount: 53, linkedin_url: null },
-    });
-    // No year a provider could stand behind (YC's is after S22, FullEnrich writes 0): the page takes the dossier's.
-    expect(facts.map((f) => f.label)).toEqual(["YC S22", "52 people"]);
-    expect(facts[1]?.title).toBe("From FullEnrich via Firecrawl Alexandria");
+  test("the Firecrawl case: YC's founding year after its own batch gives way to the dossier's, and a page's team size comes before YC's", () => {
+    const firecrawl = { batch: "Summer 2022", team_size: 3, year_founded: 2024 };
+    const facts = companyFacts(firecrawl, { founded_year: 2022, headcount_estimate: "about 50 people" }, null);
+    expect(facts.founded_year).toEqual({ value: 2022, source: "dossier" });
+    expect(facts.headcount).toEqual({ value: "about 50 people", source: "dossier" });
+    expect(factChips(firecrawl, facts).map((f) => f.label)).toEqual(["YC S22", "founded 2022", "about 50 people"]);
+    expect(factChips(null, companyFacts(null, { founded_year: null, headcount_estimate: "51 to 200" }, null))[0]?.label).toBe(
+      "51 to 200 people",
+    );
     expect(ycFoundedYear({ batch: "Winter 2025", team_size: 3, year_founded: 2024 })).toBe(2024);
     expect(ycFoundedYear({ batch: "Summer 2022", team_size: 3, year_founded: 2024 })).toBeNull();
   });
@@ -116,9 +106,7 @@ describe("alexandriaBatch and the pending list", () => {
 
     expect((await pendingAlexandria(db, "series-a-b", 10)).map((c) => c.id)).toEqual(["firecrawl"]);
 
-    const r = await alexandriaBatch(db, fixtureClient(), [{ id: "firecrawl", name: "Firecrawl", domain: "firecrawl.dev" }], {
-      firmographics: true,
-    });
+    const r = await alexandriaBatch(db, fixtureClient(), [{ id: "firecrawl", name: "Firecrawl", domain: "firecrawl.dev" }]);
     expect(r.companies).toBe(1);
     expect(r.matched).toBe(1);
     expect(r.credits).toBe(10);
@@ -129,7 +117,7 @@ describe("alexandriaBatch and the pending list", () => {
     const stored = (await db.execute(sql`select data from enrichments where company_id = 'firecrawl' and kind = 'alexandria'`)).rows[0]
       .data as AlexandriaEnrichment;
     expect(stored.yc.status).toBe("matched");
-    expect(stored.firmographics).toEqual({ status: "terms_required", url: "https://www.firecrawl.dev/app/alexandria/fullenrich" });
+    expect(Object.keys(stored).sort()).toEqual(["company_key", "credits", "domain", "yc"]);
 
     // The safe fills only: description and hq from YC where the row had none.
     const [company] = (await db.execute(sql`select description, hq from companies where id = 'firecrawl'`)).rows;
@@ -151,7 +139,7 @@ describe("alexandriaBatch and the pending list", () => {
 });
 
 describe("the read surface", () => {
-  test("listRounds carries the flattened alexandria for a company with a row", async () => {
+  test("listRounds carries YC's record and the company facts: the checked dossier's figures and the homepage's LinkedIn page", async () => {
     const db = await testDb();
     await publishedCompany(db, "RowCo", "rowco");
     const stored: AlexandriaEnrichment = {
@@ -174,95 +162,40 @@ describe("the read surface", () => {
           { name: "B Founder", title: "CTO", linkedin_url: null, twitter_url: null },
         ],
       },
-      firmographics: {
-        status: "matched",
-        provider: "fullenrich",
-        description: "Robot company",
-        year_founded: 2023,
-        headcount: 12,
-        headcount_range: "11-50",
-        company_type: "private",
-        specialties: ["robots"],
-        logo_url: "https://logo.example/rowco.png",
-        industry: "Robotics",
-        hq: "New York, NY",
-        linkedin_url: "https://www.linkedin.com/company/rowco",
-        raw: {},
-      },
     };
     await db.execute(
       sql`insert into enrichments (company_id, kind, data) values ('rowco', 'alexandria', ${JSON.stringify(stored)}::jsonb)`,
     );
+    const profile = {
+      company_key: "rowco",
+      company_website: "https://rowco.com",
+      website_source: "record",
+      profile: { what_they_sell: "Robots", same_company: true },
+      linkedin_url: "https://www.linkedin.com/company/rowco",
+    };
+    await db.execute(sql`insert into enrichments (company_id, kind, data) values ('rowco', 'profile', ${JSON.stringify(profile)}::jsonb)`);
+    const dossier = { founded_year: 2022, headcount_estimate: "11 to 50", verification: { checked_at: "2026-10-01T00:00:00Z" } };
+    await db.execute(
+      sql`insert into enrichments (company_id, kind, data, schema_version) values ('rowco', 'deep_dive', ${JSON.stringify(dossier)}::jsonb, 2)`,
+    );
     const [row] = (await listRounds(db, { includeReview: true })).rows;
-    expect(row.alexandria).toEqual({
-      yc: { batch: "Summer 2022", team_size: 4, year_founded: 2023, founders_count: 2 },
-      firmographics: {
-        headcount_range: "11-50",
-        headcount: 12,
-        year_founded: 2023,
-        company_type: "private",
-        industry: "Robotics",
-        linkedin_url: "https://www.linkedin.com/company/rowco",
-      },
-      apollo: null,
+    expect(row.alexandria).toEqual({ yc: { batch: "Summer 2022", team_size: 4, year_founded: 2023, founders_count: 2 } });
+    // YC's 2023 is after its S22 batch, so it cannot be true and the dossier's year stands.
+    expect(row.company_facts).toEqual({
+      founded_year: { value: 2022, source: "dossier" },
+      headcount: { value: "11 to 50", source: "dossier" },
+      linkedin_url: "https://www.linkedin.com/company/rowco",
     });
-    // No row, no key.
+    // No row, no key; an unchecked dossier and an unverified profile add nothing.
     await publishedCompany(db, "Plain", "plain");
+    await db.execute(
+      sql`insert into enrichments (company_id, kind, data, schema_version) values ('plain', 'deep_dive', ${JSON.stringify({ founded_year: 2020 })}::jsonb, 1)`,
+    );
+    await db.execute(
+      sql`insert into enrichments (company_id, kind, data) values ('plain', 'profile', ${JSON.stringify({ ...profile, company_key: "plain", website_source: "unverified" })}::jsonb)`,
+    );
     const plain = (await listRounds(db, { companyId: "plain", includeReview: true })).rows[0];
     expect(plain.alexandria).toBeNull();
-  });
-});
-
-describe("refreshFirmographics", () => {
-  test("a terms-required row takes the lookup alone, adds its credits, fills logo and hq, then leaves the queue", async () => {
-    const db = await testDb();
-    await persistRecords(db, [record({ company_name: "Agave", company_key: "agave" })], "series-a-b", "run-1");
-    await db.execute(sql`update companies set domain = 'useagave.com' where id = 'agave'`);
-    const stored: AlexandriaEnrichment = {
-      company_key: "agave",
-      domain: "useagave.com",
-      credits: 10,
-      yc: {
-        status: "matched",
-        slug: "agave",
-        url: "https://www.ycombinator.com/companies/agave",
-        batch: "Winter 2022",
-        year_founded: 2021,
-        team_size: 50,
-        location: null,
-        one_liner: null,
-        tags: [],
-        yc_status: "Active",
-        founders: [],
-      },
-      firmographics: { status: "terms_required", url: "https://www.firecrawl.dev/app/alexandria/fullenrich" },
-    };
-    await db.execute(
-      sql`insert into enrichments (company_id, kind, data) values ('agave', 'alexandria', ${JSON.stringify(stored)}::jsonb)`,
-    );
-
-    const calls: string[] = [];
-    const client = {
-      scrape: async (req: { alexandria: { capability: string } }) => {
-        calls.push(req.alexandria.capability);
-        return firmographicsFixture.data;
-      },
-    } as unknown as Firecrawl;
-
-    const r = await refreshFirmographics(db, client, { limit: 10 });
-    expect(r).toEqual({ companies: 1, matched: 1, credits: 5 });
-    expect(calls).toEqual(["companies/lookup"]);
-
-    const after = (await db.execute(sql`select data from enrichments where company_id = 'agave' and kind = 'alexandria'`)).rows[0]
-      .data as AlexandriaEnrichment;
-    expect(after.credits).toBe(15);
-    expect(after.firmographics.status).toBe("matched");
-    expect(after.yc.status).toBe("matched");
-
-    const [company] = (await db.execute(sql`select logo_url, hq from companies where id = 'agave'`)).rows;
-    expect(company.logo_url).toBe("https://app.fullenrich.com/logo/company/handle/agave-api");
-    expect(company.hq).toBe("San Francisco, California");
-
-    expect(await refreshFirmographics(db, client, { limit: 10 })).toEqual({ companies: 0, matched: 0, credits: 0 });
+    expect(plain.company_facts).toEqual({ founded_year: null, headcount: null, linkedin_url: null });
   });
 });

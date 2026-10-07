@@ -44,8 +44,6 @@ function company(over: Partial<AccuracyCompany> = {}): AccuracyCompany {
     description: "Acme builds rockets.",
     logoUrl: "https://acme.com/logo.png",
     rounds: [round({ id: "acme:series_b:2025-01-10" })],
-    apollo: null,
-    known: [],
     dossier: { checked: true, founders: ["Ada Lovelace"] },
     previousFounders: null,
     ...over,
@@ -98,24 +96,6 @@ const OPENAI_BEFORE = company({
       sourceTitles: ["The Week's 10 Biggest Funding Rounds: Series A Megarounds For AI Chips And Robotics"],
     }),
   ],
-  apollo: {
-    totalFundingUsdMillions: 180_000,
-    events: [
-      { type: "Series A", amount: null, date: "2016-01", source_url: null },
-      { type: "Venture (Round not Specified)", amount: "$6.6B", date: "2024-10", source_url: null },
-      {
-        type: "Series E",
-        amount: "$10B",
-        date: "2023-01",
-        source_url: "https://blogs.microsoft.com/blog/2023/01/23/microsoftandopenaiextendpartnership/",
-      },
-    ],
-  },
-  known: [
-    { stage: "other", usd_millions: 6600, announced_on: "2024-10-02" },
-    { stage: "other", usd_millions: 40000, announced_on: "2025-03-31" },
-    { stage: "series_a", usd_millions: null, announced_on: "2026-09-23" },
-  ],
   dossier: null,
 });
 
@@ -134,8 +114,6 @@ describe("accuracyFlags", () => {
         "stage_regression",
         "list_only",
         "unverified",
-        "apollo_total_gap",
-        "apollo_missing_round",
         "dossier_missing",
         "stage_other_large",
         "no_lead_large",
@@ -148,11 +126,6 @@ describe("accuracyFlags", () => {
     expect(byRule(flags, "list_only")?.subjects).toEqual(["openai:series_a:2026-09-23"]);
     expect(byRule(flags, "stage_other_large")?.subjects).toEqual(["openai:other:2024-10-02", "openai:other:2025-03-31"]);
     expect(byRule(flags, "no_lead_large")?.subjects).toEqual(["openai:other:2024-10-02"]);
-    expect(byRule(flags, "apollo_total_gap")?.reason).toBe("Total raised (verified) is $46.6B, under half of the $180B Apollo lists.");
-    // Apollo's unlettered $6.6B is ours already and its undated Series A has no figure; only the $10B is missing.
-    const missing = byRule(flags, "apollo_missing_round");
-    expect(missing?.subjects).toEqual(["series e|$10b|2023-01"]);
-    expect(missing?.remedy).toBe("history");
     expect(byRule(flags, "no_domain")?.remedy).toBe("profile");
     expect(byRule(flags, "dossier_missing")?.remedy).toBe("dossier");
     // The unverified trend-story row has sat for a day: high, and named with its state.
@@ -168,20 +141,9 @@ describe("accuracyFlags", () => {
       description: "OpenAI builds AI models and ChatGPT.",
       logoUrl: "https://openai.com/logo.svg",
       rounds: OPENAI_BEFORE.rounds.slice(0, 2).map((r) => ({ ...r, stage: "growth" as const, leadCount: 1 })),
-      apollo: { totalFundingUsdMillions: 180_000, events: [] },
-      known: [...OPENAI_BEFORE.known, { stage: "growth", usd_millions: 10_000, announced_on: "2023-01-23" }],
       dossier: { checked: true, founders: ["Sam Altman", "Greg Brockman", "Ilya Sutskever"] },
     });
-    // Its 2026 $122B round is still being promoted, so the total gap stands until it lands.
-    expect(rules(accuracyFlags(after, NOW))).toEqual(["apollo_total_gap"]);
-    const landed = {
-      ...after,
-      rounds: [
-        ...after.rounds,
-        round({ id: "openai:growth:2026-03-31", stage: "growth", amountUsdMillions: 122_000, announcedOn: "2026-03-31" }),
-      ],
-    };
-    expect(accuracyFlags(landed, NOW)).toEqual([]);
+    expect(accuracyFlags(after, NOW)).toEqual([]);
   });
 
   test("Anthropic's misdated Series B: a lettered round with an amount after its Series F reads as misdated", () => {
@@ -309,28 +271,6 @@ describe("accuracyFlags", () => {
     expect(rules(dropped)).toEqual(["founders_dropped"]);
     expect(dropped[0].subjects).toEqual(["greg brockman", "ilya sutskever"]);
     expect(dropped[0].remedy).toBeNull();
-  });
-
-  test("Apollo's total within half of ours, or a small gap, is not a flag", () => {
-    expect(accuracyFlags(company({ apollo: { totalFundingUsdMillions: 190, events: [] } }), NOW)).toEqual([]);
-    expect(
-      accuracyFlags(
-        company({ rounds: [round({ id: "r", amountUsdMillions: 2 })], apollo: { totalFundingUsdMillions: 11, events: [] } }),
-        NOW,
-      ),
-    ).toEqual([]);
-  });
-
-  test("a round a history ledger row already covers is not missing, and one under $100M is not asked about", () => {
-    const events = [
-      { type: "Series C", amount: "$450M", date: "2023-05", source_url: null },
-      { type: "Series A", amount: "$40M", date: "2021-05", source_url: null },
-    ];
-    expect(
-      byRule(accuracyFlags(company({ apollo: { totalFundingUsdMillions: null, events } }), NOW), "apollo_missing_round")?.subjects,
-    ).toEqual(["series c|$450m|2023-05"]);
-    const ledger = { stage: "series_c" as const, usd_millions: 450, announced_on: "2023-05-23" };
-    expect(accuracyFlags(company({ apollo: { totalFundingUsdMillions: null, events }, known: [ledger] }), NOW)).toEqual([]);
   });
 });
 

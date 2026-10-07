@@ -2,9 +2,9 @@
 // this file loads what the store holds about the companies that matter most, keeps the flags in
 // accuracy_flags (new, still open, dismissed, cleared), remembers each dossier's founders between
 // runs, and starts the safe remedies under a cap: a profile refresh for a company with no verified
-// homepage, a deep dive for one with no checked dossier or no founders, and a history lead for a
-// $100M round Apollo lists and the store lacks. Every remedy's result still passes its own lane's
-// check; everything else waits for a person in Review. Admin only: nothing public reads the flags.
+// homepage, and a deep dive for one with no checked dossier or no founders. Every remedy's result
+// still passes its own lane's check; everything else waits for a person in Review. Admin only:
+// nothing public reads the flags.
 
 import type { AccuracyCompany, AccuracyFlag, AccuracyRemedy, AccuracyRound, CompanySize, FounderMemory } from "@fireround/core";
 import {
@@ -14,18 +14,16 @@ import {
   compareFlags,
   parseStoredDossier,
   planFlagChanges,
-  priorAsKnown,
   prominentCompanyIds,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
-import { queueApolloLeads, type StoredApollo } from "./apollo.ts";
 import { DOSSIER_SCHEMA_VERSION } from "./deepdive.ts";
 import { enrichBatch, isVerified } from "./enrich.ts";
 
-const { accuracyFlags: flagsTable, accuracyMemory, companies, enrichments, fundingRounds, historyPromotions, runs } = schema;
+const { accuracyFlags: flagsTable, accuracyMemory, companies, enrichments, fundingRounds, runs } = schema;
 
 const VISIBLE = ["publish", "flagged"] as const;
 const DAY = 86_400_000;
@@ -43,7 +41,6 @@ export const MAX_REMEDY_ATTEMPTS: Record<string, number> = {
   no_domain: 3,
   dossier_missing: 2,
   dossier_no_founders: 1,
-  apollo_missing_round: 2,
 };
 
 /** The run row's preset column and lane: the check owns both. */
@@ -54,8 +51,8 @@ export interface AccuracyParams {
   topN: number;
   /** Start the safe remedies; off, the run only reads and records flags. */
   remedies: boolean;
-  /** Remedies per run, per kind: a profile refresh is a few credits, a dive a few hundred. */
-  caps: Record<AccuracyRemedy, number>;
+  /** Remedies per run, per kind: a profile refresh is a few credits, a dive a few hundred; `history` caps the company timelines started. */
+  caps: Record<AccuracyRemedy | "history", number>;
 }
 
 export const ACCURACY_DEFAULTS: AccuracyParams = { topN: ACCURACY_TOP_N, remedies: true, caps: { profile: 5, dossier: 2, history: 3 } };
@@ -132,7 +129,7 @@ export async function loadAccuracyCompanies(
 ): Promise<LoadedCompany[]> {
   const ids = sizes.map((s) => s.id);
   if (ids.length === 0) return [];
-  const [rows, rounds, enrichmentRows, allRounds, ledger, memoryRows] = await Promise.all([
+  const [rows, rounds, enrichmentRows, memoryRows] = await Promise.all([
     handle
       .select({
         id: companies.id,
@@ -173,21 +170,7 @@ export async function loadAccuracyCompanies(
         fetchedAt: enrichments.fetchedAt,
       })
       .from(enrichments)
-      .where(and(inArray(enrichments.companyId, ids), inArray(enrichments.kind, ["profile", "apollo", "deep_dive"]))),
-    handle
-      .select({
-        companyId: fundingRounds.companyId,
-        stage: fundingRounds.stage,
-        ext: fundingRounds.isExtension,
-        usd: fundingRounds.amountUsdMillions,
-        on: fundingRounds.announcedOn,
-      })
-      .from(fundingRounds)
-      .where(inArray(fundingRounds.companyId, ids)),
-    handle
-      .select({ companyId: historyPromotions.companyId, prior: historyPromotions.prior })
-      .from(historyPromotions)
-      .where(inArray(historyPromotions.companyId, ids)),
+      .where(and(inArray(enrichments.companyId, ids), inArray(enrichments.kind, ["profile", "deep_dive"]))),
     opts.readMemory === false ? Promise.resolve([]) : handle.select().from(accuracyMemory).where(inArray(accuracyMemory.companyId, ids)),
   ]);
 
@@ -198,17 +181,13 @@ export async function loadAccuracyCompanies(
   };
   const roundsBy = group(rounds);
   const enrichBy = group(enrichmentRows);
-  const allBy = group(allRounds);
-  const ledgerBy = group(ledger);
   const memoryBy = new Map(memoryRows.map((m) => [m.companyId, m]));
   const sizeBy = new Map(sizes.map((s) => [s.id, s]));
 
   return rows.map((row): LoadedCompany => {
     const e = enrichBy.get(row.id) ?? [];
     const profile = e.find((x) => x.kind === "profile");
-    const apolloRow = e.find((x) => x.kind === "apollo");
     const diveRow = e.find((x) => x.kind === "deep_dive");
-    const apollo = (apolloRow?.data as StoredApollo | undefined)?.apollo;
     const dossier = diveRow ? parseStoredDossier(diveRow.data) : null;
     const checked =
       !!diveRow && diveRow.schemaVersion >= DOSSIER_SCHEMA_VERSION && !!(diveRow.data as { verification?: unknown } | null)?.verification;
@@ -229,17 +208,6 @@ export async function loadAccuracyCompanies(
       previousFounders = next.previous;
       if (next.changed) memoryWrite = next.memory;
     }
-
-    const known = [
-      ...(allBy.get(row.id) ?? []).map((r) => ({
-        stage: r.stage,
-        is_extension: r.ext,
-        usd_millions: r.usd === null ? null : Number(r.usd),
-        announced_on: r.on,
-      })),
-      ...(ledgerBy.get(row.id) ?? []).map((l) => priorAsKnown(l.prior)),
-      ...(dossier?.prior_rounds ?? []).map(priorAsKnown),
-    ];
 
     const company: AccuracyCompany = {
       id: row.id,
@@ -265,14 +233,6 @@ export async function loadAccuracyCompanies(
           leadCount: Number(r.leads),
         }),
       ),
-      apollo:
-        apollo?.status === "matched"
-          ? {
-              totalFundingUsdMillions: apollo.total_funding_usd ? apollo.total_funding_usd / 1_000_000 : null,
-              events: apollo.funding_events.map((ev) => ({ type: ev.type, amount: ev.amount, date: ev.date, source_url: ev.source_url })),
-            }
-          : null,
-      known,
       dossier: diveRow && dossier ? { checked, founders } : null,
       previousFounders,
     };
@@ -462,7 +422,7 @@ export async function planRemedies(
   );
   const dived = await recentlyDived(handle, now);
   const resting = opts.resting ?? new Set<string>();
-  const used: Record<AccuracyRemedy, number> = { profile: 0, dossier: 0, history: 0 };
+  const used: Record<AccuracyRemedy, number> = { profile: 0, dossier: 0 };
   const seen = new Set<string>();
   const targets: RemedyTarget[] = [];
   let skipped = 0;
@@ -716,21 +676,4 @@ export async function refreshProfile(
     ? `profile refresh: verified ${e.company_website}`
     : `profile refresh: no homepage verified${e?.error ? ` (${e.error})` : ""}`;
   return { verified, website: e?.company_website ?? null, credits: r.credits, note };
-}
-
-/**
- * The history remedy: put the rounds Apollo lists that the store lacks on the history ledger as leads
- * (origin apollo), exactly as the enrichment pass does. The caller starts the company's history pass,
- * which searches each and writes a row only when a page states it.
- */
-export async function queueAccuracyLeads(handle: Db, companyId: string, now: Date = new Date()): Promise<{ queued: number; note: string }> {
-  const [row] = await handle
-    .select({ data: enrichments.data })
-    .from(enrichments)
-    .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "apollo")))
-    .limit(1);
-  const apollo = (row?.data as StoredApollo | undefined)?.apollo;
-  if (apollo?.status !== "matched") return { queued: 0, note: "history lead: no Apollo record to read" };
-  const queued = await queueApolloLeads(handle, companyId, apollo, now);
-  return { queued, note: queued > 0 ? `history lead: ${queued} queued for a search` : "history lead: nothing new to queue" };
 }

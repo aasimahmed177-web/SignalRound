@@ -144,8 +144,10 @@ export async function loadLogo({ domain, logoUrl }: { domain?: string | null; lo
     domain && process.env.NEXT_PUBLIC_FAVICON_FALLBACK !== "off"
       ? fetchImage(`${FAVICON_SERVICE}?domain=${encodeURIComponent(domain)}&sz=128`, 32)
       : Promise.resolve(null);
-  const stored =
-    logoUrl && /^https?:\/\//i.test(logoUrl) && !/white|negative|inverse/i.test(logoUrl)
+  // A logo the branding read found drawn inline in the page (an inline SVG) is stored as a small data URI.
+  const stored = /^data:image\//i.test(logoUrl ?? "")
+    ? Promise.resolve(logoUrl ?? null)
+    : logoUrl && /^https?:\/\//i.test(logoUrl) && !/white|negative|inverse/i.test(logoUrl)
       ? fetchImage(logoUrl, 24, { square: true })
       : Promise.resolve(null);
   const [a, b] = await Promise.all([service, stored]);

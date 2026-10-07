@@ -78,7 +78,6 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
   "app/api/cache/invalidate/route.ts": { POST: "CRON_SECRET bearer, closed without a secret" },
   "app/api/cron/accuracy/route.ts": { GET: "CRON_SECRET", POST: "CRON_SECRET" },
   "app/api/cron/announcements/route.ts": { GET: "CRON_SECRET" },
-  "app/api/cron/backfill-apollo/route.ts": { GET: "CRON_SECRET", POST: "CRON_SECRET" },
   "app/api/cron/backfill-dossiers/route.ts": { GET: "CRON_SECRET", POST: "CRON_SECRET" },
   "app/api/cron/company-newsrooms/route.ts": { GET: "CRON_SECRET" },
   "app/api/cron/deliveries/route.ts": { GET: "CRON_SECRET" },

@@ -110,10 +110,10 @@ describe("a round of another preset's stage, read by this preset's sweep", () =>
 });
 
 describe("a re-routed round meets every trust safeguard on persist and delivery", () => {
-  test("a late re-report the store's Apollo events show is held under the preset it was routed to, and never queued", async () => {
+  test("a late re-report the store's history ledger shows is held under the preset it was routed to, and never queued", async () => {
     const db = await testDb();
     await createTarget(db, { channel: "slack", target: "https://hooks.slack.test/abc", minConfidence: 0.5 });
-    // An earlier round already stored, so the company's Apollo events are on file.
+    // An earlier round already stored, and a lead for its Series B already on the ledger.
     const earlier = record({
       company_name: "Heldco",
       company_key: "heldco",
@@ -125,17 +125,10 @@ describe("a re-routed round meets every trust safeguard on persist and delivery"
       amount: { value: 4, currency: "USD", as_written: "$4M", usd_millions: 4, fx_rate: 1, fx_date: daysAgo(500) },
     });
     await persistRouted(db, [earlier], "seed", "run-0");
-    await db.insert(schema.enrichments).values({
-      companyId: "heldco.com",
-      kind: "apollo",
-      data: {
-        company_key: "heldco",
-        apollo: {
-          status: "matched",
-          funding_events: [{ type: "Series B", amount: "$40M", date: daysAgo(120).slice(0, 7), source_url: null }],
-        },
-      },
-    });
+    const prior = { stage_as_written: "Series B", amount_as_written: "$40M", announced_date: daysAgo(120).slice(0, 7), lead_investors: [] };
+    await db
+      .insert(schema.historyPromotions)
+      .values({ companyId: "heldco.com", priorKey: "series b|$40m", prior, origin: "search", status: "pending" });
     // The seed sweep reads a page-dated profile that reports the same $40M Series B as new.
     const reReport = record({
       company_name: "Heldco",
@@ -153,7 +146,7 @@ describe("a re-routed round meets every trust safeguard on persist and delivery"
     const [row] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, reReport.id));
     expect(row.presetSlug).toBe("series-a-b");
     expect(row.disposition).toBe("review");
-    expect(row.hold).toMatch(/^held: Apollo reports Series B \$40M/);
+    expect(row.hold).toMatch(/^held: the history ledger \(search\) reports Series B \$40M/);
     expect(await enqueueRouted(db, s.changedByPreset)).toBe(0);
   });
 

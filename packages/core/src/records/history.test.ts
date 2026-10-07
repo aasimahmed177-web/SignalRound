@@ -287,7 +287,7 @@ describe("matchPriorRound", () => {
   });
 });
 
-describe("Apollo leads", () => {
+describe("funding leads", () => {
   const lead = (type: string, amount: string | null, date: string | null, source_url: string | null = null) => ({
     type,
     amount,
@@ -315,7 +315,7 @@ describe("Apollo leads", () => {
     ];
     const out = missingLeads(
       [
-        // Apollo's "Series D" for the $70M round the store files as the Series C.
+        // A listing's "Series D" for the $70M round the store files as the Series C.
         lead("Series D", "$70M", "2026-09"),
         // The same stage six months earlier at $48M is another round.
         lead("Series C", "$48M", "2026-03", "https://yourstory.com/c"),

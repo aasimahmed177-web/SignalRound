@@ -1,9 +1,10 @@
 // The late re-report hold. A page's byline can date an old round as today's (Assort Health's June 24
 // Series C came back from a September 25 profile as "$120M funding", and went to Slack as new). The
-// store often already holds the evidence: Apollo listed that Series C for 2026-06 four seconds before
-// the post, and the lead check only used it to skip a history lead. Here, any history or lead source
-// that reports the same round well before a day the company never stated holds the row: out of
-// delivery, and in review when it has not gone out yet (flagged, with the note, when it has).
+// store often already holds the evidence: the company's history rows, its checked dossier's prior
+// rounds, the history ledger's leads, and its rows whose day a page states (a Form D filing's among
+// them). Here, any of those that reports the same round well before a day the company never stated
+// holds the row: out of delivery, and in review when it has not gone out yet (flagged, with the note,
+// when it has).
 
 import type { FeedRecord, PriorRound, Stage } from "@fireround/core";
 import {
@@ -21,7 +22,7 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { staleForNews } from "./deliverable.ts";
 import { getFirecrawl } from "./firecrawl.ts";
 import { REREPORT_CORROBORATED_WINDOW_DAYS, SAME_STAGE_WINDOW_DAYS } from "./persist.ts";
@@ -36,7 +37,7 @@ export interface RoundLead {
   usdMillions: number | null;
   /** YYYY-MM-DD, YYYY-MM, or YYYY. */
   date: string | null;
-  /** Where the report came from, as the hold note names it ("Apollo", "the dossier", a row id). */
+  /** Where the report came from, as the hold note names it ("the company dossier", a ledger lead, a row id). */
   origin: string;
   /** The label and figure as the source writes them, for the note. */
   label: string;
@@ -134,7 +135,7 @@ function family(stage: string | null): string | null {
  * known figure; the lead states the same figure within a tenth, the same stage family when both name
  * one, and its latest possible day (the end of its month when it gives only a month) is more than 45
  * days before the row's and inside three years. A day the row's page states ("launched today with
- * $5.5 million") yields only to a stored round whose own day is stated: a provider's month is weeks
+ * $5.5 million") yields only to a stored round whose own day is stated: a lead's month is weeks
  * off often enough that it holds only a borrowed day (a byline, a URL, a search result, a list). Pure.
  */
 export function lateReportLead(row: HoldCandidate, leads: RoundLead[]): RoundLead | null {
@@ -175,16 +176,16 @@ function priorLead(p: PriorRound, origin: string): RoundLead {
 }
 
 /**
- * Every report of this company's rounds the store holds apart from its feed rows: Apollo's funding
- * events, the checked dossier's prior rounds, the history ledger's priors, and the company's history
- * rows and rows whose day the company stated.
+ * Every report of this company's rounds the store holds apart from its feed rows: the checked
+ * dossier's prior rounds, the history ledger's priors, and the company's history rows and rows whose
+ * day the company stated.
  */
 export async function companyLeads(handle: Db, companyId: string): Promise<RoundLead[]> {
-  const [enriched, ledger, rows] = await Promise.all([
+  const [dossiers, ledger, rows] = await Promise.all([
     handle
-      .select({ kind: enrichments.kind, data: enrichments.data })
+      .select({ data: enrichments.data })
       .from(enrichments)
-      .where(and(eq(enrichments.companyId, companyId), inArray(enrichments.kind, ["apollo", "deep_dive"]))),
+      .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "deep_dive"))),
     handle
       .select({ prior: historyPromotions.prior, origin: historyPromotions.origin })
       .from(historyPromotions)
@@ -208,23 +209,7 @@ export async function companyLeads(handle: Db, companyId: string): Promise<Round
       ),
   ]);
   const out: RoundLead[] = [];
-  for (const e of enriched) {
-    if (e.kind === "apollo") {
-      const apollo = (
-        e.data as { apollo?: { status?: string; funding_events?: Array<{ type: string; amount: string | null; date: string | null }> } }
-      ).apollo;
-      if (apollo?.status !== "matched") continue;
-      for (const ev of apollo.funding_events ?? [])
-        out.push(
-          priorLead(
-            { stage_as_written: ev.type, amount_as_written: ev.amount, announced_date: ev.date, lead_investors: [], source_url: null },
-            "Apollo",
-          ),
-        );
-    } else {
-      for (const p of parseStoredDossier(e.data)?.prior_rounds ?? []) out.push(priorLead(p, "the company dossier"));
-    }
-  }
+  for (const d of dossiers) for (const p of parseStoredDossier(d.data)?.prior_rounds ?? []) out.push(priorLead(p, "the company dossier"));
   for (const l of ledger) out.push(priorLead(l.prior as PriorRound, `the history ledger (${l.origin})`));
   for (const r of rows)
     out.push({

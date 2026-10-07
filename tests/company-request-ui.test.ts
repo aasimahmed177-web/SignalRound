@@ -252,7 +252,7 @@ describe("one company address per request", () => {
       found: 3,
       verified: 1,
       priors: [
-        { label: "Seed, $3M, 2023-07", verified: true, reason: null, source: "Apollo" },
+        { label: "Seed, $3M, 2023-07", verified: true, reason: null, source: "funding search" },
         { label: "Series A, $18M", verified: false, reason: "no dated announcement found", source: "funding search" },
         { label: "Series B, $40M, 2025", verified: false, reason: "still checking", source: "company dossier" },
       ],

@@ -9,7 +9,6 @@ import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "vitest";
 import { alsoFound } from "../components/company/request-funding-history";
-import { queueApolloLeads } from "../lib/apollo";
 import { cleanBrandName, searchName } from "../lib/brand-name";
 import { getCompany } from "../lib/company";
 import { tallyMessage } from "../lib/company-request-status";
@@ -628,22 +627,19 @@ describe("PlanetScale: gap searches find the rounds the first pass missed", () =
   });
 });
 
-test("Apollo's rounds are leads to verify, never facts", async () => {
+test("a search's rounds are leads to verify, never facts", async () => {
   const handle = await requested("acme.com", "Acme", [], []);
-  const queued = await queueApolloLeads(handle, "acme.com", {
-    status: "matched",
-    funding_events: [{ type: "Series A", amount: "$12M", date: "2023-04", source_url: null }],
-  } as unknown as Parameters<typeof queueApolloLeads>[2]);
-  expect(queued).toBe(1);
+  const prior = { stage_as_written: "Series A", amount_as_written: "$12M", announced_date: "2023-04", lead_investors: [] };
+  await handle
+    .insert(schema.historyPromotions)
+    .values({ companyId: "acme.com", priorKey: "series a|$12m|2023-04", prior, origin: "search", status: "pending" });
   expect(await handle.select().from(schema.fundingRounds)).toEqual([]);
-  const [lead] = await handle.select().from(schema.historyPromotions);
-  expect(lead).toMatchObject({ origin: "apollo", status: "pending" });
-  // No page states it: nothing lands, and the tally says so under Apollo's name.
+  // No page states it: nothing lands, and the tally says so under the search's name.
   const { reader: r } = reader({ search: [] });
-  expect(await promotePrior(handle, r, "acme.com", lead.priorKey, "run")).toMatchObject({ status: "no_source" });
+  expect(await promotePrior(handle, r, "acme.com", "series a|$12m|2023-04", "run")).toMatchObject({ status: "no_source" });
   expect(await handle.select().from(schema.fundingRounds)).toEqual([]);
   expect((await requestTally(handle, "acme.com")).priors).toEqual([
-    { label: "Series A, $12M, 2023-04", verified: false, reason: "no page found", source: "Apollo" },
+    { label: "Series A, $12M, 2023-04", verified: false, reason: "no page found", source: "funding search" },
   ]);
 });
 
@@ -761,7 +757,7 @@ describe("Resend: clean names, own announcements, and dated sources", () => {
       companyId: "resend.com",
       priorKey: "seed|$3m|2023-07",
       prior: { stage_as_written: "Seed", amount_as_written: "$3M", announced_date: "2023-07", lead_investors: [] },
-      origin: "apollo",
+      origin: "search",
       status: "pending",
     });
     const resend = (p: Parameters<typeof round>[0]) => ({
@@ -933,11 +929,11 @@ describe("tldraw: announcements on sibling sites, a seed extension, and funding 
     },
     "seed round|$2 million|2023-11": {
       prior: { stage_as_written: "seed round", amount_as_written: "$2 million", announced_date: "2023-11", lead_investors: [] },
-      origin: "apollo" as const,
+      origin: "search" as const,
     },
     "series a|$10m|2025-04": {
       prior: { stage_as_written: "Series A", amount_as_written: "$10M", announced_date: "2025-04", lead_investors: ["Lux Capital"] },
-      origin: "apollo" as const,
+      origin: "search" as const,
     },
     // A database's total offered as a round.
     "series a|$14.7m|": {
@@ -1016,7 +1012,7 @@ describe("tldraw: announcements on sibling sites, a seed extension, and funding 
     const prior = { stage_as_written: "Series A", amount_as_written: "$10M", announced_date: "2025-04", lead_investors: [] };
     await handle
       .insert(schema.historyPromotions)
-      .values({ companyId: "tldraw.com", priorKey: "a", prior, origin: "apollo", status: "pending" });
+      .values({ companyId: "tldraw.com", priorKey: "a", prior, origin: "search", status: "pending" });
     const { reader: r } = reader({
       pages,
       search: [{ url: SIGNALBASE, title: "tldraw raises $10M", published: "2025-06-22", via: "search" }],
@@ -1074,7 +1070,7 @@ describe("Jev: the classifier's verdicts on candidates and leads (a scripted cla
     const handle = await requested("tldraw.com", "tldraw", [], []);
     await handle
       .insert(schema.historyPromotions)
-      .values({ companyId: "tldraw.com", priorKey: "a", prior, origin: "apollo", status: "pending" });
+      .values({ companyId: "tldraw.com", priorKey: "a", prior, origin: "search", status: "pending" });
     const { reader: r } = reader({ pages, search });
     r.classify = classify;
     const outcome = await promotePrior(handle, r, "tldraw.com", "a", "run");

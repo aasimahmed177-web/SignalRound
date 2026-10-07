@@ -336,7 +336,6 @@ export function CoveragePanel({ setting, presets, monitors }: { setting: Coverag
                   options={[
                     ["off", "off"],
                     ["yc", "Y Combinator records"],
-                    ["yc_firmographics", "plus FullEnrich and Apollo firmographics"],
                   ]}
                   onChange={(v) => edit((p) => (p.alexandria = v))}
                 />

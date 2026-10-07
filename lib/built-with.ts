@@ -15,8 +15,8 @@ export interface BuiltWithInput {
   evidence_quotes: string[];
   verification: { status: string; sources_seen?: number; verifier?: string } | null;
   enrichment: { verified: boolean } | null;
-  /** Presence flags only: which providers matched on the verified domain. */
-  alexandria: { yc: unknown; firmographics: unknown } | null;
+  /** Presence only: whether YC matched on the verified domain. */
+  alexandria: { yc: unknown } | null;
 }
 
 /**
@@ -62,19 +62,7 @@ export function builtWithSteps(row: BuiltWithInput, opts: { dossier?: boolean; x
   }
   // A homepage that failed the identity check wrote nothing, so there is no step to show for it.
   if (row.enrichment?.verified) steps.push({ key: "branding", fact: "logo and colour from the homepage" });
-  if (row.alexandria && (row.alexandria.yc || row.alexandria.firmographics)) {
-    const yc = !!row.alexandria.yc;
-    const firmographics = !!row.alexandria.firmographics;
-    steps.push({
-      key: "alexandria",
-      fact:
-        yc && firmographics
-          ? "founders and batch from Y Combinator, firmographics from FullEnrich, via Alexandria"
-          : yc
-            ? "founders and batch from Y Combinator via Alexandria"
-            : "firmographics from FullEnrich via Alexandria",
-    });
-  }
+  if (row.alexandria?.yc) steps.push({ key: "alexandria", fact: "founders and batch from Y Combinator via Alexandria" });
   if (opts.xPeople && opts.xPeople > 0) {
     steps.push({
       key: "x",

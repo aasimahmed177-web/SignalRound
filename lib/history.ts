@@ -4,12 +4,12 @@
 // with the rounds schema, the resolver's rules and dating inside a window around the dossier's date,
 // the read-back against every source (the reconcile step, or the judge without a model key), and
 // persist with its identity and merge rules. A round with no page that states it stays dossier text.
-// A funding event Apollo lists that the store lacks joins the same ledger as a lead (origin apollo,
-// lib/apollo.ts) and goes through the same steps; it needs no dossier, and it is never a fact until
-// a page states it. So do two more kinds of lead: a prior round the dossier check dropped only because
-// the pages it read were silent (origin check), a hand-checked round an audit queued with the page
-// that states it (origin audit, `pnpm fix-records`), and an earlier round a page stated beside the
-// later round it announced, a stealth launch's seed with its Series A (origin page, lib/persist.ts).
+// Leads join the same ledger and go through the same steps; a lead needs no dossier, and it is never
+// a fact until a page states it: a round the company's funding or gap searches turned up (origins
+// search and gap, lib/request-research.ts), a prior round the dossier check dropped only because the
+// pages it read were silent (origin check), a hand-checked round an audit queued with the page that
+// states it (origin audit, `pnpm fix-records`), and an earlier round a page stated beside the later
+// round it announced, a stealth launch's seed with its Series A (origin page, lib/persist.ts).
 // A lead's own page keeps the earlier rounds it states beside a later one (keepEarlierRounds): it is
 // often the only announcement such a round gets.
 //
@@ -306,7 +306,7 @@ export async function claimPrior(handle: Db, companyId: string, key: string, cla
 
 /**
  * Put a company's prior rounds on the ledger (a round already there is left as it is) and return the
- * keys due now, in the dossier's order, then its Apollo leads that are due. A round too vague to
+ * keys due now, in the dossier's order, then its other leads that are due. A round too vague to
  * recognise (no specific stage, no amount, no dated day) is written skipped and never searched. Only
  * the rounds the current dossier lists are returned: one a newer dossier dropped is not looked for.
  */
@@ -370,7 +370,7 @@ export async function queueCompanyHistory(handle: Db, companyId: string, now: Da
   return [...fromDossier, ...leads.filter((k) => !fromDossier.includes(k))];
 }
 
-/** A company's leads (Apollo, check, audit) that are due now. */
+/** A company's leads (search, gap, check, audit, page) that are due now. */
 async function dueLeads(handle: Db, companyId: string, now: Date): Promise<string[]> {
   const rows = await handle
     .select()
@@ -456,7 +456,7 @@ export async function historyTargets(handle: Db, opts: { limit?: number | null; 
 }
 
 /**
- * Visible companies with a lead due (Apollo, check, audit), newest round first. An audit's lead is
+ * Visible companies with a lead due (search, gap, check, audit, page), newest round first. An audit's lead is
  * worked even when the company has no visible round: a hand check that rejected Anthropic's two
  * bogus rows left its real history, cited round by round, as the only way back onto the feed, and
  * a filter on visibility kept it off for good. Those come last.
@@ -494,8 +494,6 @@ export interface HistoryCoverage {
   skipped: number;
   /** Rows on the store marked history. */
   history_rows: number;
-  /** Apollo leads on the ledger by status, kept apart so their yield can be measured. */
-  apollo_leads: Record<string, number>;
 }
 
 /** Where the store stands: the prior rounds the dossiers list and what became of them. */
@@ -523,9 +521,7 @@ export async function historyCoverage(handle: Db): Promise<HistoryCoverage> {
     failed: 0,
     skipped: 0,
     history_rows: rows?.n ?? 0,
-    apollo_leads: {},
   };
-  for (const r of ledger) if (r.origin === "apollo") out.apollo_leads[r.status] = (out.apollo_leads[r.status] ?? 0) + 1;
   for (const d of dossiers) {
     for (const key of new Set(d.priors.map(priorKey))) {
       out.prior_rounds++;
@@ -723,7 +719,7 @@ export async function planPromotion(
     tiers,
     max: HISTORY_PAGES,
   });
-  // The page a lead named (Apollo's news link, a search result's own post) is read first, wherever it
+  // The page a lead named (a search result's own post) is read first, wherever it
   // is hosted (tldraw's seed post was on Substack), unless it is a funding database: never trusted on its own.
   const lead = leadUrl && isArticleUrl(leadUrl) && !isFundingAggregatorUrl(leadUrl) ? leadUrl : null;
   const candidates = lead

@@ -7,14 +7,17 @@
 import {
   aboutLink,
   brandDisownsHost,
+  brandFrom,
   brandNamesOtherEntity,
   type CompanyProfile,
   enrichCompanies,
+  findLinkedinPage,
   homepageOf,
   hostFit,
   identityPrompt,
   isSignInPage,
   listingNamesCompany,
+  MAX_INLINE_LOGO_CHARS,
   MIN_PAGE_LETTERS,
   pressLinks,
   proseLetters,
@@ -59,6 +62,8 @@ function fakeClient(search: (query: string) => Hit[], pages: Record<string, Page
   const calls = { search: [] as string[], scrape: [] as string[], prompts: new Map<string, string>() };
   const client = {
     async search(query: string) {
+      // The LinkedIn page lookup is its own search, not a website candidate: answered empty and not counted here.
+      if (query.startsWith("site:linkedin.com")) return { web: [] };
       calls.search.push(query);
       return { web: search(query).map((h) => ({ title: null, description: null, ...h })) };
     },
@@ -787,5 +792,62 @@ describe("the refusals that must hold", () => {
       "[Sixth Street](https://sixthstreet.com/) led the round.",
     ].join("\n");
     expect(pressLinks(md, "https://www.prnewswire.com/news-releases/x.html", "Candid Health")).toEqual(["https://candidhealth.com"]);
+  });
+});
+
+describe("a logo the branding read finds", () => {
+  test("the logo field, else the images' logo, and a small inline image drawn in the page", () => {
+    const page = "https://acme.com/";
+    expect(brandFrom({ images: { logo: "/img/logo.png" } } as never, page)?.logo).toBe("https://acme.com/img/logo.png");
+    const svg = "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E";
+    expect(brandFrom({ logo: svg } as never, page)?.logo).toBe(svg);
+    expect(brandFrom({ logo: `data:image/png;base64,${"A".repeat(MAX_INLINE_LOGO_CHARS)}` } as never, page)?.logo ?? null).toBeNull();
+    expect(brandFrom({ logo: "data:text/html,hi" } as never, page)?.logo ?? null).toBeNull();
+  });
+});
+
+describe("a LinkedIn page found by search", () => {
+  const search = (web: Array<{ url: string; description?: string }>) => ({ search: async () => ({ web }) }) as unknown as Firecrawl;
+  test("the page whose own Website field is the company's site root, and only that", async () => {
+    const deepseek = { name: "DeepSeek", domain: "deepseek.com" };
+    expect(
+      await findLinkedinPage(
+        search([
+          { url: "https://www.linkedin.com/company/deep-seek-fan-club", description: "Fans of DeepSeek models." },
+          {
+            url: "https://www.linkedin.com/company/deepseek-ai",
+            description: "About us ; Website: https://www.deepseek.com. External link for DeepSeek AI",
+          },
+        ]),
+        deepseek,
+      ),
+    ).toMatchObject({ url: "https://www.linkedin.com/company/deepseek-ai" });
+    // A namesake's page, a franchise's sub-path, and a page with no Website field are all refused.
+    const prevalent = { name: "Prevalent AI", domain: "prevalent.ai" };
+    expect(
+      (
+        await findLinkedinPage(
+          search([{ url: "https://www.linkedin.com/company/prevalent-networks-llc", description: "Website: prevalentnetworks.com" }]),
+          prevalent,
+        )
+      ).url,
+    ).toBeNull();
+    const shoot = { name: "Shoot 360", domain: "shoot360.com" };
+    expect(
+      (
+        await findLinkedinPage(
+          search([{ url: "https://www.linkedin.com/company/shoot-360-stl", description: "Website: www.shoot360.com/stlouis." }]),
+          shoot,
+        )
+      ).url,
+    ).toBeNull();
+    expect(
+      (
+        await findLinkedinPage(
+          search([{ url: "https://www.linkedin.com/company/deepseek-ai", description: "DeepSeek builds models." }]),
+          deepseek,
+        )
+      ).url,
+    ).toBeNull();
   });
 });

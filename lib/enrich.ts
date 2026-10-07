@@ -176,10 +176,10 @@ function refusedOwnSite(e: Pick<Enrichment, "refused_hosts">, row: { website: st
 
 /**
  * The read as the company row may take it. The website is written with coalesce, so a row that has
- * one keeps it, and the logo, brand, description, and the domain the Alexandria and Apollo lanes look
- * up must come from that same site. Sol's row showed hellosol.app while sol.com, another company,
- * verified: the row kept hellosol.app, took sol.com's logo, and its empty domain became sol.com, so
- * Alexandria and Apollo described sol.com too. A homepage that verified on another domain than the
+ * one keeps it, and the logo, brand, description, and the domain the Alexandria lane looks up must
+ * come from that same site. Sol's row showed hellosol.app while sol.com, another company, verified:
+ * the row kept hellosol.app, took sol.com's logo, and its empty domain became sol.com, so Alexandria
+ * described sol.com too. A homepage that verified on another domain than the
  * row's own website (or domain, when it has no website), which the check did not refuse, is kept
  * only as the record of a read: the row's own website, and no profile, logo, brand, or pricing.
  */
@@ -322,16 +322,14 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
     // and a record extracted from a roundup often names the company without one. When the row's own
     // website was refused and another homepage verified, the refused one was a namesake's (Creem's
     // creem.com, a rock magazine, beside the verified creem.io) and the verified site replaces it; the
-    // Alexandria facts (YC, FullEnrich, Apollo) looked up on the namesake's domain go with it, so the next pass reads the right one.
+    // Alexandria facts looked up on the namesake's domain go with it, so the next pass reads the right one.
     const [current] = await handle
       .select({ name: companies.name, website: companies.website, domain: companies.domain })
       .from(companies)
       .where(eq(companies.id, companyId));
     if (current && domain && refusedOwnSite(e, current)) {
       await handle.update(companies).set({ website: e.company_website, domain, updatedAt: new Date() }).where(eq(companies.id, companyId));
-      await handle
-        .delete(enrichments)
-        .where(and(eq(enrichments.companyId, companyId), inArray(enrichments.kind, ["alexandria", "apollo"])));
+      await handle.delete(enrichments).where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "alexandria")));
     } else {
       await handle
         .update(companies)
@@ -437,7 +435,7 @@ export interface ProfileReplacement {
  * within seconds of their rows being cleared, and verified a Namecheap parking page as Simpl and a VR
  * training company as GEMBA. Here the profile row is replaced in place and never absent, its refused
  * hosts are kept (and any new ones added), the row's website, domain, and logo are set to the
- * replacement's, and the Alexandria and Apollo facts go when the domain changes, since they were read
+ * replacement's, and the Alexandria facts go when the domain changes, since they were read
  * for the old one. The row is in the pipeline's unresolved or record shape, with no profile, so a later
  * read of the company still skips every refused host.
  */
@@ -499,7 +497,7 @@ export async function replaceProfile(handle: Db, companyId: string, r: ProfileRe
       })
       .where(eq(companies.id, companyId));
     if (company.domain !== domain)
-      await tx.delete(enrichments).where(and(eq(enrichments.companyId, companyId), inArray(enrichments.kind, ["alexandria", "apollo"])));
+      await tx.delete(enrichments).where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "alexandria")));
     await tx
       .insert(enrichments)
       .values({ companyId, kind: "profile", data, sourceUrl: r.website })

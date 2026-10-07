@@ -26,9 +26,10 @@ import { schema } from "@fireround/core/db";
 import type { CompanyRequestBrand } from "@fireround/core/db/schema";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
-import { knownRounds } from "./apollo.ts";
 import { cleanBrandName, searchName } from "./brand-name.ts";
 import { classifyCandidates, type HistoryReader } from "./history.ts";
+import { knownRounds } from "./known-rounds.ts";
+import { holdLateReports } from "./late-report.ts";
 
 const { companies, companyAliases, enrichments, historyPromotions } = schema;
 
@@ -162,9 +163,11 @@ async function queueRoundLeads(handle: Db, companyId: string, found: FundingLead
         if ((err as { cause?: { code?: unknown } }).cause?.code === "23503") return null;
         throw err;
       });
-    if (!rows) return queued;
+    if (!rows) break;
     queued += rows.length;
   }
+  // A lead can show that a feed row is a late re-report of an older round: held before it is delivered.
+  if (queued > 0) await holdLateReports(handle, [companyId]);
   return queued;
 }
 

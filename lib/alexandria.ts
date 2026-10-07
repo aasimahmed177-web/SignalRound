@@ -1,15 +1,11 @@
 // Alexandria enrichment for companies whose domain the identity check already verified: the
-// YC catalogue by name narrowed to the domain, then FullEnrich by domain on rungs that buy
-// firmographics. The row stores both providers' answers with their provenance; the only
-// writes onto companies itself fill fields that are still empty.
+// YC catalogue by name, narrowed to the domain. The row stores the answer with its provenance;
+// the only writes onto companies itself fill fields that are still empty.
 
 import type { AlexandriaEnrichment } from "@fireround/core";
-import { alexandriaEnrich, alexandriaFirmographics } from "@fireround/core";
+import { alexandriaEnrich } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-
-export type { AlexandriaFact, AlexandriaFactsInput } from "./alexandria-facts.ts";
-export { alexandriaFacts, companyLinkedin, fullEnrichFoundedYear, ycBatchShort, ycFoundedYear } from "./alexandria-facts.ts";
 
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
@@ -52,18 +48,13 @@ export interface AlexandriaBatchResult {
 
 /**
  * One batch: an enrichment row per company (even a no-match, so it is not retried on every
- * sweep), plus the safe fills: description, logo, and hq only where the row has none.
+ * sweep), plus the safe fills: description and hq only where the row has none.
  */
-export async function alexandriaBatch(
-  handle: Db,
-  client: Firecrawl,
-  batch: AlexandriaCompany[],
-  opts: { firmographics: boolean },
-): Promise<AlexandriaBatchResult> {
+export async function alexandriaBatch(handle: Db, client: Firecrawl, batch: AlexandriaCompany[]): Promise<AlexandriaBatchResult> {
   let matched = 0;
   let credits = 0;
   for (const c of batch) {
-    const e = await alexandriaEnrich(client, { company_key: c.id, company_name: c.name, domain: c.domain }, opts);
+    const e = await alexandriaEnrich(client, { company_key: c.id, company_name: c.name, domain: c.domain });
     credits += e.credits;
     if (e.yc.status === "matched") matched++;
     const sourceUrl = e.yc.status === "matched" ? e.yc.url : null;
@@ -79,60 +70,10 @@ export async function alexandriaBatch(
       .update(companies)
       .set({
         description: sql`coalesce(${companies.description}, ${e.yc.status === "matched" ? e.yc.one_liner : null})`,
-        logoUrl: sql`coalesce(${companies.logoUrl}, ${e.firmographics.status === "matched" ? e.firmographics.logo_url : null})`,
-        hq: sql`coalesce(${companies.hq}, ${e.yc.status === "matched" ? e.yc.location : null}, ${e.firmographics.status === "matched" ? e.firmographics.hq : null})`,
+        hq: sql`coalesce(${companies.hq}, ${e.yc.status === "matched" ? e.yc.location : null})`,
         updatedAt: new Date(),
       })
       .where(eq(companies.id, c.id));
   }
   return { companies: batch.length, matched, credits };
-}
-
-/**
- * Rows whose firmographics never ran (terms unaccepted at the time, or the plan had it off)
- * get the FullEnrich lookup alone: the YC search is paid for already and does not re-run. The
- * row keeps its yc half; credits add to what the row already spent.
- */
-export async function refreshFirmographics(
-  handle: Db,
-  client: Firecrawl,
-  opts: { limit: number; maxCredits?: number; delayMs?: number },
-): Promise<{ companies: number; matched: number; credits: number }> {
-  const rows = await handle
-    .select({ companyId: enrichments.companyId, domain: companies.domain, data: enrichments.data })
-    .from(enrichments)
-    .innerJoin(companies, eq(companies.id, enrichments.companyId))
-    .where(
-      and(eq(enrichments.kind, "alexandria"), sql`${enrichments.data}->'firmographics'->>'status' in ('terms_required', 'off', 'error')`),
-    )
-    .limit(opts.limit);
-  let matched = 0;
-  let credits = 0;
-  let processed = 0;
-  for (const r of rows) {
-    if (!r.domain) continue;
-    if (opts.maxCredits && credits >= opts.maxCredits) break;
-    if (opts.delayMs && processed > 0) await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
-    const e = r.data as AlexandriaEnrichment;
-    const { firmographics, credits: c } = await alexandriaFirmographics(client, r.domain);
-    credits += c;
-    if (firmographics.status === "matched") matched++;
-    const data: AlexandriaEnrichment = { ...e, credits: e.credits + c, firmographics };
-    await handle
-      .update(enrichments)
-      .set({ data, fetchedAt: new Date() })
-      .where(and(eq(enrichments.companyId, r.companyId), eq(enrichments.kind, "alexandria")));
-    if (firmographics.status === "matched") {
-      await handle
-        .update(companies)
-        .set({
-          logoUrl: sql`coalesce(${companies.logoUrl}, ${firmographics.logo_url})`,
-          hq: sql`coalesce(${companies.hq}, ${firmographics.hq})`,
-          updatedAt: new Date(),
-        })
-        .where(eq(companies.id, r.companyId));
-    }
-    processed++;
-  }
-  return { companies: processed, matched, credits };
 }

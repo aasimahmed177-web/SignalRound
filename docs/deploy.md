@@ -172,23 +172,9 @@ curl -X POST -H "authorization: Bearer $CRON_SECRET" "https://your-app/api/cron/
 
 A dive costs what the agent reports (effort high, capped at 2,500; a run that hits the cap is not billed) plus the check's reads, about 7 to 17 credits. The pass runs twelve companies per workflow run and hands the rest to a fresh run, so a pass over hundreds of companies takes hours; Runs shows it as one Dossiers row. On Max, each sweep tick also dives two companies still without a checked dossier, so the store converges without the route, only slower.
 
-## Apollo for every visible company
-
-On Deep and Max new companies get their Apollo lookup in the enrichment pass. For the ones already stored, one route looks up every visible company with a verified domain and no apollo row, ten domains a call, and only writes: the rows, a logo where one is missing, and the funding events the store lacks queued as history leads ([how-it-works.md](how-it-works.md#apollo-for-every-visible-company)). It costs 30 credits for each company Apollo matches (about four in five) and nothing for a miss: about 10,000 credits for a store of 430 companies. The leads are searched by the history route afterwards, at 11 to 30 credits each (about 0.7 a company).
-
-```bash
-# A pilot: twenty companies
-curl -X POST -H "authorization: Bearer $CRON_SECRET" "https://your-app/api/cron/backfill-apollo?limit=20"
-# Progress: what Apollo filled, the admin signals, the leads by status, the latest passes
-curl -H "authorization: Bearer $CRON_SECRET" "https://your-app/api/cron/backfill-apollo"
-# Everything, no call past 15,000 credits; then search the leads
-curl -X POST -H "authorization: Bearer $CRON_SECRET" "https://your-app/api/cron/backfill-apollo"
-curl -X POST -H "authorization: Bearer $CRON_SECRET" "https://your-app/api/cron/history-rounds"
-```
-
 ## History rounds for every checked dossier
 
-Each checked dossier lists the company's earlier rounds (and Apollo's lookup queues the rounds it lists that the store lacks); each is promoted to a verified round marked history only when its own announcement is found and read back like any record ([how-it-works.md](how-it-works.md#history-rounds-a-companys-earlier-rounds-each-verified-on-its-own)). New dossiers queue theirs on their own; this route does the ones already on the store. It is not in `vercel.json`: an operator starts it with the cron bearer, and it answers with the pass's run id and its workflow run id. It is idempotent, so running it again only picks up rounds not yet looked for and failures whose backoff is over.
+Each checked dossier lists the company's earlier rounds (and a company's timeline search queues the rounds its results state that the store lacks); each is promoted to a verified round marked history only when its own announcement is found and read back like any record ([how-it-works.md](how-it-works.md#history-rounds-a-companys-earlier-rounds-each-verified-on-its-own)). New dossiers queue theirs on their own; this route does the ones already on the store. It is not in `vercel.json`: an operator starts it with the cron bearer, and it answers with the pass's run id and its workflow run id. It is idempotent, so running it again only picks up rounds not yet looked for and failures whose backoff is over.
 
 ```bash
 # A pilot: ten dossiers

@@ -2,7 +2,6 @@ import { type Enrichment, normalizeCompanyKey } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import type { CompanyRequestStatus, CompanyRequestStep, CompanyRequestTally } from "@fireround/core/db/schema";
 import { and, eq, or } from "drizzle-orm";
-import { apolloBatch } from "@/lib/apollo";
 import { cleanBrandName } from "@/lib/brand-name";
 import { tallyMessage } from "@/lib/company-request-status";
 import { requestTally } from "@/lib/company-requests";
@@ -146,23 +145,6 @@ export async function brandStep(id: string): Promise<void> {
   if (brand) await handle.update(companyRequests).set({ brand, updatedAt: new Date() }).where(eq(companyRequests.id, id));
 }
 
-/** Apollo's list of the company's rounds, each a lead the lane verifies against its own announcement, never a fact. */
-export async function apolloLeadsStep(companyId: string): Promise<number> {
-  "use step";
-  const handle = await db();
-  const [company] = await handle
-    .select({ id: companies.id, name: companies.name, domain: companies.domain })
-    .from(companies)
-    .where(eq(companies.id, companyId))
-    .limit(1);
-  if (!company?.domain) return 0;
-  const result = await apolloBatch(handle, getFirecrawl(), [{ id: company.id, name: company.name, domain: company.domain }], {
-    leads: true,
-  });
-  await invalidateEntityPages(handle, { companyIds: [companyId] });
-  return result.leads;
-}
-
 /** Targeted searches for the rounds the known ones imply but nobody found; their leads are verified like any other. */
 export async function gapSearchStep(companyId: string): Promise<number> {
   "use step";
@@ -270,8 +252,8 @@ export async function companyRequestWorkflow(id: string): Promise<void> {
         }
       })(),
       (async () => {
-        // The search and Apollo's round list side by side; a lookup that fails only means fewer leads.
-        await Promise.all([fundingSearchStep(companyId).catch(() => 0), apolloLeadsStep(companyId).catch(() => 0)]);
+        // A search that fails only means fewer leads.
+        await fundingSearchStep(companyId).catch(() => 0);
         await markRequest(id, {
           status: "running",
           message: "Verifying earlier rounds against their announcements.",

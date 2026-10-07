@@ -90,21 +90,12 @@ describe("builtWithSteps", () => {
     expect(builtWithSteps(row({ enrichment: null })).map((s) => s.key)).not.toContain("branding");
   });
 
-  test("alexandria: a step for each provider that matched, none when nothing did", () => {
+  test("alexandria: a step when YC matched, none when it did not", () => {
     expect(builtWithSteps(row()).map((s) => s.key)).not.toContain("alexandria");
-    expect(fact(builtWithSteps(row({ alexandria: { yc: { batch: "Summer 2022" }, firmographics: null } })), "alexandria")).toBe(
+    expect(fact(builtWithSteps(row({ alexandria: { yc: { batch: "Summer 2022" } } })), "alexandria")).toBe(
       "founders and batch from Y Combinator via Alexandria",
     );
-    expect(fact(builtWithSteps(row({ alexandria: { yc: null, firmographics: { headcount_range: "11-50" } } })), "alexandria")).toBe(
-      "firmographics from FullEnrich via Alexandria",
-    );
-    expect(
-      fact(
-        builtWithSteps(row({ alexandria: { yc: { batch: "Summer 2022" }, firmographics: { headcount_range: "11-50" } } })),
-        "alexandria",
-      ),
-    ).toBe("founders and batch from Y Combinator, firmographics from FullEnrich, via Alexandria");
-    expect(builtWithSteps(row({ alexandria: { yc: null, firmographics: null } })).map((s) => s.key)).not.toContain("alexandria");
+    expect(builtWithSteps(row({ alexandria: { yc: null } })).map((s) => s.key)).not.toContain("alexandria");
   });
 
   test("agent: only when the company has a dossier", () => {

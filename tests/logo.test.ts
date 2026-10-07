@@ -17,8 +17,11 @@ describe("company logos", () => {
     expect(
       brandFrom({ brandName: " Acme ", logo: "/brand/logo.svg", colors: { primary: "#FF6B35", background: "#fff" } }, "https://acme.com/"),
     ).toEqual({ name: "Acme", logo: "https://acme.com/brand/logo.svg", primary_color: "#FF6B35" });
-    // A data: URI is not a logo we can serve; the name still counts.
-    expect(brandFrom({ brandName: "Acme", logo: "data:image/svg+xml;base64,AAAA" }, "https://acme.com/")).toEqual({
+    // A logo drawn inline in the page comes back as a small data: image, and is served as it is; anything else inline is not a logo.
+    expect(brandFrom({ brandName: "Acme", logo: "data:image/svg+xml;base64,AAAA" }, "https://acme.com/")?.logo).toBe(
+      "data:image/svg+xml;base64,AAAA",
+    );
+    expect(brandFrom({ brandName: "Acme", logo: "data:text/html;base64,AAAA" }, "https://acme.com/")).toEqual({
       name: "Acme",
       logo: null,
       primary_color: null,

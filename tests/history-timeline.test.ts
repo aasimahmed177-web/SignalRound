@@ -15,9 +15,9 @@ import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
-import { knownRounds } from "../lib/apollo";
 import { requestTally } from "../lib/company-requests";
 import { firecrawlHistoryReader, promotePrior, queueCompanyHistory } from "../lib/history";
+import { knownRounds } from "../lib/known-rounds";
 import { persistRecords } from "../lib/persist";
 import { leadsFromCandidate, queueCompanyTimeline, queueFundingSearch, TIMELINE_LEADS, TIMELINE_PAGES } from "../lib/request-research";
 import {
@@ -60,7 +60,7 @@ describe("history identity", () => {
     expect(knownRound(priorAsKnown(prior("Series B-2", "$106M", "2026-06-01")), [b1])).toBe(false);
   });
 
-  test("an incorrect Apollo stage is a note when amount and date identify the announcement", () => {
+  test("an incorrect lead stage is a note when amount and date identify the announcement", () => {
     const company = { name: "Corgi", nameKey: "corgi", domain: "corgi.insure" };
     const a = record({
       company_name: "Corgi",
@@ -151,10 +151,15 @@ test("Corgi verifies A and B1 without duplicates and retains July's reported rou
     sources: [{ url: CORGI_FORM_D, host: "aum13f.com", title: "Corgi Insurance Services Inc" }],
   });
   await persistRecords(handle, [filing], "form-d", "filing", { startIn: "review" });
-  const apollo = prior("Seed", "$108M", "2026-01-09");
-  await handle
-    .insert(schema.historyPromotions)
-    .values({ companyId, priorKey: priorKey(apollo), prior: apollo, origin: "apollo", status: "no_source", outcome: { reason: "stage" } });
+  const misread = prior("Seed", "$108M", "2026-01-09");
+  await handle.insert(schema.historyPromotions).values({
+    companyId,
+    priorKey: priorKey(misread),
+    prior: misread,
+    origin: "search",
+    status: "no_source",
+    outcome: { reason: "stage" },
+  });
   expect(await knownRounds(handle, companyId)).not.toContainEqual(expect.objectContaining({ stage: "seed" }));
   const { reader: r, calls } = reader({ pages: corgiPages });
   const sites: string[] = [];

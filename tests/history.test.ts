@@ -276,8 +276,8 @@ describe("promotion", () => {
     // The hand check rejects the one row the feed had, as it did Anthropic's.
     await handle.update(fundingRounds).set({ disposition: "rejected" }).where(eq(fundingRounds.companyId, companyId));
     expect(await historyTargets(handle)).toEqual([companyId]);
-    // An Apollo lead alone does not bring back a company no one can see.
-    await handle.update(historyPromotions).set({ origin: "apollo" });
+    // A search lead alone does not bring back a company no one can see.
+    await handle.update(historyPromotions).set({ origin: "search" });
     expect(await historyTargets(handle)).toEqual([]);
   });
 
@@ -591,8 +591,8 @@ describe("which history rounds the page-tie test holds", () => {
     await saveDossier(handle, c.id, dossier(c.priors ?? []), null, at, verification);
     return c.id;
   }
-  /** A lead the history lane found some other way than the dossier: a name search, a funding-event provider, a gap search. */
-  async function lead(handle: Db, companyId: string, prior: HistoryPrior, origin: "search" | "apollo" | "gap"): Promise<string> {
+  /** A lead the history lane found some other way than the dossier: a name search or a gap search. */
+  async function lead(handle: Db, companyId: string, prior: HistoryPrior, origin: "search" | "gap"): Promise<string> {
     const key = priorKey(prior);
     await handle
       .insert(historyPromotions)

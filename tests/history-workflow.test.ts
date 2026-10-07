@@ -20,7 +20,7 @@ beforeEach(async () => {
 
 afterEach(() => vi.unstubAllEnvs());
 
-test("a feed company starts timeline recall without an Apollo lead or a dossier", async () => {
+test("a feed company starts timeline recall without a lead or a dossier", async () => {
   const handle = await db();
   const current = record({ company_name: "Acme", company_domain: "acme.com" });
   await persistRecords(handle, [current], "series-a-b", "feed");

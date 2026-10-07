@@ -38,10 +38,9 @@ import { Dot } from "@/components/ui/dot";
 import { HeaderCardSkeleton, ListSkeleton, PanelSkeleton, SkeletonLine, StatRowSkeleton, TableSkeleton } from "@/components/ui/skeletons";
 import { Panel, Stat } from "@/components/ui/stat";
 import { seesReview, viewer } from "@/lib/access";
-import { type AlexandriaFact, alexandriaFacts, companyLinkedin, fullEnrichFoundedYear, ycFoundedYear } from "@/lib/alexandria-facts";
-import { currentFundingGap } from "@/lib/apollo";
 import { cachedCompanyView } from "@/lib/cached";
 import { inFeed, readCompanyView } from "@/lib/company";
+import { companyFacts, factChips, LINKEDIN_TITLE } from "@/lib/company-facts";
 import {
   dossierTotal,
   investorsByRound,
@@ -186,41 +185,6 @@ function RoundHeading({ r, count, noun }: { r: RoundRow; count: number; noun: [s
   );
 }
 
-type FactSource = { via: string; value: string | number | null | undefined };
-
-/** "51 to 200" reads as people; "about 40 people" already does. */
-const peopleLabel = (estimate: string) => (/\b(people|person|employees|staff)\b/i.test(estimate) ? estimate : `${estimate} people`);
-
-/**
- * The header's founded and headcount facts, each once. The sources run in alexandriaFacts' own order,
- * so the figure it chose is the first one here; the dossier's figure stands in only where no provider
- * has one. Whoever puts it differently is named in the hover ("FullEnrich says 429").
- */
-function withDossierFacts(facts: AlexandriaFact[], spec: Array<["founded" | "people", FactSource[]]>): AlexandriaFact[] {
-  const out = [...facts];
-  const isPeople = (f: AlexandriaFact) => /\b(people|person)$/.test(f.label);
-  for (const [kind, sources] of spec) {
-    const known = sources.filter((s) => s.value !== null && s.value !== undefined && s.value !== "");
-    if (known.length === 0) continue;
-    const [shown, ...rest] = known;
-    const differ = rest.filter((s) => String(s.value).toLowerCase() !== String(shown.value).toLowerCase());
-    const aside = differ.length > 0 ? `; ${differ.map((s) => `${s.via} says ${s.value}`).join("; ")}` : "";
-    const at = out.findIndex(kind === "founded" ? (f) => f.label.startsWith("founded ") : isPeople);
-    if (at >= 0) {
-      out[at] = { ...out[at], title: out[at].title + aside };
-      continue;
-    }
-    const fact = {
-      label: kind === "founded" ? `founded ${shown.value}` : peopleLabel(String(shown.value)),
-      title: `From company research${aside}`,
-    };
-    // Founded reads before headcount, as alexandriaFacts orders them.
-    const people = kind === "founded" ? out.findIndex(isPeople) : -1;
-    out.splice(people >= 0 ? people : out.length, 0, fact);
-  }
-  return out;
-}
-
 async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
@@ -271,7 +235,7 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
     notFound();
   }
   const { page, onX, buzz, ruledOut } = view;
-  const { company, rounds, enrichment, alexandria, apollo, dossier, sources, investors, totals } = page;
+  const { company, rounds, enrichment, alexandria, dossier, sources, investors, totals } = page;
   const plans = pricingView(enrichment?.plans ?? []);
   const pricingModel = pricingModelLabel(enrichment?.pricing_model);
   // What the Trending lane read on X for these rounds (onX above): the "On X" block, the Built with
@@ -281,32 +245,11 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
   const readOnly = v.demo && !v.admin;
   // The company this feed is built on (lib/house.ts) wears the flame and says so in its header card.
   const house = isHouseCompany(company);
-  const flat = toAlexandria(alexandria ?? undefined, apollo ?? undefined);
-  const linkedin = companyLinkedin(flat);
   const yc = alexandria?.yc.status === "matched" ? alexandria.yc : null;
-  const firmographics = alexandria?.firmographics.status === "matched" ? alexandria.firmographics : null;
-  // Founded and headcount read once, in the header line: the first provider with a figure, in
-  // alexandriaFacts' order (headcount from FullEnrich, then Apollo, then YC's application-time figure), then the dossier's. A source that puts it differently
-  // is named on hover rather than drawn as a second, disagreeing row further down.
-  const facts = withDossierFacts(alexandriaFacts(flat), [
-    [
-      "founded",
-      [
-        { via: "YC", value: ycFoundedYear(flat?.yc ?? null) },
-        { via: "FullEnrich", value: fullEnrichFoundedYear(flat?.firmographics ?? null) },
-        { via: "company research", value: dossier?.data.founded_year },
-      ],
-    ],
-    [
-      "people",
-      [
-        { via: "FullEnrich", value: flat?.firmographics?.headcount ?? flat?.firmographics?.headcount_range },
-        { via: "Apollo", value: flat?.apollo?.headcount },
-        { via: "YC", value: flat?.yc?.team_size },
-        { via: "company research", value: dossier?.data.headcount_estimate },
-      ],
-    ],
-  ]);
+  // Founded and headcount read once, in the header line: YC's founding year when it can be true, else
+  // the checked dossier's; the dossier's team size, else YC's application-time figure.
+  const facts = companyFacts(toAlexandria(alexandria ?? undefined)?.yc, dossier?.verification ? dossier.data : null, page.linkedin_url);
+  const chips = factChips(yc, facts);
   // One founders list: the dossier's people with YC's LinkedIn links, or YC's alone. It sits in the
   // dossier when there is one, else in the Profile panel.
   const founders = mergeFounders(dossier?.data.founders ?? [], yc?.founders ?? []);
@@ -328,31 +271,6 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
   const priorsHeading = page.priorReasons ? REQUESTED_PRIORS_HEADING : PRIORS_HEADING;
   const priorNote = (p: (typeof priorsOnlyInDossier)[number]) =>
     page.priorReasons ? (page.priorReasons[priorKey(p)] ?? STILL_CHECKING) : null;
-  // Where Apollo disagrees with the store, an admin hears about it; a visitor never does.
-  const signals = !readOnly ? apollo?.signals : undefined;
-  const fundingGap = currentFundingGap(signals?.funding_gap, totals.usd_millions_raised);
-  const apolloNote = (signals?.hq_disagrees || fundingGap) && (
-    <p className="border-t border-border-faint pt-2.5 text-body-small text-muted-foreground">
-      Apollo disagrees:{" "}
-      {[
-        signals?.hq_disagrees && `it places the headquarters in ${signals.hq_disagrees.apollo}`,
-        fundingGap &&
-          `it counts ${usd(fundingGap.apollo_usd_millions)} raised in all, against ${fundingGap.ours_usd_millions > 0 ? usd(fundingGap.ours_usd_millions) : "none stated"} in the rounds here`,
-      ]
-        .filter(Boolean)
-        .join("; ")}
-      . Shown to admins only.
-    </p>
-  );
-  // FullEnrich is opt-in per org: when its terms are not accepted, only an admin hears about it.
-  const termsNote = !readOnly && alexandria?.firmographics.status === "terms_required" && (
-    <p className="mt-3 text-body-small text-muted-foreground">
-      FullEnrich needs its terms accepted by an org admin:{" "}
-      <a href={alexandria.firmographics.url} target="_blank" rel="noreferrer" className="break-all hover:text-foreground hover:underline">
-        {alexandria.firmographics.url}
-      </a>
-    </p>
-  );
   // Sources and investors under the round each belongs to, newest round first; syndicated copies
   // fold to one entry per wire title within a round.
   const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
@@ -387,18 +305,24 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
         </a>
       ),
     });
-  if (linkedin)
+  if (facts.linkedin_url)
     meta.push({
       key: "linkedin",
       node: (
-        <a href={linkedin.url} title={linkedin.title} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
+        <a
+          href={facts.linkedin_url}
+          title={LINKEDIN_TITLE}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-foreground hover:underline"
+        >
           LinkedIn
         </a>
       ),
     });
   if (company.hq) meta.push({ key: "hq", node: company.hq });
   if (company.sector) meta.push({ key: "sector", node: sectorLabel(company.sector) });
-  for (const f of facts) {
+  for (const f of chips) {
     // The chips arrive lowercase for the feed's inline row; a header line reads in sentence case.
     meta.push({ key: f.label, node: <span title={f.title}>{f.label.charAt(0).toUpperCase() + f.label.slice(1)}</span> });
   }
@@ -411,41 +335,18 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
     });
   }
 
-  // FullEnrich rows in the Profile panel (founded and headcount read in the header line); the
-  // provenance is stated once, under them, per provider.
-  const firmoRows = [
-    { label: "Type", value: firmographics?.company_type ?? null, via: "FullEnrich" },
-    { label: "Industry", value: firmographics?.industry ?? null, via: "FullEnrich" },
-  ].filter((row): row is { label: string; value: string; via: string } => Boolean(row.value));
   // YC's founders sit in the Profile only when there is no dossier to carry them.
   const foundersInProfile = !dossier && founders.length > 0;
-  const provenance: ReactNode[] = ["FullEnrich", "Apollo"]
-    .map((via) => {
-      const labels = firmoRows.filter((r) => r.via === via).map((r) => r.label.toLowerCase());
-      if (via === "Apollo" && linkedin?.title.includes("Apollo")) labels.push("LinkedIn");
-      return labels.length > 0 ? `from ${via}: ${labels.join(", ")}` : null;
-    })
-    .filter(Boolean);
-  if (foundersInProfile && yc)
-    provenance.push(
-      <>
-        founders from{" "}
-        <a href={yc.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
-          ycombinator.com
-        </a>
-      </>,
-    );
   // The site's own words on what it sells, unless the dossier's one-liner already says it above.
   const showDoes = Boolean(enrichment?.verified && enrichment.what_they_sell && !dossier?.data.one_liner);
   const profileRows =
     showDoes ||
     (enrichment?.verified && (pricingModel || enrichment.has_free_tier || plans.rows.length > 0 || enrichment.pricing_page_url)) ||
-    firmoRows.length > 0 ||
     foundersInProfile;
   // A homepage that failed the identity check wrote nothing: an admin reads why, a visitor gets no
   // empty panel explaining the pipeline. The bracket codes are pipeline states, so they are admin-only too.
   const failedProfile = Boolean(enrichment && !enrichment.verified);
-  const hasProfile = Boolean(profileRows || termsNote || (failedProfile && !readOnly));
+  const hasProfile = Boolean(profileRows || (failedProfile && !readOnly));
   const profileCode = readOnly ? undefined : enrichment?.verified ? "ENRICHED" : enrichment ? "UNVERIFIED" : "ALEXANDRIA";
 
   const dossierPanel = dossier ? (
@@ -513,12 +414,6 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
               </dd>
             </>
           )}
-          {firmoRows.map((row) => (
-            <Fragment key={`${row.via}-${row.label}`}>
-              <dt className="text-muted-foreground">{row.label}</dt>
-              <dd>{row.value}</dd>
-            </Fragment>
-          ))}
           {foundersInProfile && (
             <>
               <dt className="text-muted-foreground">Founders</dt>
@@ -529,19 +424,14 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
           )}
         </dl>
       )}
-      {provenance.length > 0 && (
+      {foundersInProfile && yc && (
         <p className="mt-3 border-t border-border-faint pt-3 text-body-small text-muted-foreground">
-          Via Alexandria{" "}
-          {provenance.map((node, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a fixed, ordered list of at most three providers
-            <Fragment key={i}>
-              {i > 0 && "; "}
-              {node}
-            </Fragment>
-          ))}
+          Via Alexandria founders from{" "}
+          <a href={yc.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
+            ycombinator.com
+          </a>
         </p>
       )}
-      {termsNote}
     </Panel>
   ) : null;
 
@@ -603,7 +493,6 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
             {process.env.COMPANY_REQUESTS === "1" && page.addedOnRequest && (
               <RequestViewed keys={[company.id, company.domain].filter((k): k is string => Boolean(k))} />
             )}
-            {apolloNote}
             {house && (
               <p className="border-t border-border-faint pt-2.5 text-body-small text-muted-foreground">
                 Fireround runs on{" "}

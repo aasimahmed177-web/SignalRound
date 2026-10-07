@@ -25,7 +25,7 @@ import type { FeedRecord, Stage } from "./schema.ts";
 import { STAGES } from "./schema.ts";
 import { companySite, isFundingAggregatorUrl } from "./source-fit.ts";
 
-/** A dossier prior round, as the check kept it; an Apollo lead has the same shape. */
+/** A dossier prior round, as the check kept it; a lead has the same shape. */
 export interface PriorRound {
   stage_as_written: string;
   amount_as_written: string | null;
@@ -465,11 +465,11 @@ export function matchPriorRound(prior: PriorRound, record: FeedRecord, company: 
   return { ok: true, score, evidence };
 }
 
-// Leads. A funding event a data provider lists (Apollo's) is not a fact: its dates run weeks off and
+// Leads. A funding event a search result or a listing states is not a fact: its dates run weeks off and
 // it repeats rounds. One the store lacks becomes a prior round on the ledger and goes through the same
 // search, reading, and read-back as a dossier's; only a page that states it writes a row.
 
-/** A funding event as a lead offers it: the provider's label, figure, month, and news link. */
+/** A funding event as a lead offers it: the label, figure, date, and the page that states it. */
 export interface FundingLead {
   type: string;
   amount: string | null;

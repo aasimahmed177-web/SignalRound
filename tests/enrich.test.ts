@@ -12,9 +12,11 @@ import {
   findWebsite,
   hasContext,
   identityPrompt,
+  linkedinFromLinks,
   looksParked,
   MAX_HOMEPAGE_SCRAPES,
   namesDifferentBusiness,
+  validLinkedinCompanyUrl,
   websiteQuery,
 } from "@fireround/core";
 import { schema } from "@fireround/core/db";
@@ -108,6 +110,8 @@ function fakeClient(searchUrls: string[], pages: Record<string, Page | Error>) {
   const calls: { search: string[]; scrape: string[] } = { search: [], scrape: [] };
   const client = {
     async search(query: string) {
+      // The LinkedIn page lookup is its own search, not a website candidate: answered empty and not counted here.
+      if (query.startsWith("site:linkedin.com")) return { web: [] };
       calls.search.push(query);
       return { web: searchUrls.map((url) => ({ url, title: url })) };
     },
@@ -225,11 +229,55 @@ describe("grounded website search", () => {
   });
 });
 
+describe("the company's LinkedIn page from its homepage links", () => {
+  const clay = { name: "Clay", domain: "clay.com" };
+  test("a company page whose slug names the company, canonicalized", () => {
+    expect(validLinkedinCompanyUrl("http://www.linkedin.com/company/grow-with-clay", clay)).toBe(
+      "https://www.linkedin.com/company/grow-with-clay",
+    );
+    expect(validLinkedinCompanyUrl("linkedin.com/company/tryprofound/", { name: "Profound", domain: "tryprofound.com" })).toBe(
+      "https://www.linkedin.com/company/tryprofound",
+    );
+    expect(
+      validLinkedinCompanyUrl("https://uk.linkedin.com/company/dialybridsrl", { name: "Dialybrid S.r.l.", domain: "dialybrid.com" }),
+    ).toBe("https://www.linkedin.com/company/dialybridsrl");
+  });
+  test("another company's slug, a person, a post, or another host is refused", () => {
+    expect(
+      validLinkedinCompanyUrl("http://www.linkedin.com/company/co-dev-labs", { name: "Cognition", domain: "cognition.com" }),
+    ).toBeNull();
+    expect(validLinkedinCompanyUrl("https://www.linkedin.com/in/someone-at-clay", clay)).toBeNull();
+    expect(validLinkedinCompanyUrl("https://www.linkedin.com/company/clay/posts/123", clay)).toBeNull();
+    expect(validLinkedinCompanyUrl("https://notlinkedin.com/company/clay", clay)).toBeNull();
+    expect(validLinkedinCompanyUrl(null, clay)).toBeNull();
+  });
+  test("the first link that is this company's page; none when no link is", () => {
+    const home = { name: "Clay", homepage: "https://www.clay.com/" };
+    expect(
+      linkedinFromLinks(
+        ["https://www.clay.com/pricing", "https://www.linkedin.com/company/hubspot", "https://linkedin.com/company/clay-hq"],
+        home,
+      ),
+    ).toBe("https://www.linkedin.com/company/clay-hq");
+    expect(linkedinFromLinks(["https://www.linkedin.com/in/kareem-amin"], home)).toBeNull();
+    expect(linkedinFromLinks(undefined, home)).toBeNull();
+  });
+});
+
 describe("enrichCompanies identity verification", () => {
   test("the Ollie case: the first candidate is a namesake, the second verifies and is the one written", async () => {
     const { client, calls } = fakeClient(["https://www.ollie.com/", "https://ollie.ai/"], {
-      "ollie.com": { json: DOG_FOOD, branding: { logo: "/dog-logo.png" }, metadata: { favicon: "/apple-touch-icon.png" } },
-      "ollie.ai": { json: ASSISTANT, branding: { brandName: "Ollie", logo: "/logo.svg" }, links: ["https://ollie.ai/pricing"] },
+      "ollie.com": {
+        json: DOG_FOOD,
+        branding: { logo: "/dog-logo.png" },
+        metadata: { favicon: "/apple-touch-icon.png" },
+        links: ["https://www.linkedin.com/company/ollie-pets"],
+      },
+      "ollie.ai": {
+        json: ASSISTANT,
+        branding: { brandName: "Ollie", logo: "/logo.svg" },
+        links: ["https://ollie.ai/pricing", "https://www.linkedin.com/in/ollie-founder", "https://www.linkedin.com/company/ollie-ai/"],
+      },
     });
     const { enrichments, creditsEstimated } = await enrichCompanies(client, [OLLIE], { pricingPage: false });
     const [e] = enrichments;
@@ -240,6 +288,8 @@ describe("enrichCompanies identity verification", () => {
     expect(e?.logo_url).toBe("https://ollie.ai/logo.svg");
     expect(e?.brand?.name).toBe("Ollie");
     expect(e?.pricing_page_url).toBe("https://ollie.ai/pricing");
+    // The LinkedIn page the verified homepage links, never the namesake's or a person's.
+    expect(e?.linkedin_url).toBe("https://www.linkedin.com/company/ollie-ai");
     expect(e?.error).toBeUndefined();
     // One five-result search plus two homepage extractions: the rejected candidate is paid for too.
     const { enrichments: oneScrape, creditsEstimated: oneScrapeCredits } = await enrichCompanies(
@@ -319,6 +369,8 @@ describe("enrichCompanies identity verification", () => {
     const calls: string[] = [];
     const client = {
       async search(query: string) {
+        // The LinkedIn page lookup is its own search, not a website candidate: answered empty and not counted here.
+        if (query.startsWith("site:linkedin.com")) return { web: [] };
         calls.push(query);
         return query.endsWith("official website")
           ? { web: [{ url: "https://openai.com/" }, { url: "https://en.wikipedia.org/wiki/OpenAI" }] }
@@ -708,11 +760,11 @@ describe("enrichBatch writes only verified rows", () => {
       "seed",
       "run-1",
     );
-    // FullEnrich matched creem.com: CREEM, the rock magazine founded in 1969.
+    // Alexandria was read for creem.com: CREEM, the rock magazine, not the billing platform.
     await db.insert(schema.enrichments).values({
       companyId: "creem.com",
       kind: "alexandria",
-      data: { domain: "creem.com", firmographics: { status: "matched", industry: "Entertainment Providers", year_founded: 1969 } },
+      data: { domain: "creem.com", yc: { status: "none" } },
     });
     const MAGAZINE: CompanyProfile = {
       same_company: false,

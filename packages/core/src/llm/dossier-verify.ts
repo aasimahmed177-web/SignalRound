@@ -50,7 +50,6 @@ export interface DossierSubject {
 /** Provider facts stored for the domain (Alexandria): sourced, so they count as evidence. */
 export interface DossierFacts {
   yc: { url: string; batch: string | null; year_founded: number | null; team_size: number | null; founders: string[] } | null;
-  firmographics: { year_founded: number | null; headcount: number | null; headcount_range: string | null; hq: string | null } | null;
 }
 
 export interface DossierContext {
@@ -370,12 +369,6 @@ export function factsEvidence(facts: DossierFacts | null): string | null {
     const y = facts.yc;
     lines.push(
       `Y Combinator record (${y.url}): batch ${y.batch ?? "unknown"}, founded ${y.year_founded ?? "unknown"}, team size ${y.team_size ?? "unknown"}, founders ${y.founders.length ? y.founders.join(", ") : "not listed"}.`,
-    );
-  }
-  if (facts.firmographics) {
-    const f = facts.firmographics;
-    lines.push(
-      `FullEnrich firmographics: founded ${f.year_founded ?? "unknown"}, headcount ${f.headcount ?? f.headcount_range ?? "unknown"}, headquarters ${f.hq ?? "unknown"}.`,
     );
   }
   return lines.length ? lines.join("\n") : null;

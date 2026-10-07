@@ -17,8 +17,6 @@ export const RULE_LABEL: Record<string, string> = {
   stage_regression: "Stage below an earlier round",
   list_only: "Known only from a list",
   unverified: "Under the publish bar",
-  apollo_total_gap: "Total raised looks low",
-  apollo_missing_round: "A large round is missing",
   dossier_missing: "No checked dossier",
   dossier_no_founders: "No founders",
   founders_dropped: "Founders dropped",

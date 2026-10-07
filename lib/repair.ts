@@ -829,9 +829,7 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
         out.refused++;
         continue;
       }
-      // Apollo was looked up on the same wrong domain as the other Alexandria facts, so it goes with them.
-      const named = fix.clear.filter((k): k is Exclude<typeof k, "logo"> => k !== "logo");
-      const kindsToClear: Array<(typeof named)[number] | "apollo"> = named.includes("alexandria") ? [...named, "apollo"] : named;
+      const kindsToClear = fix.clear.filter((k): k is Exclude<typeof k, "logo"> => k !== "logo");
       const kinds =
         kindsToClear.length === 0
           ? []

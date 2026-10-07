@@ -43,6 +43,8 @@
     "repair-financing": "node --env-file-if-exists=.env scripts/maintenance/repair-financing.ts",
     "repair-late-history": "node --env-file-if-exists=.env scripts/maintenance/repair-late-history.ts",
     "repair-trust-freshness": "node --env-file-if-exists=.env scripts/maintenance/repair-trust-freshness.ts",
+    "purge-third-party-firmographics": "node --env-file-if-exists=.env scripts/maintenance/purge-third-party-firmographics.ts",
+    "backfill-homepage-facts": "node --env-file-if-exists=.env scripts/maintenance/backfill-homepage-facts.ts",
     "repair-audit": "node --env-file-if-exists=.env scripts/maintenance/repair-audit.ts",
     "eval-jev": "node --env-file-if-exists=.env scripts/eval-jev.ts",
     "jev-shadow": "node --env-file-if-exists=.env scripts/jev-shadow.ts",

@@ -1,6 +1,6 @@
 // Records in, rows out, and back. The only place that knows both shapes.
 
-import type { AlexandriaEnrichment, ApolloEnrichment, FeedRecord, RoundCertainty, Stage, StoredRound } from "@fireround/core";
+import type { AlexandriaEnrichment, FeedRecord, RoundCertainty, Stage, StoredRound } from "@fireround/core";
 import {
   assertedRoundCertainty,
   canonicalUrl,
@@ -29,7 +29,9 @@ import {
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, isNull, lt, lte, or, type SQL, sql } from "drizzle-orm";
-import { knownRounds } from "./apollo.ts";
+import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
+import { verifiedDossierSql } from "./deepdive.ts";
+import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
 import { publicLane, publicVerifier } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
@@ -1433,6 +1435,7 @@ export interface EnrichmentData {
   brand?: { name?: string | null; logo?: string | null; primary_color?: string | null } | null;
   profile?: { what_they_sell?: string; customer_type?: string; sells_software_subscription?: boolean; same_company?: boolean } | null;
   pricing?: { pricing_model?: string; has_free_tier?: boolean; plans?: Array<{ name: string; price_as_written: string | null }> } | null;
+  linkedin_url?: string | null;
 }
 
 /** The stored profile enrichment, flattened to the shape rows and pages render. */
@@ -1452,33 +1455,30 @@ export function toEnrichment(e: EnrichmentData | undefined): RoundRow["enrichmen
   };
 }
 
-/**
- * The stored alexandria enrichment, flattened to what rows and the API expose: the YC batch,
- * team, and founding facts and the FullEnrich firmographics, each only when that provider matched.
- */
-export function toAlexandria(e: AlexandriaEnrichment | undefined, apolloRow?: ApolloEnrichment): RoundRow["alexandria"] {
-  const apollo =
-    apolloRow?.apollo.status === "matched" ? { headcount: apolloRow.apollo.headcount, linkedin_url: apolloRow.apollo.linkedin_url } : null;
-  if (!e) return apollo ? { yc: null, firmographics: null, apollo } : null;
-  return {
-    apollo,
-    yc:
-      e.yc.status === "matched"
-        ? { batch: e.yc.batch, team_size: e.yc.team_size, year_founded: e.yc.year_founded, founders_count: e.yc.founders.length }
-        : null,
-    firmographics:
-      e.firmographics.status === "matched"
-        ? {
-            headcount_range: e.firmographics.headcount_range,
-            headcount: e.firmographics.headcount || null,
-            // Rows stored before the zero-means-unknown rule read the same way as rows stored after it.
-            year_founded: e.firmographics.year_founded || null,
-            company_type: e.firmographics.company_type,
-            industry: e.firmographics.industry,
-            linkedin_url: e.firmographics.linkedin_url ?? null,
-          }
-        : null,
-  };
+/** The LinkedIn page a verified homepage links; nothing from a profile that did not verify. */
+export function profileLinkedin(e: EnrichmentData | undefined): string | null {
+  return toEnrichment(e)?.verified ? (e?.linkedin_url ?? null) : null;
+}
+
+/** The checked dossiers' founding year and team size for these companies: the check keeps a claim only when a page it read states it. */
+export async function dossierFacts(handle: Db, companyIds: string[]): Promise<Map<string, DossierFacts>> {
+  const rows = await handle
+    .select({
+      companyId: enrichments.companyId,
+      founded: sql<unknown>`${enrichments.data} -> 'founded_year'`,
+      headcount: sql<string | null>`${enrichments.data} ->> 'headcount_estimate'`,
+    })
+    .from(enrichments)
+    .where(and(eq(enrichments.kind, "deep_dive"), inArray(enrichments.companyId, companyIds), verifiedDossierSql));
+  return new Map(
+    rows.map((r) => [r.companyId, { founded_year: typeof r.founded === "number" ? r.founded : null, headcount_estimate: r.headcount }]),
+  );
+}
+
+/** The stored alexandria enrichment, flattened to what rows and the API expose: YC's record when it matched. */
+export function toAlexandria(e: AlexandriaEnrichment | undefined): RoundRow["alexandria"] {
+  if (e?.yc.status !== "matched") return null;
+  return { yc: { batch: e.yc.batch, team_size: e.yc.team_size, year_founded: e.yc.year_founded, founders_count: e.yc.founders.length } };
 }
 
 export interface RoundQuery {
@@ -1591,20 +1591,10 @@ export interface RoundRow {
     /** What the branding format read off the verified homepage. */
     brand: { name: string | null; primary_color: string | null } | null;
   } | null;
-  /** Sourced company facts from Alexandria (YC, FullEnrich, Apollo), keyed on the verified domain. */
-  alexandria: {
-    yc: { batch: string | null; team_size: number | null; year_founded: number | null; founders_count: number } | null;
-    firmographics: {
-      headcount_range: string | null;
-      headcount: number | null;
-      year_founded: number | null;
-      company_type: string | null;
-      industry: string | null;
-      linkedin_url: string | null;
-    } | null;
-    /** Apollo's headcount and checked LinkedIn page; a reader shows each only where the others have none. */
-    apollo: { headcount: number | null; linkedin_url: string | null } | null;
-  } | null;
+  /** YC's record via Firecrawl Alexandria, keyed on the verified domain; null when YC does not list the company. */
+  alexandria: { yc: (YcFacts & { founders_count: number }) | null } | null;
+  /** The founding year and team size (YC's or the checked dossier's, with which) and the LinkedIn page the company's own site links. */
+  company_facts: CompanyFacts;
 }
 
 /** What the feed table renders per row: RoundRow without the fields no cell or detail reads, so a page of rows is a fraction of the payload. */
@@ -1659,6 +1649,7 @@ export function toFeedRow(r: RoundRow): FeedRow {
         }
       : null,
     alexandria: r.alexandria,
+    company_facts: r.company_facts,
   };
 }
 
@@ -1781,7 +1772,7 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   const companyIds = [...new Set(page.map((r) => r.company.id))];
   // The page's investors, sources, and enrichments are three independent reads: together they cost
   // one round trip to the database, not three.
-  const [inv, src, enrichRows, checks] = await Promise.all([
+  const [inv, src, enrichRows, dossierByCompany, checks] = await Promise.all([
     ids.length
       ? handle
           .select({ roundId: roundInvestors.roundId, role: roundInvestors.role, name: investors.name })
@@ -1807,8 +1798,9 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
       ? handle
           .select({ companyId: enrichments.companyId, kind: enrichments.kind, data: enrichments.data })
           .from(enrichments)
-          .where(and(inArray(enrichments.companyId, companyIds), inArray(enrichments.kind, ["profile", "alexandria", "apollo"])))
+          .where(and(inArray(enrichments.companyId, companyIds), inArray(enrichments.kind, ["profile", "alexandria"])))
       : [],
+    companyIds.length ? dossierFacts(handle, companyIds) : new Map<string, DossierFacts>(),
     ids.length
       ? handle
           .select({
@@ -1827,7 +1819,6 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   const alexandriaByCompany = new Map(
     enrichRows.filter((e) => e.kind === "alexandria").map((e) => [e.companyId, e.data as AlexandriaEnrichment]),
   );
-  const apolloByCompany = new Map(enrichRows.filter((e) => e.kind === "apollo").map((e) => [e.companyId, e.data as ApolloEnrichment]));
   // Grouped once by round, in row order, so each row reads its own lists instead of scanning every row's.
   const invByRound = groupBy(inv, (i) => i.roundId);
   const srcByRound = groupBy(src, (s) => s.roundId);
@@ -1886,7 +1877,12 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
     verification_checks: checksByRound.get(round.id) ?? null,
     last_seen_at: round.lastSeenAt.toISOString(),
     enrichment: toEnrichment(profileByCompany.get(company.id)),
-    alexandria: toAlexandria(alexandriaByCompany.get(company.id), apolloByCompany.get(company.id)),
+    alexandria: toAlexandria(alexandriaByCompany.get(company.id)),
+    company_facts: companyFacts(
+      toAlexandria(alexandriaByCompany.get(company.id))?.yc,
+      dossierByCompany.get(company.id),
+      profileLinkedin(profileByCompany.get(company.id)),
+    ),
   }));
 
   const last = page[page.length - 1];

@@ -19,7 +19,7 @@ app/             dashboard routes, the landing page, /api/v1, /api/mcp, /api/web
 components/      shadcn-owned ui/, plus shell/, feed/, overview/, search/, presets/, review/, runs/, settings/, company/, slack/, seo/, marketing/, brand/
 lib/             db handle, persistence, stats, delivery, repair passes
 packages/core/   the pipeline as a library (records/, firecrawl/, llm/, edgar/, presets/, db/), tests, migrations
-workflows/       Workflow SDK definitions: sweep, ingest-candidate, watch-sites, announcements, form-d, corroborate, enrich, dossiers, history, apollo, trending, accuracy
+workflows/       Workflow SDK definitions: sweep, ingest-candidate, watch-sites, announcements, form-d, corroborate, enrich, dossiers, history, trending, accuracy
 presets/         series-a-b.json, seed.json, growth.json; add a file, or add a preset from the UI
 rules/           aliases.json (the investor aliases a fresh clone starts with; ones added from Review live in the database) and publisher-tiers.json
 evals/           hand-labeled rounds and page excerpts the reconcile and pipeline benchmarks score against

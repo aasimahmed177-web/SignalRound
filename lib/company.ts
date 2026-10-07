@@ -10,13 +10,12 @@ import { schema } from "@fireround/core/db";
 import type { CompanyRequestTally } from "@fireround/core/db/schema";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { cache } from "react";
-import type { StoredApollo } from "@/lib/apollo";
 import type { BuzzScale } from "@/lib/buzz";
 import { type LedgerPrior, ledgerReason } from "@/lib/company-request-status";
 import { type Dossier, getDossier } from "@/lib/deepdive";
 import { ruledOutPriors } from "@/lib/history";
 import type { EnrichmentData, RoundRow } from "@/lib/persist";
-import { listRounds, toEnrichment } from "@/lib/persist";
+import { listRounds, profileLinkedin, toEnrichment } from "@/lib/persist";
 import { buzzFor, type RoundOnX, roundsOnX, type TrendingMark } from "@/lib/trending";
 
 /** The listing the verified homepage read names for its own company, or null for a private one. */
@@ -66,10 +65,10 @@ export interface CompanyPage {
   /** The company's rounds, newest first: the feed's own (publish, flagged), plus review and rejected when asked for. */
   rounds: RoundRow[];
   enrichment: RoundRow["enrichment"];
-  /** Alexandria's sourced facts for the verified domain: YC and FullEnrich, with provenance. */
+  /** Alexandria's sourced facts for the verified domain: YC's record, with provenance. */
   alexandria: AlexandriaEnrichment | null;
-  /** Apollo's lookup on the same domain; a page shows only what the measurement cleared (lib/apollo.ts). */
-  apollo: StoredApollo | null;
+  /** The LinkedIn page the company's verified homepage links. */
+  linkedin_url: string | null;
   /**
    * The agent's deep dive, when one has run and passed the dossier check. An admin (`withReview`)
    * also gets a dossier written before the check, which carries no verification.
@@ -116,7 +115,7 @@ const loadCompany = cache(async (handle: Db, id: string, withReview: boolean): P
     handle
       .select({ kind: enrichments.kind, data: enrichments.data })
       .from(enrichments)
-      .where(and(eq(enrichments.companyId, id), inArray(enrichments.kind, ["profile", "alexandria", "apollo"]))),
+      .where(and(eq(enrichments.companyId, id), inArray(enrichments.kind, ["profile", "alexandria"]))),
     getDossier(handle, id),
     handle
       .select({ id: companyRequests.id, tally: companyRequests.tally })
@@ -213,7 +212,7 @@ const loadCompany = cache(async (handle: Db, id: string, withReview: boolean): P
     publicListing: publicListing(profile),
     priorReasons: request ? await priorReasons(handle, id) : null,
     alexandria: (enrichmentByKind.get("alexandria") as AlexandriaEnrichment | undefined) ?? null,
-    apollo: (enrichmentByKind.get("apollo") as StoredApollo | undefined) ?? null,
+    linkedin_url: profileLinkedin(profile as EnrichmentData | undefined),
     // A visitor reads only a checked dossier; one written before the check waits for the backfill.
     dossier: withReview || dossier?.verification ? dossier : null,
     sources: sourceList,

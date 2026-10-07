@@ -165,6 +165,8 @@ export interface Enrichment {
   profile: CompanyProfile | null;
   pricing_page_url: string | null;
   pricing: PricingProfile | null;
+  /** The company's LinkedIn page as the verified homepage links it; absent on rows written before it was read. */
+  linkedin_url?: string | null;
   error?: string;
   /**
    * The row a clear leaves when the old row had refused hosts: the profile is to be read again and
@@ -200,10 +202,102 @@ function pricingLink(links: string[] | undefined, homepage: string): string | nu
   return links.find((l) => hostOf(l) === home && /\/(pricing|plans)(\/|$|\?|#)/i.test(l)) ?? null;
 }
 
+/** A name with its spaces gone, for "CarbonSix" against "Carbon Six". */
+function compactKey(name: string): string {
+  return normalizeCompanyKey(name).replace(/\s+/g, "");
+}
+
+/**
+ * A LinkedIn company page as https://www.linkedin.com/company/<slug>, or null: the host must be
+ * LinkedIn's, the path a company page, and the slug must plausibly name the company (it contains the
+ * name or the domain's label, "grow-with-clay" for Clay, "tryprofound" for tryprofound.com, or the
+ * name contains it). A people page or another company's slug is refused.
+ */
+export function validLinkedinCompanyUrl(url: string | null | undefined, company: { name: string; domain: string }): string | null {
+  if (!url) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`);
+  } catch {
+    return null;
+  }
+  if (!/^([a-z]{2,3}\.)?linkedin\.com$/i.test(parsed.hostname.replace(/^www\./i, ""))) return null;
+  const m = /^\/company\/([^/?#]+)\/?$/i.exec(parsed.pathname);
+  if (!m) return null;
+  let slug: string;
+  try {
+    slug = decodeURIComponent(m[1]).toLowerCase();
+  } catch {
+    return null;
+  }
+  const slugKey = slug.replace(/[^a-z0-9]/g, "");
+  const nameKey = compactKey(company.name);
+  const label = compactKey(company.domain.split(".")[0] ?? "");
+  const plausible =
+    (nameKey.length >= 2 && slugKey.includes(nameKey)) ||
+    (label.length >= 3 && slugKey.includes(label)) ||
+    (slugKey.length >= 4 && nameKey.includes(slugKey));
+  return plausible ? `https://www.linkedin.com/company/${m[1]}` : null;
+}
+
+/** The company's LinkedIn page among a verified homepage's links: the first that plausibly names it, else null. */
+export function linkedinFromLinks(links: string[] | undefined, company: { name: string; homepage: string }): string | null {
+  const domain = registrableDomain(company.homepage);
+  if (!links || !domain) return null;
+  for (const l of links) {
+    const url = validLinkedinCompanyUrl(l, { name: company.name, domain });
+    if (url) return url;
+  }
+  return null;
+}
+
+/** The "Website:" field a LinkedIn company page shows in a search result, in the languages it renders. */
+const LINKEDIN_WEBSITE_FIELD = /(?:Website|Sitio web|Site web|Webseite|Sito web|Site)\s*:\s*(\S+)/i;
+
+/**
+ * The company's LinkedIn page found by a search, for a company whose homepage links none: a company
+ * page whose own "Website:" field, as the search result shows it, is the company's site root, and whose
+ * name plausibly names the company. Measured on 2026-10-07 over the 258 visible companies whose homepage
+ * links no LinkedIn page: 66 found, none wrong (three differed from the third-party record they replace,
+ * and each time the page found was the company's own). Without the Website check, the best-looking
+ * result was another company's page a third of the time (Prevalent AI's search returns Prevalent Networks).
+ */
+export async function findLinkedinPage(
+  client: Firecrawl,
+  company: { name: string; domain: string },
+): Promise<{ url: string | null; credits: number }> {
+  try {
+    const res = await client.search(`site:linkedin.com/company "${company.name.replace(/"/g, "")}" ${company.domain}`, { limit: 5 });
+    const hits = (res.web ?? []) as Array<{ url?: string; description?: string }>;
+    for (const h of hits) {
+      const url = validLinkedinCompanyUrl(h.url, company);
+      const field = LINKEDIN_WEBSITE_FIELD.exec(h.description ?? "")?.[1]?.replace(/[.,;]+$/, "");
+      if (!url || !field) continue;
+      const site = field.startsWith("http") ? field : `https://${field}`;
+      let root = false;
+      try {
+        root = new URL(site).pathname.replace(/\/+$/, "") === "";
+      } catch {
+        continue;
+      }
+      if (root && registrableDomain(site) === registrableDomain(`https://${company.domain}`))
+        return { url, credits: searchCredits(hits.length) };
+    }
+    return { url: null, credits: searchCredits(hits.length) };
+  } catch {
+    return { url: null, credits: 0 };
+  }
+}
+
 /** An image reference from the page as an absolute http(s) URL, or null for data: URIs and anything unusable. */
-function imageUrl(raw: string | null | undefined, pageUrl: string): string | null {
+/** An inline image a branding read returns for a logo drawn in the page (an inline SVG): kept when it is small. */
+const INLINE_IMAGE = /^data:image\/(?:svg\+xml|png|webp|jpeg)[;,]/i;
+export const MAX_INLINE_LOGO_CHARS = 20_000;
+
+function imageUrl(raw: string | null | undefined, pageUrl: string, opts: { inline?: boolean } = {}): string | null {
   const value = raw?.trim();
-  if (!value || value.startsWith("data:")) return null;
+  if (!value) return null;
+  if (value.startsWith("data:")) return opts.inline && INLINE_IMAGE.test(value) && value.length <= MAX_INLINE_LOGO_CHARS ? value : null;
   try {
     const u = new URL(value, pageUrl);
     return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
@@ -225,18 +319,23 @@ export function brandFrom(branding: BrandingProfile | undefined, pageUrl: string
   if (!branding) return null;
   const brand: Brand = {
     name: branding.brandName?.trim() || null,
-    logo: imageUrl(branding.logo, pageUrl),
+    // The logo field, else the logo among the images the read found (a site whose header logo is an <img> the format lists there).
+    logo: imageUrl(branding.logo, pageUrl, { inline: true }) ?? imageUrl(branding.images?.logo, pageUrl, { inline: true }),
     primary_color: branding.colors?.primary?.trim() || null,
   };
   return brand.name || brand.logo || brand.primary_color ? brand : null;
 }
 
 /**
- * The logo a homepage read yields: the branding format's logo file, else the page's favicon. The
+ * The logo a homepage read yields: the branding format's logo file, else the page's favicon, else a logo
+ * the page draws inline. The
  * company pass and the investor logo pass both take it from here, so the two pick alike.
  */
 export function homepageLogo(home: { branding?: BrandingProfile; metadata?: { favicon?: string | null } }, pageUrl: string): string | null {
-  return brandFrom(home.branding, pageUrl)?.logo ?? logoFrom(home.metadata, pageUrl);
+  const brand = brandFrom(home.branding, pageUrl)?.logo ?? null;
+  // A logo file beats the favicon; a logo drawn inline in the page is kept only when the site has no favicon to fetch.
+  if (brand && !brand.startsWith("data:")) return brand;
+  return logoFrom(home.metadata, pageUrl) ?? brand;
 }
 
 /**
@@ -1207,6 +1306,13 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       row.logo_url = homepageLogo(home, website);
       row.profile = profile;
       row.pricing_page_url = pricingLink(home.links, website);
+      row.linkedin_url = linkedinFromLinks(home.links, { name: c.company_name, homepage: website });
+      const domain = registrableDomain(website);
+      if (!row.linkedin_url && domain) {
+        const found = await findLinkedinPage(client, { name: c.company_name, domain });
+        searches++;
+        row.linkedin_url = found.url;
+      }
       if (row.pricing_page_url && pricingPage) {
         const pricing = await client.scrape(row.pricing_page_url, {
           formats: [{ type: "json", schema: pricingJsonSchema }],

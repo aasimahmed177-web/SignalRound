@@ -103,7 +103,7 @@ Every record starts with the [Firecrawl API](https://docs.firecrawl.dev) through
 | [Map](https://docs.firecrawl.dev/features/map) | Finds a company's own announcement on its site to corroborate a round | [`corroborate.ts`](packages/core/src/firecrawl/corroborate.ts) |
 | [Monitoring](https://docs.firecrawl.dev/features/monitoring-web-scale) | Runs a preset's queries on a schedule inside Firecrawl and posts new pages to `/api/webhooks/firecrawl` | [`monitor.ts`](packages/core/src/firecrawl/monitor.ts) |
 | [Agent](https://docs.firecrawl.dev/features/agent) | Research fills a record's gaps from its sources; Deep dive builds a company dossier | [`gapfill.ts`](packages/core/src/firecrawl/gapfill.ts), [`deepdive.ts`](packages/core/src/firecrawl/deepdive.ts) |
-| [Alexandria](https://docs.firecrawl.dev/features/alexandria) | Adds sourced facts on each verified domain: the Y Combinator record, FullEnrich firmographics, and Apollo's headcount and LinkedIn page | [`alexandria.ts`](packages/core/src/firecrawl/alexandria.ts) |
+| [Alexandria](https://docs.firecrawl.dev/features/alexandria) | Adds the Y Combinator record on each verified domain | [`alexandria.ts`](packages/core/src/firecrawl/alexandria.ts) |
 
 Firecrawl launched Alexandria on September 22, 2026, alongside its Series B: [Introducing Alexandria and our $75M Series B](https://www.firecrawl.dev/blog/introducing-alexandria-series-b).
 

@@ -27,6 +27,7 @@ export const dispositionEnum = pgEnum("disposition", ["publish", "flagged", "rev
 export const investorRoleEnum = pgEnum("investor_role", ["lead", "participant", "unknown"]);
 /** x: an X account whose posts are the company's own word (its account, or a founder's its homepage or their bio ties to it). */
 export const aliasKindEnum = pgEnum("alias_kind", ["name", "domain", "linkedin", "x"]);
+/** "apollo" is a retired kind kept in the database type; nothing writes it. */
 export const enrichmentKindEnum = pgEnum("enrichment_kind", ["profile", "pricing", "founders", "deep_dive", "alexandria", "apollo"]);
 export const deliveryChannelEnum = pgEnum("delivery_channel", ["slack", "webhook", "email"]);
 export const deliveryStatusEnum = pgEnum("delivery_status", ["pending", "sent", "failed", "dead_letter"]);
@@ -170,8 +171,8 @@ export const fundingRounds = pgTable(
      */
     history: boolean("history").notNull().default(false),
     /**
-     * Why the row is held from delivery, or null. Set when a history or lead source (an Apollo funding
-     * event, a dossier's prior round, a verified earlier row) reports the same round more than 45 days
+     * Why the row is held from delivery, or null. Set when a history or lead source (a dossier's prior
+     * round, a ledger lead, a verified earlier row) reports the same round more than 45 days
      * before a day the company never stated: the row is a late re-report until a person says otherwise
      * (lib/late-report.ts). A held row is never delivered, and no reading moves its disposition.
      */
@@ -470,20 +471,22 @@ export interface HistoryPrior {
   amount_as_written: string | null;
   announced_date: string | null;
   lead_investors: string[];
-  /** The page a lead named for the round (Apollo's news link): read first, never trusted on its own. */
+  /** The page a lead named for the round: read first, never trusted on its own. */
   source_url?: string | null;
 }
 
 /**
  * Where a ledger row's prior round came from: a checked dossier; or a lead, which needs no dossier and
- * is never a fact until a page states it: an Apollo funding event, a prior round the dossier check
- * dropped only for want of evidence among the pages it read ("check"), or a hand-checked round from an
- * audit with the page that states it ("audit", queued by `pnpm fix-records`).
+ * is never a fact until a page states it: a round a funding or gap search turned up ("search", "gap"),
+ * a prior round the dossier check dropped only for want of evidence among the pages it read ("check"),
+ * a hand-checked round from an audit with the page that states it ("audit", queued by `pnpm
+ * fix-records`), or an earlier round a page stated beside a later one ("page"). "apollo" marks
+ * promoted rows from a retired lead source; nothing writes it.
  */
 export type HistoryOrigin = "dossier" | "apollo" | "check" | "audit" | "search" | "gap" | "page";
 
 /**
- * One prior round of one company (from its checked dossier, or an Apollo lead) and what became of it: queued, being worked,
+ * One prior round of one company (from its checked dossier, or a lead) and what became of it: queued, being worked,
  * promoted to a round (history), no source found, or failed and waiting out its backoff. Keyed on
  * the prior round's own words, so a dossier saved again with the same rounds queues nothing new.
  * The rows go with their company (a reset, a fold that deletes the row it folded).
@@ -497,7 +500,7 @@ export const historyPromotions = pgTable(
     /** The prior round's stage, amount, and date as written, normalized (packages/core/src/records/history.ts priorKey). */
     priorKey: text("prior_key").notNull(),
     prior: jsonb("prior").$type<HistoryPrior>().notNull(),
-    /** dossier | apollo | check | audit | search | gap: kept so a lead's yield can be measured apart from the dossiers'. */
+    /** dossier | check | audit | search | gap | page: kept so a lead's yield can be measured apart from the dossiers'. */
     origin: text("origin").$type<HistoryOrigin>().notNull().default("dossier"),
     /** pending | running | promoted | no_source | failed | skipped */
     status: text("status").notNull().default("pending"),
@@ -809,7 +812,7 @@ export interface CompanyRequestBrand {
 export interface CompanyRequestTally {
   found: number;
   verified: number;
-  /** `source` names who found the round: the funding search, a gap search, Apollo, or the company dossier. */
+  /** `source` names who found the round: the funding search, a gap search, or the company dossier. */
   priors: Array<{ label: string; verified: boolean; reason: string | null; source?: string }>;
 }
 

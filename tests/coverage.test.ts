@@ -98,7 +98,7 @@ describe("coverageFor", () => {
       monitorSchedule: "every 6 hours",
       corroboration: "new_and_updated",
       enrichment: "plus_corroboration",
-      alexandria: "yc_firmographics",
+      alexandria: "yc",
       trending: true,
       agent: { gapFill: "auto", deepDive: "threshold", deepDiveMinUsdMillions: 10, discoverySweep: "weekly" },
     });
@@ -109,7 +109,7 @@ describe("coverageFor", () => {
       monitorSchedule: "hourly",
       corroboration: "all",
       enrichment: "weekly_reenrich",
-      alexandria: "yc_firmographics",
+      alexandria: "yc",
       trending: true,
       agent: { gapFill: "auto", deepDive: "all", discoverySweep: "daily" },
     });
@@ -152,11 +152,11 @@ describe("resolveCoverage", () => {
     expect(resolveCoverage({ tier: "standard", overrides })).toEqual(plan);
     expect(diffCoverage("deep", coverageFor("deep"))).toEqual({});
     // An alexandria override round-trips the same way.
-    const firmographics = coverageFor("standard");
-    firmographics.alexandria = "yc_firmographics";
-    const o2 = diffCoverage("standard", firmographics);
-    expect(o2).toEqual({ alexandria: "yc_firmographics" });
-    expect(resolveCoverage({ tier: "standard", overrides: o2 })).toEqual(firmographics);
+    const off = coverageFor("standard");
+    off.alexandria = "off";
+    const o2 = diffCoverage("standard", off);
+    expect(o2).toEqual({ alexandria: "off" });
+    expect(resolveCoverage({ tier: "standard", overrides: o2 })).toEqual(off);
   });
 
   test("a stored value that does not parse falls back to Lite", () => {
@@ -246,9 +246,6 @@ describe("estimateMonthlyCredits", () => {
     const standard = estimateMonthlyCredits(coverageFor("standard"), [preset], 0);
     const line = standard.lines.find((l) => l.label.startsWith("Alexandria"));
     expect(line?.low).toBeGreaterThan(0);
-    // A yc_firmographics rung prices the FullEnrich lookup on top.
-    const deep = estimateMonthlyCredits(coverageFor("deep"), [preset], 0);
-    expect((deep.lines.find((l) => l.label.startsWith("Alexandria"))?.low ?? 0) > (line?.low ?? 0)).toBe(true);
     const off = { ...coverageFor("standard"), alexandria: "off" as const };
     expect(estimateMonthlyCredits(off, [preset], 0).lines.find((l) => l.label.startsWith("Alexandria"))).toBeUndefined();
   });

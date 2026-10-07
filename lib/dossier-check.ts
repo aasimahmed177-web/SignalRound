@@ -78,15 +78,6 @@ export async function dossierContext(
                 founders: a.yc.founders.map((f) => f.name),
               }
             : null,
-        firmographics:
-          a.firmographics.status === "matched"
-            ? {
-                year_founded: a.firmographics.year_founded || null,
-                headcount: a.firmographics.headcount,
-                headcount_range: a.firmographics.headcount_range,
-                hq: a.firmographics.hq,
-              }
-            : null,
       }
     : null;
   // The newest round's own sources first: the release that announced it usually states the total.

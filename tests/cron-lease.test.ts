@@ -64,7 +64,6 @@ test("a database claim has one winner across concurrent callers, with independen
 const cases = [
   { name: "accuracy", method: "GET", query: "" },
   { name: "announcements", method: "GET", query: "?force=1" },
-  { name: "backfill-apollo", method: "POST", query: "" },
   { name: "backfill-dossiers", method: "POST", query: "" },
   { name: "company-newsrooms", method: "GET", query: "" },
   { name: "deliveries", method: "GET", query: "" },
@@ -135,7 +134,7 @@ test("the next UTC minute can launch a new tick", async () => {
 });
 
 test("backfill status requests do not claim a tick", async () => {
-  for (const name of ["backfill-apollo", "backfill-dossiers", "history-rounds"]) {
+  for (const name of ["backfill-dossiers", "history-rounds"]) {
     const { GET } = await import(`../app/api/cron/${name}/route.ts`);
     expect((await GET(request(name))).status).toBe(200);
   }

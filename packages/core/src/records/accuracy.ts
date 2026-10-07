@@ -5,8 +5,6 @@
 // dated four years late. Each rule below names one of those shapes; lib/accuracy.ts loads what the
 // store holds about each company, runs these, and keeps the flags an admin reviews.
 
-import type { FundingLead, KnownRound } from "./history.ts";
-import { missingLeads, priorAsKnown } from "./history.ts";
 import { type StoredRound, stageRegression } from "./plausibility.ts";
 import type { Stage } from "./stages.ts";
 
@@ -19,8 +17,6 @@ export const ACCURACY_RULES = [
   "stage_regression",
   "list_only",
   "unverified",
-  "apollo_total_gap",
-  "apollo_missing_round",
   "dossier_missing",
   "dossier_no_founders",
   "founders_dropped",
@@ -32,10 +28,10 @@ export type AccuracyRule = (typeof ACCURACY_RULES)[number];
 
 /**
  * A remedy the daily run may start on its own, because it only adds evidence and every result still
- * passes its lane's own checks: a profile refresh (the homepage identity check), a deep dive (the
- * dossier check), or a history lead (read back like any round). Everything else waits for a person.
+ * passes its lane's own checks: a profile refresh (the homepage identity check) or a deep dive (the
+ * dossier check). Everything else waits for a person.
  */
-export type AccuracyRemedy = "profile" | "dossier" | "history";
+export type AccuracyRemedy = "profile" | "dossier";
 
 /** Companies the check reads: the top N by largest round and by total raised, plus every $100M+ round. */
 export const ACCURACY_TOP_N = 100;
@@ -47,10 +43,6 @@ export const LEAD_EXPECTED_USD_MILLIONS = 50;
 export const PUBLISH_CONFIDENCE = 0.75;
 /** A round may sit under the publish bar this long while its lanes finish before it is flagged. */
 export const UNVERIFIED_GRACE_HOURS = 24;
-/** Our verified total under this share of Apollo's total is a gap worth a look... */
-export const APOLLO_TOTAL_RATIO = 0.5;
-/** ...when the gap is at least this many USD millions (a $3M company off by $2M is noise). */
-export const APOLLO_TOTAL_MIN_GAP_USD_MILLIONS = 10;
 /** Two rounds of one company inside this many days... */
 export const DUPLICATE_WINDOW_DAYS = 30;
 /** ...whose amounts agree within this share of the larger are likely one round. */
@@ -63,8 +55,6 @@ const SEVERITY: Record<AccuracyRule, AccuracySeverity> = {
   stage_regression: "high",
   list_only: "medium",
   unverified: "high",
-  apollo_total_gap: "medium",
-  apollo_missing_round: "medium",
   dossier_missing: "high",
   dossier_no_founders: "medium",
   founders_dropped: "medium",
@@ -104,10 +94,6 @@ export interface AccuracyCompany {
   logoUrl: string | null;
   /** Visible rounds only: what a reader sees. */
   rounds: AccuracyRound[];
-  /** The stored Apollo lookup when it matched, else null. */
-  apollo: { totalFundingUsdMillions: number | null; events: FundingLead[] } | null;
-  /** Every round the store, the history ledger, or the dossier already knows, as the lead check reads them. */
-  known: KnownRound[];
   /** The dossier row: checked (schema version 2 with its check's record) or not, and its founders. */
   dossier: { checked: boolean; founders: string[] } | null;
   /** The founders of the dossier before the current one, when the check has seen one replace another. */
@@ -144,11 +130,6 @@ function roundLabel(r: Pick<AccuracyRound, "stageAsWritten" | "amountUsdMillions
 /** Read back and confirmed or corrected, or promoted as history from its own announcement. */
 export function roundVerified(r: Pick<AccuracyRound, "verification" | "history">): boolean {
   return r.history || r.verification === "confirmed" || r.verification === "corrected";
-}
-
-/** The sum of the verified visible rounds' USD amounts: the total raised a page shows, as far as it is checked. */
-export function verifiedTotal(rounds: AccuracyRound[]): number {
-  return rounds.reduce((n, r) => (roundVerified(r) && r.amountUsdMillions !== null ? n + r.amountUsdMillions : n), 0);
 }
 
 /** A title that reads as a weekly or monthly list rather than a story about one round. */
@@ -309,33 +290,6 @@ export function accuracyFlags(c: AccuracyCompany, now: Date): AccuracyFlag[] {
         unread.length > 0 ? "high" : "low",
       ),
     );
-  }
-
-  // Apollo as a second opinion on the total and the rounds (never shown to a reader).
-  if (c.apollo) {
-    const ours = verifiedTotal(c.rounds);
-    const theirs = c.apollo.totalFundingUsdMillions;
-    if (theirs !== null && ours < theirs * APOLLO_TOTAL_RATIO && theirs - ours >= APOLLO_TOTAL_MIN_GAP_USD_MILLIONS) {
-      out.push(
-        flag("apollo_total_gap", `Total raised (verified) is ${usdLabel(ours)}, under half of the ${usdLabel(theirs)} Apollo lists.`, [
-          "total gap",
-        ]),
-      );
-    }
-    const missing = missingLeads(c.apollo.events, c.known).filter((p) => (priorAsKnown(p).usd_millions ?? 0) >= BIG_ROUND_USD_MILLIONS);
-    if (missing.length > 0) {
-      const what = missing.map((p) =>
-        `${p.stage_as_written} ${p.amount_as_written ?? ""} (${p.announced_date ?? "undated"})`.replace(/\s+/g, " "),
-      );
-      out.push(
-        flag(
-          "apollo_missing_round",
-          `Apollo lists ${missing.length === 1 ? "a round" : `${missing.length} rounds`} of $100M or more that the store and the history ledger lack: ${list(what)}.`,
-          missing.map((p) => `${p.stage_as_written}|${p.amount_as_written ?? ""}|${p.announced_date ?? ""}`.toLowerCase()),
-          "history",
-        ),
-      );
-    }
   }
 
   // The dossier: who founded it and what it raised before.

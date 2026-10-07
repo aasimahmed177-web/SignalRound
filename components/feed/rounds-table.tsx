@@ -21,8 +21,8 @@ import { RelativeDay } from "@/components/relative-day";
 import { IntentLink } from "@/components/shell/intent-link";
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/tag";
-import { alexandriaFacts, companyLinkedin } from "@/lib/alexandria-facts";
 import { type BuzzScale, EMPTY_SCALE } from "@/lib/buzz";
+import { factChips, LINKEDIN_TITLE } from "@/lib/company-facts";
 import { foldCopies } from "@/lib/fold-copies";
 import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel } from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
@@ -89,8 +89,8 @@ function HouseLabel() {
 }
 
 function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean; house: boolean; preset?: string }) {
-  const facts = alexandriaFacts(r.alexandria);
-  const linkedin = companyLinkedin(r.alexandria);
+  const facts = factChips(r.alexandria?.yc, r.company_facts);
+  const linkedin = r.company_facts?.linkedin_url ? { url: r.company_facts.linkedin_url, title: LINKEDIN_TITLE } : null;
   const plans = pricingView(r.enrichment?.plans ?? []);
   const pricingModel = pricingModelLabel(r.enrichment?.pricing_model);
   return (
@@ -121,7 +121,7 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
                     {r.company.domain ?? r.company.website}
                   </a>
                 )}
-                {/* The LinkedIn page rides on the site line; its tooltip names the provider (FullEnrich, else Apollo). */}
+                {/* The LinkedIn page the company's own site links rides on the site line. */}
                 {linkedin && (
                   <>
                     {r.company.website && <span className="text-muted-foreground"> · </span>}
@@ -182,7 +182,7 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
               <dd>{r.valuation_as_written}</dd>
             </>
           )}
-          {/* Sourced facts Alexandria verified on this company's domain, each naming its provider in the tooltip. */}
+          {/* Sourced facts on this company, each naming its source in the tooltip. */}
           {facts.length > 0 && (
             <>
               <dt className="text-muted-foreground">Facts</dt>

@@ -165,7 +165,7 @@ const SOURCES: Record<string, string> = {
   check: "company dossier",
   search: "funding search",
   gap: "gap search",
-  apollo: "Apollo",
+  apollo: "an earlier lead",
   audit: "audit",
 };
 

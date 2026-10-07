@@ -93,7 +93,7 @@ import { companyHistoryWorkflow } from "../workflows/history";
 
 const NOW = new Date("2026-09-24T05:00:00Z");
 const TWO_DAYS_AGO = new Date("2026-09-22T05:00:00Z");
-const { accuracyFlags, companies, enrichments, fundingRounds, historyPromotions, investors, roundInvestors, runs } = schema;
+const { accuracyFlags, companies, enrichments, fundingRounds, investors, roundInvestors, runs } = schema;
 
 async function reset(): Promise<void> {
   const h = await db();
@@ -210,7 +210,7 @@ async function cleanCompany(id: string, usd = "150"): Promise<void> {
   });
 }
 
-/** OpenAI as the audit found it, stored: no domain, no dossier, a trend story's Series A beside its Other rounds, and Apollo's record. */
+/** OpenAI as the audit found it, stored: no domain, no dossier, and a trend story's Series A beside its Other rounds. */
 async function openaiBefore(): Promise<void> {
   await addCompany("openai", { name: "OpenAI" });
   await addRound(
@@ -255,39 +255,6 @@ async function openaiBefore(): Promise<void> {
     .insert(schema.sources)
     .values({ id: url, url, host: "news.crunchbase.com", title: "The Week's 10 Biggest Funding Rounds: Megarounds For AI Chips" });
   await h.insert(schema.roundSources).values({ roundId: "openai:series_a:2026-09-23", sourceId: url });
-  await h.insert(enrichments).values({
-    companyId: "openai",
-    kind: "apollo",
-    data: {
-      schema_version: 1,
-      company_key: "openai",
-      domain: "openai.com",
-      credits: 30,
-      apollo: {
-        status: "matched",
-        apollo_id: "x",
-        name: "OpenAI",
-        domain: "openai.com",
-        linkedin_url: null,
-        hq: null,
-        country: null,
-        headcount: null,
-        founded_year: 2015,
-        logo_url: null,
-        total_funding_usd: 180_000_000_000,
-        funding_events: [
-          {
-            type: "Series E",
-            amount: "$10B",
-            date: "2023-01",
-            source_url: "https://blogs.microsoft.com/blog/2023/01/23/microsoftandopenaiextendpartnership/",
-          },
-        ],
-      },
-      signals: {},
-      leads_queued: 0,
-    },
-  });
 }
 
 async function flagRows() {
@@ -320,8 +287,6 @@ describe("the check over the store", () => {
     const rules = evaluation.results.filter((r) => r.companyId === "openai").map((r) => r.flag.rule);
     expect(rules.sort()).toEqual(
       [
-        "apollo_missing_round",
-        "apollo_total_gap",
         "dossier_missing",
         "list_only",
         "no_description",
@@ -335,12 +300,12 @@ describe("the check over the store", () => {
     );
     expect(evaluation.results.filter((r) => r.companyId === "acme")).toEqual([]);
     const counts = await recordAccuracy(handle, evaluation, NOW);
-    expect(counts).toMatchObject({ companies_checked: 2, flags_new: 11, flags_open: 11, flags_cleared: 0 });
-    expect(await openAccuracyCount(handle)).toBe(11);
+    expect(counts).toMatchObject({ companies_checked: 2, flags_new: 9, flags_open: 9, flags_cleared: 0 });
+    expect(await openAccuracyCount(handle)).toBe(9);
     // Review lists OpenAI with its own largest round and total, not the store's.
     const listed = await listAccuracy(handle, "open", NOW);
     expect(listed.companies.map((c) => [c.id, c.largest_usd_millions, c.total_usd_millions, c.flags.length])).toEqual([
-      ["openai", 40000, 46600, 11],
+      ["openai", 40000, 46600, 9],
     ]);
     expect(listed.companies[0].flags[0].severity).toBe("high");
   });
@@ -377,8 +342,8 @@ describe("the check over the store", () => {
     const counts = await recordAccuracy(handle, await evaluateAccuracy(handle, { now: later }), later);
     expect(counts.flags_cleared).toBe(8);
     const open = (await flagRows()).filter((f) => !f.clearedAt).map((f) => f.rule);
-    // What is still true stays: Apollo's larger total, its $10B round not yet on the ledger, and no lead on the $6.6B round.
-    expect(open.sort()).toEqual(["apollo_missing_round", "apollo_total_gap", "no_lead_large"]);
+    // What is still true stays: no lead on the $6.6B round.
+    expect(open.sort()).toEqual(["no_lead_large"]);
     const cleared = (await flagRows()).find((f) => f.rule === "no_domain");
     expect(cleared?.clearedAt?.toISOString()).toBe(later.toISOString());
     // The domain goes again: the flag is new, first seen now.
@@ -516,15 +481,12 @@ describe("remedies", () => {
       profiles_verified: 2,
       remedies_dossier: 1,
       remedies_history: 1,
-      history_leads: 1,
     });
-    // OpenAI is the biggest name: its homepage is read first, its dive starts, its Apollo round goes on the ledger.
+    // OpenAI is the biggest name: its homepage is read first, its dive starts, and its timeline search starts.
     expect(enriched.ids).toEqual(["openai", "co0"]);
     expect(started.map((s) => s.fn)).toEqual([accuracyDossierWorkflow, companyHistoryWorkflow]);
     expect(started[0].args).toEqual([{ companyId: "openai", action: "dive" }]);
     const handle = await db();
-    const leads = await handle.select().from(historyPromotions).where(eq(historyPromotions.companyId, "openai"));
-    expect(leads.map((l) => [l.origin, l.status, l.prior.amount_as_written])).toEqual([["apollo", "pending", "$10B"]]);
     const [run] = await handle.select().from(runs).where(eq(runs.id, "accuracy:run-1"));
     expect(run).toMatchObject({ lane: "accuracy", presetSlug: "accuracy", creditsEstimated: 12 });
     expect(run.counts).toMatchObject({ companies_checked: 4, remedies_profile: 2, remedies_dossier: 1, remedies_history: 1 });
