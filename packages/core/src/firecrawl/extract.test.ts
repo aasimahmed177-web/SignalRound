@@ -11,6 +11,7 @@ import {
   articleTitle,
   extractRounds,
   groundingCheck,
+  guessedYear,
   mentionsCompany,
   offClock,
   pageDateline,
@@ -464,5 +465,63 @@ describe("an undated page is not dated to its crawl", () => {
     expect(result.items[0]?.round.announced_date).toBeNull();
     expect(result.items[0]?.page_date).toBeUndefined();
     expect(result.items[0]?.source.published).toBeUndefined();
+  });
+  test("guessedYear drops a year the page never gives, and keeps one it writes or its own day carries", () => {
+    const october2 = new Date("2026-10-02T12:00:00Z");
+    // The Supabase story: the page writes "October 2, 2026"; the extractor answered 2023.
+    const story = "# Supabase Raises $150 Million\n\nOctober 2, 2026\n\nSupabase has raised $150 million in new funding led by GIC.";
+    expect(guessedYear("2023-10-06", story, october2, now)).toBeNull();
+    expect(guessedYear("2026-10-02", story, october2, now)).toBe("2026-10-02");
+    // A page with no year at all and no day of its own: the year is the extractor's.
+    expect(guessedYear("2023-10-01", "Revnu raises $3M to grow in Manchester.", null, now)).toBeNull();
+    // A genuine 2023 story writes its day with the year, whatever the page's other dates.
+    expect(guessedYear("2023-10-09", "Oct. 9, 2023 — Pixelgen closes its Series A. Updated 2026.", october2, now)).toBe("2023-10-09");
+    // The round's own sentence names the year of an earlier round on a newer page.
+    expect(guessedYear("2023-05-01", story, october2, now, "Supabase raised its Series B in 2023.")).toBe("2023-05-01");
+    // A day without its year on the page counts when the page's own day is in the same year.
+    expect(guessedYear("2026-09-30", "Acme closed the round on September 30.", october2, now)).toBe("2026-09-30");
+    expect(guessedYear(null, story, october2, now)).toBeNull();
+    expect(guessedYear("2023-10-06", undefined, october2, now)).toBe("2023-10-06");
+  });
+
+  test("extractRounds holds the extractor's year to the page's own day", async () => {
+    const client = {
+      scrape: async () => ({
+        markdown:
+          "# Supabase Raises $150 Million, Acquires Turso\n\nOctober 2, 2026\n\nSupabase has raised $150 million in new funding led by GIC.",
+        json: {
+          page_kind: "article",
+          page_date: "2023-10-06",
+          rounds: [
+            {
+              company_name: "Supabase",
+              round_type_as_written: "Funding round",
+              amount_as_written: "$150 million",
+              announced_date: "2023-10-06",
+              evidence_quote: "Supabase has raised $150 million in new funding led by GIC.",
+              company_website: null,
+              company_description: null,
+              amount_kind: "round",
+              valuation_as_written: null,
+              lead_investors: ["GIC"],
+              other_investors: [],
+              headquarters: null,
+              sector: "developer tools",
+              source_url: null,
+              is_background: false,
+              is_rumor: false,
+            },
+          ],
+        },
+        metadata: { title: "Supabase Raises $150 Million" },
+      }),
+    } as unknown as Firecrawl;
+    const result = await extractRounds(
+      client,
+      [{ url: "https://www.citybiz.co/article/913344/supabase-raises-150-million-acquires-turso", title: "Supabase Raises $150 Million" }],
+      { now: new Date("2026-10-02T15:25:00Z") },
+    );
+    expect(result.items[0]?.round.announced_date).toBeNull();
+    expect(result.items[0]?.page_date).toBe("2026-10-02");
   });
 });

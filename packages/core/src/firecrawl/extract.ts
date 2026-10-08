@@ -8,6 +8,7 @@ import { jevCertaintyClassifier, jevIssuerClassifier, jevMoneyClassifier } from 
 import { mixedFinancingScope } from "../records/money-kind.ts";
 import {
   classifyStage,
+  dateFromUrl,
   hostOf,
   humanizeSlug,
   isArticleUrl,
@@ -501,6 +502,54 @@ export function offClock(value: string | null | undefined, markdown: string | un
   return textWritesDay(markdown, day) ? value : null;
 }
 
+/**
+ * Whether the page writes this day together with its year: ISO, numeric with the year, a month and day
+ * with the year after it ("Oct. 9, 2023", "9 October 2023"), or the month and year alone ("October 2023"). Pure.
+ */
+function textWritesDayWithYear(markdown: string, day: Date): boolean {
+  const y = day.getUTCFullYear();
+  const m = day.getUTCMonth() + 1;
+  const d = day.getUTCDate();
+  const [full, abbr] = MONTH_NAMES[m - 1] as [string, string];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dd = `0?${d}`;
+  const mm = `0?${m}`;
+  const month = `(?:${full}|${abbr}\\.?)`;
+  const forms = [
+    `\\b${y}[-/]${pad(m)}[-/]${pad(d)}\\b`,
+    `\\b${month}\\s+${dd}(?:st|nd|rd|th)?,?\\s+${y}\\b`,
+    `\\b${dd}(?:st|nd|rd|th)?\\s+(?:of\\s+)?${month},?\\s+${y}\\b`,
+    `\\b${month},?\\s+${y}\\b`,
+    `\\b${mm}/${dd}/${y}\\b`,
+    `\\b${dd}[./]${mm}[./]${y}\\b`,
+  ];
+  return forms.some((f) => new RegExp(f, "i").test(markdown));
+}
+
+/**
+ * The extractor answers a year the page leaves out with one of its own: an October 2026 story with no
+ * year near its date read as October 2023. A day the extractor gave is kept when the page writes it with
+ * its year, or when its year is the year of the page's own day (its byline, metadata, URL, or search
+ * result), or the round's own sentence names it ("its 2023 seed"), or, for a page with no day of its own,
+ * a year the page writes. Otherwise it is no date, and the page's own day answers in its place. Pure.
+ */
+export function guessedYear(
+  value: string | null | undefined,
+  markdown: string | undefined,
+  pageDay: Date | null,
+  now: Date,
+  sentence = "",
+): string | null {
+  if (!value) return null;
+  if (markdown === undefined) return value;
+  const day = parseDate(value, now);
+  if (!day || textWritesDayWithYear(markdown, day)) return value;
+  const year = day.getUTCFullYear();
+  if (new RegExp(`\\b${year}\\b`).test(sentence)) return value;
+  if (pageDay) return pageDay.getUTCFullYear() === year ? value : null;
+  return new RegExp(`\\b${year}\\b`).test(markdown) ? value : null;
+}
+
 /** A metadata value as text; a meta tag that appears twice arrives as an array, and its first value is the one. */
 function metadataString(doc: { metadata?: Record<string, unknown> }, key: string): string | undefined {
   const value = doc.metadata?.[key];
@@ -559,10 +608,20 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
       const quoted = QuotedPage.safeParse(doc.json);
       const parsed = RoundsPageLenient.safeParse(quoted.success ? groundQuotedPage(quoted.data, doc.markdown ?? "") : doc.json);
       const now = opts.now ?? new Date();
-      // A day the page does not write, on the scrape's own day, is the clock's (offClock): no date.
+      // The page's own publish date: its published-time metadata when the publisher set it (the
+      // CMS wrote it, so it is never a year read off a navigation menu, which the extractor has
+      // done), else the dateline or byline the extractor read. The search result's date stays on
+      // the source as the last rung.
+      const metadataPublished =
+        offClock(metadataString(doc, "publishedTime") ?? metadataString(doc, "article:published_time"), doc.markdown, now) ?? undefined;
+      const visible = offClock(visibleArticleDate(doc.markdown), doc.markdown, now);
+      // What the page says of its own day without the extractor: the year a guessed year is held to.
+      const ownDay = parseDate(visible ?? metadataPublished, now) ?? dateFromUrl(t.url) ?? parseDate(t.published, now);
+      // A day the page does not write, on the scrape's own day, is the clock's (offClock), and a year
+      // the page never gives is the extractor's (guessedYear): no date either way.
       const rounds = await mapLimit(parsed.success ? parsed.data.rounds : [], 8, async (r) => ({
         ...r,
-        announced_date: offClock(r.announced_date, doc.markdown, now),
+        announced_date: guessedYear(offClock(r.announced_date, doc.markdown, now), doc.markdown, ownDay, now, r.evidence_quote ?? ""),
         money_kind_checked:
           checkMoney && r.amount_as_written && r.money_kind_quote ? await checkMoney(r.money_kind_quote, r.amount_as_written) : null,
         certainty_checked: checkCertainty ? await checkCertainty(r.evidence_quote) : null,
@@ -574,16 +633,12 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
             )
           : null,
       }));
-      // The page's own publish date: its published-time metadata when the publisher set it (the
-      // CMS wrote it, so it is never a year read off a navigation menu, which the extractor has
-      // done), else the dateline or byline the extractor read. The search result's date stays on
-      // the source as the last rung.
-      const metadataPublished =
-        offClock(metadataString(doc, "publishedTime") ?? metadataString(doc, "article:published_time"), doc.markdown, now) ?? undefined;
-      const visible = offClock(visibleArticleDate(doc.markdown), doc.markdown, now);
       const reading: PageReading = {
         page_kind: parsed.success ? parsed.data.page_kind : null,
-        page_date: visible ?? metadataPublished ?? offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now),
+        page_date:
+          visible ??
+          metadataPublished ??
+          guessedYear(offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now), doc.markdown, ownDay, now),
         visible_article_date: Boolean(visible),
       };
       const published = visible ?? metadataPublished ?? t.published;
