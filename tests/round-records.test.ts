@@ -3,7 +3,7 @@
 // one, investors under their full names, and the company's own one-line description. Firecrawl's own
 // record (2026-10-07) is the case each rule came from.
 
-import { siteOneLiner, thinDescription } from "@fireround/core";
+import { acceptableSiteLine, siteOneLiner, thinDescription } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
@@ -317,5 +317,28 @@ describe("in the store", () => {
     const [after] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, seriesB.id));
     expect(after).toMatchObject({ companyId: "firecrawl", disposition: "publish", pendingDisposition: null });
     expect(after?.auditFacts).not.toBe(stamped?.auditFacts);
+  });
+});
+
+describe("the company's own line, held to the stricter rule", () => {
+  test("slogans, praise, pitches, other languages, and run-ons never replace a description", () => {
+    expect(siteOneLiner({ title: "Stoke Space | Any Orbit. Any Time." }, "Stoke Space")).toBeNull();
+    expect(siteOneLiner({ title: "YoLearn | India's #1 AI Tutor for CBSE, JEE & NEET" }, "YoLearn")).toBeNull();
+    expect(siteOneLiner({ title: "Pandektes | The source behind" }, "Pandektes")).toBeNull();
+    expect(siteOneLiner({ description: "Join over 5 million people sending money with Chipper Cash." }, "Chipper Cash")).toBeNull();
+    expect(siteOneLiner({ description: "Alan permet à chacun d’agir sur sa santé physique et mentale." }, "Alan")).toBeNull();
+    expect(siteOneLiner({ description: "Scaling microorganisms through fermentation Zymofix is a microbial CDMO." }, "Zymofix")).toBeNull();
+    expect(siteOneLiner({ description: "Nudge is an AI discovery and conversion platform for commerce brands." }, "Nudge")).toBe(
+      "Nudge is an AI discovery and conversion platform for commerce brands.",
+    );
+    expect(siteOneLiner({ title: "Harvey | AI software for legal and professional services" }, "Harvey")).toBe(
+      "AI software for legal and professional services",
+    );
+  });
+
+  test("a stored line from the looser rule is checked again", () => {
+    expect(acceptableSiteLine("Web Data API for AI Agents", "Firecrawl")).toBe(true);
+    expect(acceptableSiteLine("Any Orbit. Any Time.", "Stoke Space")).toBe(false);
+    expect(acceptableSiteLine("Restate is a low-latency application runtime with durable execution.", "Restate")).toBe(true);
   });
 });

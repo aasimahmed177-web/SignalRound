@@ -315,16 +315,25 @@ const NOT_A_DESCRIPTION =
 /** A title segment that is the site's furniture, not what the company does. */
 const NOT_A_TAGLINE = /^(?:home(?:page)?|welcome|official (?:site|website)|index|about(?: us)?|blog|news)$/i;
 
-/** Self-praise is a claim, not a description. */
+/** Self-praise and calls to action are claims or pitches, not descriptions. */
 const SELF_PRAISE =
-  /\b(?:fastest|easiest|best|leading|world['\u2019]s (?:first|best|largest|leading)|#1|number one|revolutionary|unrivall?ed|unmatched)\b/i;
+  /(?:#1|\b(?:fastest|easiest|best|leading|only|first|pioneer\w*|revolution\w*|world['\u2019]s|number one|unrivall?ed|unmatched|premier)\b)/i;
+const PITCH = /\b(?:you|your|join|discover|explore|meet|learn|get|unlock|say hello|supercharge|made simple|welcome)\b/i;
+/** What a tagline must name to describe a business: a product or a kind of company, not a mood ("Any Orbit. Any Time."). */
+const CATEGORY =
+  /\b(?:API|APIs|platform|software|app|cloud|database|infrastructure|network|marketplace|runtime|lab|firm|brokerage|SDK|tools?|engine|exchange|clinic|bank|insurer|manufacturer|maker|developer|operator|robots?|satellites?|chips?|semiconductors?)\b/i;
 
 function readable(line: string, min: number, max: number): boolean {
   return (
     line.length >= min &&
     line.length <= max &&
+    // A line in another language or script reads oddly beside the English record (the record keeps its own).
+    /^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{S}]+$/u.test(line) &&
+    !/(?:^|\s)(?:le|la|les|des|du|au|aux|et|sur|une|pour|avec|à|und|der|die|el|los|para)(?=\s|$)/i.test(line) &&
     !NOT_A_DESCRIPTION.test(line) &&
     !SELF_PRAISE.test(line) &&
+    !PITCH.test(line) &&
+    !line.includes("|") &&
     /\p{L}{3,}/u.test(line) &&
     !/https?:\/\//i.test(line)
   );
@@ -341,10 +350,11 @@ export function thinDescription(description: string | null | undefined): boolean
 
 /**
  * The company's own line from its verified homepage, or null and the record's description stands. Its
- * meta description's first sentence when that sentence names the company ("PlannerPal automates admin
- * tasks for financial advisers"), else what its title says beside its name ("Firecrawl | Web Data API
- * for AI Agents" reads "Web Data API for AI Agents"). A slogan that names nothing ("Your strategy deserves
- * execution.") is not a description, and neither is self-praise ("the fastest, easiest quoting").
+ * meta description's first sentence when the company is its subject ("PlannerPal automates admin tasks
+ * for financial advisers"), else what its title says beside its name when that names a product or a kind
+ * of business ("Firecrawl | Web Data API for AI Agents" reads "Web Data API for AI Agents"). A slogan
+ * ("Any Orbit. Any Time."), self-praise ("India's #1 AI Tutor"), a pitch to the reader ("Unlock your
+ * potential"), and a line in another language never do.
  */
 export function siteOneLiner(
   metadata: { title?: unknown; description?: unknown; ogDescription?: unknown } | undefined,
@@ -353,14 +363,33 @@ export function siteOneLiner(
   const raw = [metadata?.description, metadata?.ogDescription].find((d): d is string => typeof d === "string" && d.trim().length > 0);
   const text = raw?.replace(/\s+/g, " ").trim() ?? "";
   const first = (/^.+?[.!?](?=\s|$)/.exec(text)?.[0] ?? text).trim();
-  if (first && readable(first, 20, 200) && namesCompany(first, companyName, { share: 1 })) return first;
+  if (first && companySentence(first, companyName)) return first;
   const title = typeof metadata?.title === "string" ? metadata.title.replace(/\s+/g, " ").trim() : "";
   const segments = title.split(/\s+[|\u2013\u2014:-]\s+|\s*\|\s*/).map((s) => s.trim());
   if (!segments.some((s) => namesCompany(s, companyName, { share: 1 }))) return null;
   const tagline = segments.find(
-    (s) => !namesCompany(s, companyName, { share: 1 }) && !NOT_A_TAGLINE.test(s) && s.split(" ").length >= 2 && !/\.[a-z]{2,}$/i.test(s),
+    (s) => !namesCompany(s, companyName, { share: 1 }) && !NOT_A_TAGLINE.test(s) && s.split(" ").length >= 3 && !/\.[a-z]{2,}$/i.test(s),
   );
-  return tagline && readable(tagline, 12, 100) ? tagline : null;
+  return tagline && descriptiveTagline(tagline) ? tagline : null;
+}
+
+/** A sentence that opens with the company and says what it does: "PlannerPal automates admin tasks for financial advisers." */
+function companySentence(line: string, companyName: string): boolean {
+  const name = normalizeCompanyKey(companyName).split(" ").filter(Boolean);
+  const words = normalizeCompanyKey(line).split(" ").filter(Boolean);
+  // The sentence opens with the company: "Scaling microorganisms through fermentation Zymofix is ..." is a run-on, not a description.
+  const opens = name.length > 0 && name.every((t, i) => words[i] === t);
+  return opens && words.length >= name.length + 3 && readable(line, 20, 200);
+}
+
+/** A title tagline that names a product or a kind of business: "Web Data API for AI Agents". */
+function descriptiveTagline(line: string): boolean {
+  return line.split(" ").length >= 3 && CATEGORY.test(line) && readable(line, 12, 100);
+}
+
+/** Whether a stored homepage line (siteOneLiner's, under any version of its rule) passes today's rule. */
+export function acceptableSiteLine(line: string, companyName: string): boolean {
+  return companySentence(line, companyName) || (!namesCompany(line, companyName, { share: 1 }) && descriptiveTagline(line));
 }
 
 export function logoFrom(metadata: { favicon?: string | null } | undefined, pageUrl: string): string | null {

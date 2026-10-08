@@ -10,7 +10,7 @@
 // description (siteOneLiner).
 
 import type { Enrichment } from "@fireround/core";
-import { siteOneLiner, thinDescription, titleNamesCompany } from "@fireround/core";
+import { acceptableSiteLine, siteOneLiner, thinDescription, titleNamesCompany } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -239,7 +239,9 @@ async function planDescriptions(handle: Db, client: Firecrawl, companyIds: strin
         continue;
       }
     }
-    if (line && line !== r.description && thinDescription(r.description)) list.push({ companyId: r.id, from: r.description, to: line });
+    // A line stored under an earlier, looser rule is held to today's.
+    if (line && acceptableSiteLine(line, r.name) && line !== r.description && thinDescription(r.description))
+      list.push({ companyId: r.id, from: r.description, to: line });
   }
   return { list, credits };
 }

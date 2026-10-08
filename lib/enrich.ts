@@ -9,6 +9,7 @@
 
 import type { Enrichment } from "@fireround/core";
 import {
+  acceptableSiteLine,
   cleanBrandName,
   cleanHeadlineName,
   describingQuote,
@@ -353,12 +354,16 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
     if (e.profile) {
       // The company's own line from its verified homepage outranks a press description ("an AI data
       // access company"); without one, the profile's sentence fills a company that has none.
-      const [row] = await handle.select({ description: companies.description }).from(companies).where(eq(companies.id, companyId)).limit(1);
+      const [row] = await handle
+        .select({ name: companies.name, description: companies.description })
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .limit(1);
       await handle
         .update(companies)
         .set({
           description:
-            e.site_description && thinDescription(row?.description)
+            e.site_description && thinDescription(row?.description) && acceptableSiteLine(e.site_description, row?.name ?? "")
               ? e.site_description
               : sql`coalesce(${companies.description}, ${e.profile.what_they_sell})`,
           updatedAt: new Date(),
