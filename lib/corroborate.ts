@@ -21,7 +21,7 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
-import { earliestReport } from "./freshness.ts";
+import { earliestReport, releaseDay, storedReleaseSources } from "./freshness.ts";
 import { applyFill, type RecordFill } from "./gapfill.ts";
 import { listRounds, type RoundRow } from "./persist.ts";
 import { autoPromotionEligible, investorDomainsForRound, storedVisibilityEvidence } from "./round-verification.ts";
@@ -177,13 +177,22 @@ export async function corroborateRecord(
   const contradictions = corroborationConflicts(row, [...(result.readings ?? []), ...(result.disputed ?? [])], investorDomains, tiers);
   const reviewConflict = contradictions.length > 0 || openVerificationConflict(row);
   if (opts.broad && !row.history) {
-    const earliest = earliestReport(result.readings ?? [], row.company.domain, investorDomains, tiers);
+    const readings = result.readings ?? [];
+    const release = releaseDay(
+      [...(await storedReleaseSources(handle, row.id)), ...readings.flatMap((r) => r.sources)],
+      row.company.domain,
+      tiers,
+    );
+    const earliest = earliestReport(readings, row.company.domain, investorDomains, tiers, release);
     const date = !row.pinned?.announced_on && earliest && (!row.announced_on || earliest < row.announced_on) ? earliest : row.announced_on;
+    // The day keeps the basis its reading had: a page's byline read as a stated day would outrank later corrections.
+    const sameDay = readings.filter((r) => r.announced_date === date);
+    const basis = sameDay.some((r) => r.date_basis === "stated") ? "stated" : (sameDay[0]?.date_basis ?? "page");
     if (date) {
       await handle
         .update(schema.fundingRounds)
         .set({
-          ...(date !== row.announced_on ? { announcedOn: date, datePrecision: "day", dateBasis: "stated" } : {}),
+          ...(date !== row.announced_on ? { announcedOn: date, datePrecision: "day", dateBasis: basis } : {}),
           freshnessCheckedOn: date,
         })
         .where(eq(schema.fundingRounds.id, row.id));
@@ -191,7 +200,7 @@ export async function corroborateRecord(
       if (date !== row.announced_on) {
         row.announced_on = date;
         row.date_precision = "day";
-        row.date_basis = "stated";
+        row.date_basis = basis;
       }
     }
   }

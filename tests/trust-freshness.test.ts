@@ -5,7 +5,7 @@ import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord, promoteCheckedRound } from "../lib/corroborate.ts";
 import { staleForNews } from "../lib/deliverable.ts";
-import { earliestReport } from "../lib/freshness.ts";
+import { earliestReport, releaseDay, repairStaleReportDays } from "../lib/freshness.ts";
 import { identityAgrees, listRounds, type MergeRow, persistRecords } from "../lib/persist.ts";
 import { recordFromRow } from "../lib/reconcile.ts";
 import { claimRoundVerification, seedRoundVerification, visibilityEvidence } from "../lib/round-verification.ts";
@@ -426,5 +426,105 @@ describe("audit trust and freshness regressions", () => {
     expect(stored.history).toBe(true);
     expect(stored.announcedOn).toBe(original);
     expect(stored.disposition).toBe("review");
+  });
+});
+
+describe("a page's day far before the round's own release is not an earlier report", () => {
+  const stuut = (partial: Parameters<typeof record>[0]) =>
+    record({
+      company_key: "stuut",
+      company_domain: "stuut.ai",
+      stage: "series_b",
+      stage_as_written: "Series B",
+      lead_investors: ["Insight Partners"],
+      ...partial,
+    });
+  const RELEASE = "https://www.globenewswire.com/news-release/2026/10/07/3376511/0/en/ai-order-to-cash-platform-stuut-raises-52-5m";
+  // An older company post whose banner names the round, dated by the post's own metadata.
+  const blog = stuut({
+    company_name: "Stuut",
+    announced_date: "2026-03-11",
+    date_basis: "page",
+    sources: [{ url: "https://www.stuut.ai/blog/the-dark-side-of-ar-automation", host: "stuut.ai", published: "2026-03-11" }],
+  });
+  const wire = stuut({
+    company_name: "Stuut",
+    announced_date: "2026-10-07",
+    date_basis: "page",
+    sources: [{ url: RELEASE, host: "globenewswire.com", evidence: "the company is announcing a $52.5 million Series B" }],
+  });
+
+  test("releaseDay: a wire's copy, or the company or an established outlet calling the round today's news", () => {
+    expect(releaseDay(wire.sources, "stuut.ai")).toBe("2026-10-07");
+    const arceus = [
+      {
+        url: "https://siliconangle.com/2026/10/01/ai-driven-law-firm-arceus-legal-raises-17m",
+        evidence: "Arceus Legal today disclosed that it has raised $17 million in funding.",
+      },
+      {
+        url: "https://www.businessinsider.com/ai-native-law-firm-arceus-series-a",
+        published: "2026-06-18",
+        evidence: "Arceus raised $17 million.",
+      },
+    ];
+    expect(releaseDay(arceus, "arceus.legal")).toBe("2026-10-01");
+    expect(releaseDay(arceus.slice(1), "arceus.legal")).toBeNull();
+  });
+
+  test("Stuut: the March post's day yields to the October release; a stated earlier day stands", () => {
+    const release = releaseDay(wire.sources, "stuut.ai");
+    expect(earliestReport([wire, blog], "stuut.ai")).toBe("2026-03-11");
+    expect(earliestReport([wire, blog], "stuut.ai", [], {}, release)).toBe("2026-10-07");
+    expect(earliestReport([wire, { ...blog, date_basis: "stated" }], "stuut.ai", [], {}, release)).toBe("2026-03-11");
+    // Coverage a few days ahead of the release is still the earliest report.
+    expect(earliestReport([wire, { ...blog, announced_date: "2026-10-05" }], "stuut.ai", [], {}, release)).toBe("2026-10-05");
+  });
+
+  test("Pro Shop: a page whose URL dates it Oct 5 does not lend the May 10 its metadata read", () => {
+    const sbj = record({
+      company_name: "Pro Shop",
+      announced_date: "2026-05-10",
+      date_basis: "page",
+      sources: [
+        {
+          url: "https://www.sportsbusinessjournal.com/Articles/2026/10/05/pro-shops-latest-funding-round",
+          host: "sportsbusinessjournal.com",
+        },
+      ],
+    });
+    expect(earliestReport([sbj], null, [], { "sportsbusinessjournal.com": 0.7 })).toBeNull();
+    expect(earliestReport([{ ...sbj, announced_date: "2026-10-05" }], null, [], { "sportsbusinessjournal.com": 0.7 })).toBe("2026-10-05");
+  });
+
+  test("the repair re-dates a news round to its release and back to the feed, leaves a history-lane round, and runs once", async () => {
+    const handle = await testDb();
+    const today = new Date().toISOString().slice(0, 10);
+    const url = `https://www.globenewswire.com/news-release/${today.replaceAll("-", "/")}/1/0/en/stuut-raises`;
+    const round = stuut({
+      company_name: "Stuut",
+      announced_date: today,
+      date_basis: "stated",
+      sources: [{ url, host: "globenewswire.com", evidence: "the company is announcing a $52.5 million Series B" }],
+    });
+    await persistRecords(handle, [round], "series-a-b", "run-1");
+    // What the earliest-report check left: the March post's day, stored as stated, and the late-report flag it set.
+    await handle.update(schema.fundingRounds).set({ announcedOn: "2026-03-11" }).where(eq(schema.fundingRounds.id, round.id));
+    const old = record({
+      company_name: "Older",
+      company_key: "older",
+      announced_date: "2024-02-01",
+      date_basis: "stated",
+      sources: [{ url, host: "globenewswire.com", evidence: "Older, an earlier backer, also raised $20M in 2024." }],
+    });
+    await persistRecords(handle, [old], "series-a-b", "history:older", { history: true });
+    const [before] = await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id));
+    expect(before).toMatchObject({ history: true, hold: expect.stringMatching(/^reported later:/) });
+    const changes = await repairStaleReportDays(handle);
+    expect(changes).toEqual([{ id: round.id, from: "2026-03-11", to: today, backToFeed: true }]);
+    expect(await repairStaleReportDays(handle, true)).toEqual(changes);
+    const [after] = await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id));
+    expect(after).toMatchObject({ announcedOn: today, history: false, hold: null });
+    expect((await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, old.id)))[0].announcedOn).toBe("2024-02-01");
+    expect(await repairStaleReportDays(handle, true)).toEqual([]);
   });
 });
