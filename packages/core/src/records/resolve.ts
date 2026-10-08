@@ -464,13 +464,62 @@ export function firstOfTwoEntities(name: string): string {
   return a.length >= 3 && b.length >= 3 && stem(a) === stem(b) && /^[A-Z]/.test(b) ? a : name;
 }
 
+/** A wire's dateline ahead of its release text: "Oct. 2, 2026 /PRNewswire/ --", "Oct. 02, 2026 (GLOBE NEWSWIRE) --". */
+const WIRE_DATELINE =
+  /\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+(?:19|20)\d{2})\s*[/(]\s*(?:PR\s?Newswire|GLOBE\s?NEWSWIRE|EIN\s?Presswire|ACCESSWIRE|PRWEB|BUSINESS\s?WIRE|Newsfile)[^/)]{0,40}[/)]\s*[-–—]/i;
+
+/** How far ahead of a wire release coverage of its round can run (a report the evening before, an early leak). */
+const RELEASE_LEAD_DAYS = 45;
+
 /**
- * The release date among a record's own sources beats a republisher's or a newsletter's. When the
- * record's date was not stated by the text and a wire or the company's own site carries a day in its
+ * The day a wire release announced the round: the dateline of an evidence sentence that calls the round
+ * today's news ("SAN FRANCISCO, Oct. 2, 2026 /PRNewswire/ -- Supabase ... today announced $150 million").
+ * The earliest, when several releases are quoted.
+ */
+export function wireReleaseDay(evidence: readonly string[]): string | null {
+  const days = evidence.flatMap((quote) => {
+    const m = WIRE_DATELINE.exec(quote);
+    if (!m?.[1] || !/\btoday\b/i.test(quote.slice(m.index))) return [];
+    const d = parseStatedDate(m[1]);
+    return d ? [d.toISOString().slice(0, 10)] : [];
+  });
+  return days.sort()[0] ?? null;
+}
+
+/**
+ * Whether a round's day gives way to the day a wire release announced it. Coverage trails a release, so a
+ * later day gives way; so does an earlier day the text never stated that sits further back than coverage
+ * runs ahead of a release (a page's stale byline, a misread year). A stated day before the release, or a
+ * borrowed one a little before it, stands.
+ */
+export function yieldsToRelease(day: { announcedOn: string | null; dateBasis: string | null }, release: string): boolean {
+  if (!day.announcedOn || day.announcedOn > release) return true;
+  if (day.dateBasis === "stated") return false;
+  return Date.parse(release) - Date.parse(day.announcedOn) > RELEASE_LEAD_DAYS * 86_400_000;
+}
+
+/**
+ * The release date among a record's own sources beats a republisher's or a newsletter's. A wire release
+ * quoted announcing the round today dates it by its dateline (yieldsToRelease says when). Otherwise, when
+ * the record's date was not stated by the text and a wire or the company's own site carries a day in its
  * URL up to 21 days earlier, that day is the announcement. Returns the settled record; the input is
  * left as it was.
  */
 export function settleDate(record: FeedRecord, opts: { onlyRough?: boolean } = {}): FeedRecord {
+  const release = wireReleaseDay(record.evidence_quotes ?? []);
+  if (
+    release &&
+    release !== record.announced_date &&
+    yieldsToRelease({ announcedOn: record.announced_date, dateBasis: record.date_basis ?? null }, release)
+  )
+    return {
+      ...record,
+      announced_date: release,
+      date_precision: "day",
+      date_basis: "stated",
+      undated: false,
+      id: recordId(record.company_key, record.stage, release),
+    };
   // A record read back from the store carries no basis; then only a rough date (a week, a month, none) may move.
   if (opts.onlyRough && record.date_precision === "day" && !record.undated) return record;
   const stated = record.date_basis === "stated";

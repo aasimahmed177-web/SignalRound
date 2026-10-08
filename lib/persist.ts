@@ -25,6 +25,8 @@ import {
   secondhandOnly,
   unsupportedValuation,
   type ValuationClaim,
+  wireReleaseDay,
+  yieldsToRelease,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
@@ -1107,6 +1109,19 @@ export async function persistRecords(
       r.date_precision = prev.datePrecision as FeedRecord["date_precision"];
       r.date_basis = (prev.dateBasis ?? undefined) as FeedRecord["date_basis"];
       r.undated = prev.announcedOn === null;
+    }
+    // Except a wire release, read now or before, announcing the round today: its dateline dates the round.
+    const release = wireReleaseDay([...(prev?.evidence ?? []), ...r.evidence_quotes]);
+    if (
+      release &&
+      !prev?.pinned?.announced_on &&
+      release !== r.announced_date &&
+      yieldsToRelease({ announcedOn: r.announced_date, dateBasis: r.date_basis ?? null }, release)
+    ) {
+      r.announced_date = release;
+      r.date_precision = "day";
+      r.date_basis = "stated";
+      r.undated = false;
     }
     // What the store already verified about this company: a reading with no amount that falls below
     // it, or is known only from a list, starts in review (a trend story's OpenAI "Series A").
@@ -2248,8 +2263,12 @@ function survivorFacts(keep: MergeRow, dup: MergeRow): Partial<typeof fundingRou
       (a.announcedOn ?? "").localeCompare(b.announcedOn ?? ""),
   );
   const confirmed = [keep, dup].find((r) => r.certainty === "announced");
-  const dateSource =
-    confirmed && !keep.pinned?.announced_on && !dup.pinned?.announced_on && keep.certainty !== dup.certainty ? confirmed : dated;
+  const unpinned = !keep.pinned?.announced_on && !dup.pinned?.announced_on;
+  const ruled = confirmed && unpinned && keep.certainty !== dup.certainty ? confirmed : dated;
+  // A wire release either row quotes announcing the round today dates it over a stale or misread day.
+  const release = wireReleaseDay([...keep.evidence, ...dup.evidence]);
+  const released = release !== null && unpinned && release !== ruled.announcedOn && yieldsToRelease(ruled, release);
+  const dateSource = released ? { announcedOn: release, datePrecision: "day", dateBasis: "stated" } : ruled;
   if (
     dateSource !== keep &&
     (dateSource.announcedOn !== keep.announcedOn ||
@@ -2265,7 +2284,7 @@ function survivorFacts(keep: MergeRow, dup: MergeRow): Partial<typeof fundingRou
   // reader's, so it lends no read state. Otherwise the most-read status wins.
   // A re-report (the feed row's day far after the history row's) was never news, so the survivor
   // stays history: Sammmm's January 2025 seed came back in a September 2026 snippet.
-  const reReport = keep.announcedOn !== null && dup.announcedOn !== null && readingGap(keep, dup) > SAME_STAGE_WINDOW_DAYS;
+  const reReport = !released && keep.announcedOn !== null && dup.announcedOn !== null && readingGap(keep, dup) > SAME_STAGE_WINDOW_DAYS;
   if (keep.history && !dup.history && !reReport) {
     set.history = false;
     if (dup.status !== keep.status) set.status = dup.status;

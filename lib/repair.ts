@@ -24,6 +24,7 @@ import {
   SECTORS,
   settleDate,
   WEEKLY_LIST,
+  wireReleaseDay,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
@@ -325,10 +326,13 @@ export async function settleStoredDates(handle: Db): Promise<{ moved: number; sh
         undated: row.announced_on === null,
         company_domain: row.company.domain,
         sources: row.sources.map((s) => ({ url: s.url, host: s.host, title: s.title ?? undefined, published: s.published ?? undefined })),
+        evidence_quotes: row.evidence_quotes,
       } as FeedRecord;
       const settled = settleDate(record, { onlyRough: record.date_basis === undefined });
       if (settled.announced_date === row.announced_on && settled.date_precision === row.date_precision) continue;
+      // A wire release's dateline may move a day later; nothing else does.
       if (
+        settled.announced_date !== wireReleaseDay(row.evidence_quotes) &&
         neverLater({ announcedOn: row.announced_on, datePrecision: row.date_precision, dateBasis: row.date_basis }, settled.announced_date)
       )
         continue;

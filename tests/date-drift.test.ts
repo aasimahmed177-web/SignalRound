@@ -3,7 +3,7 @@
 // then to the Sep 21 the read-back found on it; bluecore-energy, hand-fixed to Sep 8 and back at a trade
 // republication's Sep 22 a day later.
 
-import type { FeedRecord } from "@fireround/core";
+import { type FeedRecord, settleDate, wireReleaseDay } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
@@ -202,5 +202,101 @@ describe("a fix-records day and stage are pinned", () => {
     expect((await row(db, BLUECORE))?.pinned).toEqual({ announced_on: "2026-09-08", stage: "seed" });
     const again = await applyRecordFixes(db, fixes, { apply: true });
     expect(again).toMatchObject({ applied: 0, skipped: 2 });
+  });
+});
+
+describe("a wire release announcing the round today dates it", () => {
+  const RELEASE = "https://www.prnewswire.com/news-releases/supabase-announces-150m-in-new-funding-and-turso-acquisition-302896752.html";
+  const ARTICLE = "https://www.citybiz.co/article/913344/supabase-raises-150-million-acquires-turso-to-scale-agentic-databases";
+  const DATELINE =
+    "SAN FRANCISCO, Oct. 2, 2026 /PRNewswire/ -- Supabase, the leader in agentic infrastructure and open source Postgres development platform, today announced $150 million in new funding led by GIC.";
+  const supabase = (partial: Partial<FeedRecord>) =>
+    record({
+      company_name: "Supabase",
+      company_key: "supabase",
+      company_domain: "supabase.com",
+      stage: "other",
+      stage_as_written: "Funding round",
+      amount: usd(150, "2026-10-02"),
+      lead_investors: ["GIC"],
+      ...partial,
+    });
+
+  test("wireReleaseDay reads the dateline of a release that calls the round today's news", () => {
+    expect(wireReleaseDay([DATELINE])).toBe("2026-10-02");
+    expect(wireReleaseDay(["NEW YORK, Oct. 02, 2026 (GLOBE NEWSWIRE) -- Acme today announced a $20 million Series A."])).toBe("2026-10-02");
+    expect(wireReleaseDay(["Acme today announced a $20 million Series A.", DATELINE.replace("today ", "")])).toBeNull();
+    expect(wireReleaseDay(["Supabase has raised $150 million in new funding led by GIC."])).toBeNull();
+  });
+
+  test("settleDate: the release's day beats a stale page day and a later day; a stated or near-earlier day stands", () => {
+    const at = (announced_date: string, date_basis: FeedRecord["date_basis"]) =>
+      settleDate(supabase({ announced_date, date_basis, evidence_quotes: [DATELINE] }));
+    expect(at("2023-10-30", "page")).toMatchObject({ announced_date: "2026-10-02", date_basis: "stated", id: "supabase:other:2026-10-02" });
+    expect(at("2026-10-05", "stated")).toMatchObject({ announced_date: "2026-10-02", date_basis: "stated" });
+    expect(at("2026-10-01", "page")).toMatchObject({ announced_date: "2026-10-01", date_basis: "page" });
+    expect(at("2026-07-01", "stated")).toMatchObject({ announced_date: "2026-07-01", date_basis: "stated" });
+  });
+
+  test("Supabase: a history row misdated to a 2023 page day folds into the release's round as news on the release's day", async () => {
+    const db = await testDb();
+    const release = { url: RELEASE, host: "prnewswire.com", published: "2026-10-02" };
+    await persistRecords(
+      db,
+      [
+        supabase({
+          id: "supabase:other:2026-10-02",
+          announced_date: "2026-10-02",
+          date_basis: "stated",
+          evidence_quotes: [DATELINE],
+          sources: [release],
+          verification: { status: "confirmed", notes: [], url: RELEASE },
+        }),
+      ],
+      "growth",
+      "run-1",
+    );
+    // The history lane read a news article on the round with a 2023 day on its page: three years from
+    // the release, so it lands as a row of its own.
+    await persistRecords(
+      db,
+      [
+        supabase({
+          id: "supabase:other:2023-10-30",
+          announced_date: "2023-10-30",
+          date_basis: "page",
+          evidence_quotes: [
+            "Supabase has raised $150 million in new funding led by GIC and acquired database infrastructure company Turso.",
+          ],
+          sources: [{ url: ARTICLE, host: "citybiz.co" }, release],
+          verification: { status: "corrected", notes: [], url: RELEASE },
+        }),
+      ],
+      "growth",
+      "history:supabase",
+      { history: true },
+    );
+    expect(await db.select().from(schema.fundingRounds)).toHaveLength(2);
+    // A story calling it growth equity bridges the two, and the merge pass folds all three.
+    await persistRecords(
+      db,
+      [
+        supabase({
+          id: "supabase:growth:2026-10-02",
+          stage: "growth",
+          stage_as_written: "growth equity",
+          announced_date: "2026-10-02",
+          date_basis: "page",
+          evidence_quotes: ["Supabase raises $150 million to completely rewire how backend architecture functions."],
+          sources: [{ url: "https://ventureburn.com/supabase-raises-150-million", host: "ventureburn.com", published: "2026-10-02" }],
+        }),
+      ],
+      "growth",
+      "run-2",
+    );
+    await mergeDuplicateRounds(db);
+    const rows = await db.select().from(schema.fundingRounds);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ announcedOn: "2026-10-02", dateBasis: "stated", history: false, hold: null });
   });
 });

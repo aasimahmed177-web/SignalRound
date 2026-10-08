@@ -2,7 +2,7 @@ import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
 import { expect, test, vi } from "vitest";
 import { enqueueDeliveries } from "../lib/delivery";
-import { repairLateHistory } from "../lib/late-history";
+import { repairLateHistory, repairReleaseDays } from "../lib/late-history";
 import { listRounds, persistRecords, toFeedRow } from "../lib/persist";
 import { createTarget } from "../lib/settings";
 import { record, testDb } from "./helpers";
@@ -98,4 +98,37 @@ test("an instance with no model key still holds an unchecked round from delivery
   await createTarget(db, { channel: "slack", target: "https://hooks.slack.test/keyless", minConfidence: 0.5 });
   expect(await enqueueDeliveries(db, [item.id], "seed")).toBe(0);
   vi.unstubAllEnvs();
+});
+
+test("a round misdated far before its wire release goes back to the release's day and the feed, once", async () => {
+  const db = await testDb();
+  const released = day(1);
+  const dateline = new Date(`${released}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const quote = `SAN FRANCISCO, ${dateline} /PRNewswire/ -- Supabase today announced $150 million in new funding led by GIC.`;
+  const round = record({ company_name: "Supabase", announced_date: released, date_basis: "stated", evidence_quotes: [quote] });
+  await persistRecords(db, [round], "growth", "first");
+  // The state a stale page day left behind: the old day, and the reported-later rule's history flag and hold.
+  await db
+    .update(schema.fundingRounds)
+    .set({
+      announcedOn: "2023-10-30",
+      dateBasis: "page",
+      verification: { status: "confirmed", notes: ["held for review: earliest-report search pending"], url: null },
+    })
+    .where(eq(schema.fundingRounds.id, round.id));
+  const before = (await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id)))[0];
+  expect(before).toMatchObject({ history: true, hold: expect.stringMatching(/^reported later: announced 2023-10-30/) });
+  const changes = await repairReleaseDays(db);
+  expect(changes).toEqual([{ id: round.id, from: "2023-10-30", to: released, backToFeed: true, quote }]);
+  expect((await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id)))[0].announcedOn).toBe("2023-10-30");
+  expect(await repairReleaseDays(db, true)).toEqual(changes);
+  const [after] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id));
+  expect(after).toMatchObject({ announcedOn: released, dateBasis: "stated", history: false, hold: null });
+  expect(after.verification?.notes).toEqual(["held for review: earliest-report search pending"]);
+  expect(await repairReleaseDays(db, true)).toEqual([]);
 });
