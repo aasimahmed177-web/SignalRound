@@ -300,3 +300,67 @@ describe("a wire release announcing the round today dates it", () => {
     expect(rows[0]).toMatchObject({ announcedOn: "2026-10-02", dateBasis: "stated", history: false, hold: null });
   });
 });
+
+describe("a stale page day does not undo a round's release day", () => {
+  const RELEASE = "https://www.globenewswire.com/news-release/2026/10/07/3376511/0/en/ai-order-to-cash-platform-stuut-raises-52-5m";
+  const stuut = (partial: Partial<FeedRecord>) =>
+    record({
+      company_name: "Stuut",
+      company_key: "stuut",
+      company_domain: "stuut.ai",
+      id: "stuut:series_b:2026-10-07",
+      stage: "series_b",
+      stage_as_written: "Series B",
+      amount: usd(52.5, "2026-10-07"),
+      lead_investors: ["Insight Partners"],
+      ...partial,
+    });
+
+  test("Stuut: a later reading of the March blog post leaves the October release day, a nearer earlier day still moves it", async () => {
+    const db = await testDb();
+    const today = new Date().toISOString().slice(0, 10);
+    const release = RELEASE.replace("2026/10/07", today.replaceAll("-", "/"));
+    await persistRecords(
+      db,
+      [
+        stuut({
+          announced_date: today,
+          date_basis: "page",
+          sources: [{ url: release, host: "globenewswire.com", evidence: "the company is announcing a $52.5 million Series B" }],
+        }),
+      ],
+      "series-a-b",
+      "run-1",
+    );
+    // The read-back, or a sweep, reads the company's March post again; its metadata dates it seven months back.
+    const march = new Date(Date.now() - 210 * 86_400_000).toISOString().slice(0, 10);
+    await persistRecords(
+      db,
+      [
+        stuut({
+          announced_date: march,
+          date_basis: "page",
+          sources: [{ url: "https://www.stuut.ai/blog/the-dark-side-of-ar-automation", host: "stuut.ai", published: march }],
+        }),
+      ],
+      "series-a-b",
+      "reconcile",
+    );
+    expect(await row(db, "stuut:series_b:2026-10-07")).toMatchObject({ announcedOn: today, history: false, hold: null });
+    // A report a few days before the release is still the earlier report, and moves the day.
+    const before = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    await persistRecords(
+      db,
+      [
+        stuut({
+          announced_date: before,
+          date_basis: "page",
+          sources: [{ url: "https://www.axios.com/pro/stuut", host: "axios.com", published: before }],
+        }),
+      ],
+      "series-a-b",
+      "run-2",
+    );
+    expect((await row(db, "stuut:series_b:2026-10-07"))?.announcedOn).toBe(before);
+  });
+});

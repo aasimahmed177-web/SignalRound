@@ -34,6 +34,7 @@ import { and, desc, eq, gte, inArray, isNull, like, lt, lte, or, type SQL, sql }
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
 import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
+import { releaseDay, staleBeforeRelease, storedReleaseSources } from "./freshness.ts";
 import { fullerInvestorName } from "./investor-names.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
@@ -1121,6 +1122,24 @@ export async function persistRecords(
       r.announced_date = release;
       r.date_precision = "day";
       r.date_basis = "stated";
+      r.undated = false;
+    }
+    // Nor does a page's own day (a stale byline or metadata) far before the round's own release move a
+    // stored day earlier: the check the earliest-report search makes (staleBeforeRelease), on every reading.
+    if (
+      prev?.announcedOn &&
+      !prev.pinned?.announced_on &&
+      r.announced_date &&
+      r.announced_date < prev.announcedOn &&
+      staleBeforeRelease(
+        r.announced_date,
+        r.date_basis,
+        releaseDay([...(await storedReleaseSources(handle, prev.id)), ...r.sources], r.company_domain ?? prev.domain),
+      )
+    ) {
+      r.announced_date = prev.announcedOn;
+      r.date_precision = prev.datePrecision as FeedRecord["date_precision"];
+      r.date_basis = (prev.dateBasis ?? undefined) as FeedRecord["date_basis"];
       r.undated = false;
     }
     // What the store already verified about this company: a reading with no amount that falls below
