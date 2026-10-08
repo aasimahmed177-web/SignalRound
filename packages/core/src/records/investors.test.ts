@@ -938,6 +938,24 @@ describe("normalizeInvestorName", () => {
     expect(normalizeInvestorName("Acme Ventures (formerly Acme Labs)")).toBe("Acme Ventures");
     expect(normalizeInvestorName("Andreessen Horowitz (a16z)")).toBe("Andreessen Horowitz (a16z)");
   });
+
+  test("a place's possessive is where the investor is: the name after it stands alone", () => {
+    expect(normalizeInvestorName("Singapore's GIC")).toBe("GIC");
+    expect(normalizeInvestorName("Singapore’s GIC")).toBe("GIC");
+    expect(normalizeInvestorName("Abu Dhabi’s MGX")).toBe("MGX");
+    expect(normalizeInvestorName("the UAE's MGX")).toBe("MGX");
+    expect(normalizeInvestorName("Canada’s OTPP")).toBe("OTPP");
+    expect(normalizeInvestorName("France's Source Ventures")).toBe("Source Ventures");
+    expect(normalizeInvestorName("India’s National Quantum Mission")).toBe("National Quantum Mission");
+    // Nothing left that names an investor on its own: the place stays part of the name.
+    expect(normalizeInvestorName("Kuwait’s Investment Authority")).toBe("Kuwait’s Investment Authority");
+    // An owner's possessive, a possessive inside a name, and a place inside a longer name are not places.
+    expect(normalizeInvestorName("Alphabet's CapitalG")).toBe("Alphabet's CapitalG");
+    expect(normalizeInvestorName("Microsoft’s M12")).toBe("Microsoft’s M12");
+    expect(normalizeInvestorName("Monk's Hill Ventures")).toBe("Monk's Hill Ventures");
+    expect(normalizeInvestorName("Founder’s Fund")).toBe("Founder’s Fund");
+    expect(normalizeInvestorName("Media City Qatar's Next Ventures")).toBe("Media City Qatar's Next Ventures");
+  });
 });
 
 describe("investorMentions", () => {

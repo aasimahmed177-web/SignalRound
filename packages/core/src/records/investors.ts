@@ -486,6 +486,127 @@ const FIRM_WORDS = new Set([
 ]);
 
 /**
+ * Places a publisher names an investor through: "Singapore's GIC", "Abu Dhabi's MGX", "Canada's OTPP".
+ * A fixed list, so a possessive that is part of a name ("Monk's Hill Ventures") or an owner's
+ * ("Alphabet's CapitalG") is never read as one.
+ */
+const PLACES = [
+  "Abu Dhabi",
+  "Africa",
+  "America",
+  "Argentina",
+  "Asia",
+  "Australia",
+  "Austria",
+  "Bahrain",
+  "Bavaria",
+  "Beijing",
+  "Belgium",
+  "Berlin",
+  "Brazil",
+  "Britain",
+  "California",
+  "Canada",
+  "Chile",
+  "China",
+  "Colombia",
+  "Denmark",
+  "Dubai",
+  "Egypt",
+  "Estonia",
+  "Europe",
+  "Finland",
+  "France",
+  "Germany",
+  "Hong Kong",
+  "India",
+  "Indonesia",
+  "Ireland",
+  "Israel",
+  "Italy",
+  "Japan",
+  "Kenya",
+  "Korea",
+  "Kuwait",
+  "Latin America",
+  "London",
+  "Luxembourg",
+  "Malaysia",
+  "Mexico",
+  "Morocco",
+  "Mumbai",
+  "Netherlands",
+  "New York",
+  "New Zealand",
+  "Nigeria",
+  "Norway",
+  "Oman",
+  "Ontario",
+  "Paris",
+  "Philippines",
+  "Poland",
+  "Portugal",
+  "Qatar",
+  "Quebec",
+  "Québec",
+  "Riyadh",
+  "Saudi Arabia",
+  "Scotland",
+  "Seoul",
+  "Shanghai",
+  "Shenzhen",
+  "Silicon Valley",
+  "Singapore",
+  "South Africa",
+  "South Korea",
+  "Spain",
+  "Sweden",
+  "Switzerland",
+  "Taiwan",
+  "Texas",
+  "Thailand",
+  "the Gulf",
+  "the Middle East",
+  "the Netherlands",
+  "the Philippines",
+  "the U.K.",
+  "the U.S.",
+  "the UAE",
+  "the UK",
+  "the US",
+  "Tokyo",
+  "Turkey",
+  "U.K.",
+  "U.S.",
+  "UAE",
+  "UK",
+  "US",
+  "Vietnam",
+  "Wales",
+];
+const PLACE_POSSESSIVE = new RegExp(`^(?:${PLACES.map(escapeRegExp).join("|")})['’]s\\s+([\\p{Lu}\\d].*)$`, "u");
+/** Words that leave no name of its own once the place goes: "Kuwait's Investment Authority" is Kuwait's. */
+const INSTITUTION_WORDS = new Set([
+  ...FIRM_WORDS,
+  "authority",
+  "sovereign",
+  "wealth",
+  "development",
+  "agency",
+  "ministry",
+  "government",
+  "national",
+  "state",
+  "public",
+  "pension",
+  "central",
+  "council",
+  "of",
+  "and",
+  "the",
+]);
+
+/**
  * Two or three capitalized words, none a firm word: the shape of a person's name. Shape, not
  * proof: "Kleiner Perkins" has it too, which is why the investor-domain resolver treats a match
  * as a reason for stricter evidence rather than a refusal.
@@ -1144,6 +1265,9 @@ export function normalizeInvestorName(name: string): string | null {
   // A lowercase "the" before a capitalized name is the sentence's article ("the University of
   // Michigan", "the Raine Group"); a firm that is "The Column Group" writes its own capital T.
   s = s.replace(/^the\s+(?=[A-Z0-9])/, "");
+  // A place's possessive says where the investor is, not who: "Singapore's GIC" is GIC.
+  const placed = PLACE_POSSESSIVE.exec(s)?.[1];
+  if (placed && !tokens(placed).every((t) => INSTITUTION_WORDS.has(t))) s = placed;
   const owned = OWNER_DESCRIPTOR.exec(head(s));
   if (owned?.[1] && owned[2]) {
     const vehicle = owned[3]?.trim();
