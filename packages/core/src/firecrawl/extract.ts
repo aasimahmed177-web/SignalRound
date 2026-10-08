@@ -6,6 +6,7 @@
 import type { Firecrawl } from "firecrawl";
 import { jevCertaintyClassifier, jevIssuerClassifier, jevMoneyClassifier } from "../llm/jev.ts";
 import { mixedFinancingScope } from "../records/money-kind.ts";
+import type { DateContext } from "../records/normalize.ts";
 import {
   classifyStage,
   dateFromUrl,
@@ -557,7 +558,7 @@ function metadataString(doc: { metadata?: Record<string, unknown> }, key: string
 }
 
 /** A newsroom article's printed publication day immediately below its headline. */
-export function visibleArticleDate(markdown: string | undefined): string | null {
+export function visibleArticleDate(markdown: string | undefined, ctx: DateContext = {}): string | null {
   if (!markdown) return null;
   const lines = markdown
     .split("\n")
@@ -568,7 +569,7 @@ export function visibleArticleDate(markdown: string | undefined): string | null 
   for (const line of lines.slice(heading + 1, heading + 5)) {
     const plain = line.replace(/^[*_]+|[*_]+$/g, "").trim();
     if (/^(?:updated|last modified)\b/i.test(plain)) continue;
-    const day = parseStatedDate(plain);
+    const day = parseStatedDate(plain, ctx);
     if (day && plain.length <= 40) return day.toISOString().slice(0, 10);
   }
   return null;
@@ -614,9 +615,11 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
       // the source as the last rung.
       const metadataPublished =
         offClock(metadataString(doc, "publishedTime") ?? metadataString(doc, "article:published_time"), doc.markdown, now) ?? undefined;
-      const visible = offClock(visibleArticleDate(doc.markdown), doc.markdown, now);
+      // A numeric byline both orders could read ("08-10-2026") takes the one the page's other dates, or the clock, support.
+      const pageDates = { agree: [parseDate(metadataPublished, now), dateFromUrl(t.url)], near: now };
+      const visible = offClock(visibleArticleDate(doc.markdown, pageDates), doc.markdown, now);
       // What the page says of its own day without the extractor: the year a guessed year is held to.
-      const ownDay = parseDate(visible ?? metadataPublished, now) ?? dateFromUrl(t.url) ?? parseDate(t.published, now);
+      const ownDay = parseDate(visible ?? metadataPublished, now) ?? dateFromUrl(t.url) ?? parseDate(t.published, now, pageDates);
       // A day the page does not write, on the scrape's own day, is the clock's (offClock), and a year
       // the page never gives is the extractor's (guessedYear): no date either way.
       const rounds = await mapLimit(parsed.success ? parsed.data.rounds : [], 8, async (r) => ({

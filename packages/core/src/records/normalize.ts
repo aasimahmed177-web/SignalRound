@@ -117,7 +117,7 @@ export function stageForAmount(stage: Stage, asWritten: string, usdMillions: num
 }
 
 /** Parse the many ways a date arrives (ISO, prose, "2 days ago") into a Date, or null. */
-export function parseDate(value: string | null | undefined, now: Date = new Date()): Date | null {
+export function parseDate(value: string | null | undefined, now: Date = new Date(), ctx: DateContext = {}): Date | null {
   if (!value) return null;
   const v = value.trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
@@ -125,8 +125,58 @@ export function parseDate(value: string | null | undefined, now: Date = new Date
     const d = new Date(`${iso[1]}-${iso[2]}-${iso[3]}T12:00:00Z`);
     return Number.isNaN(d.getTime()) ? null : d;
   }
+  const numeric = numericDay(v, { near: now, ...ctx });
+  if (numeric !== undefined) return numeric;
   const parsed = chrono.parseDate(v, now, { forwardDate: false });
   return parsed ?? null;
+}
+
+/** What else a page says about its day: the dates it gives itself elsewhere, and when it was read. */
+export interface DateContext {
+  /** The page's other days: its metadata, its URL, a byline, a month written out. */
+  agree?: ReadonlyArray<Date | null | undefined>;
+  /** When the page was read (the scrape, or the round's first sighting): no reading falls after it. */
+  near?: Date | null;
+}
+
+const DAY_MS = 86_400_000;
+/** How near the read time a reading must be for the read time to choose it: a fresh page's news window. */
+const READ_WINDOW_DAYS = 14;
+
+/**
+ * A numeric date written with dots, dashes, or slashes. A dotted one is day first ("01.02.2021" is
+ * 1 February), the convention wherever dots are used. One that only one order makes valid is read that
+ * way ("25-09-2026", "09-25-2026"). When both orders are valid ("08-10-2026" is 8 October to
+ * Investing.com India and 10 August to a US page), the page decides: the reading another of its dates
+ * agrees with; else, on a page read while fresh, the reading within the news window of the read time
+ * that is nearest it and not after it. An old page's read time says nothing about its order, so
+ * otherwise a dashed date is no date and a slashed one is month first, the order slashes mostly mean
+ * ("3/7/2024" on a US page is 7 March). Undefined when the text holds no such date.
+ */
+function numericDay(v: string, ctx: DateContext = {}): Date | null | undefined {
+  const m = /(?<!\d)(\d{1,2})([./-])(\d{1,2})\2((?:19|20)\d{2})(?!\d)/.exec(v);
+  if (!m) return undefined;
+  const [a, b, year] = [Number(m[1]), Number(m[3]), Number(m[4])];
+  if (m[2] === ".") return utcDay(year, b, a);
+  if (a > 12 || b > 12 || a === b) return a <= 12 && b > 12 ? utcDay(year, a, b) : utcDay(year, b, a);
+  const dayFirst = utcDay(year, b, a);
+  const monthFirst = utcDay(year, a, b);
+  const readings = [dayFirst, monthFirst].filter((d): d is Date => d !== null);
+  const sameDay = (x: Date, y: Date) => Math.abs(x.getTime() - y.getTime()) <= DAY_MS;
+  const agreed = readings.filter((r) => (ctx.agree ?? []).some((o) => o && sameDay(r, o)));
+  if (agreed.length === 1) return agreed[0] as Date;
+  const near = ctx.near;
+  const fresh = near
+    ? readings
+        .filter((r) => r.getTime() <= near.getTime() + DAY_MS && near.getTime() - r.getTime() <= READ_WINDOW_DAYS * DAY_MS)
+        .sort((x, y) => Math.abs(near.getTime() - x.getTime()) - Math.abs(near.getTime() - y.getTime()))
+    : [];
+  if (fresh.length === 1) return fresh[0] as Date;
+  if (fresh.length === 2 && near) {
+    const [x, y] = fresh as [Date, Date];
+    if (Math.abs(near.getTime() - x.getTime()) !== Math.abs(near.getTime() - y.getTime())) return x;
+  }
+  return m[2] === "/" ? monthFirst : null;
 }
 
 const RELATIVE_DATE_WORDS = /\b(today|yesterday|tomorrow|tonight|ago|now|this|last|next|past|recently|earlier)\b/i;
@@ -142,21 +192,22 @@ function utcDay(year: number, month: number, day: number): Date | null {
 
 /**
  * A date the page itself states (a round's date, a dateline, a byline), read without a clock.
- * ISO passes as written; a dotted numeric date is day first ("01.02.2021" is 1 February, the
- * convention wherever dots are used). Anything else must name a year and a day: "Sept. 2, 2026",
+ * ISO passes as written; a numeric date takes the order the page supports (numericDay): dotted day
+ * first, an ambiguous dashed one null and a slashed one month first when nothing chooses. Anything else
+ * must name a year and a day: "Sept. 2, 2026",
  * "2 September 2026". Relative phrasing ("today", "2 days ago", "this week") and a date with no
  * year ("Aug 13") are null, since resolving them needs the run's clock, which is what this parser
  * exists to keep out of a record. A month with no day ("September 2026") is null too, and so is
  * an "Updated ..." stamp, which dates the page's last edit rather than its news.
  */
-export function parseStatedDate(value: string | null | undefined): Date | null {
+export function parseStatedDate(value: string | null | undefined, ctx: DateContext = {}): Date | null {
   if (!value) return null;
   const v = value.trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
   if (iso) return utcDay(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-  const dotted = /^(\d{1,2})\.(\d{1,2})\.((?:19|20)\d{2})$/.exec(v);
-  if (dotted) return utcDay(Number(dotted[3]), Number(dotted[2]), Number(dotted[1]));
   if (RELATIVE_DATE_WORDS.test(v) || STAMP_WORDS.test(v) || !HAS_YEAR.test(v)) return null;
+  const numeric = numericDay(v, ctx);
+  if (numeric !== undefined) return numeric;
   // The reference instant is fixed, so nothing about the run's clock can reach the result.
   const parsed = chrono.parse(v, new Date("2000-01-01T12:00:00Z"), { forwardDate: false })[0];
   if (!parsed) return null;

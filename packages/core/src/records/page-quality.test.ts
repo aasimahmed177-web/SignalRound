@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { extractRounds, NOT_ARTICLE_ERROR, pageItems } from "../firecrawl/extract.ts";
+import { extractRounds, NOT_ARTICLE_ERROR, pageItems, visibleArticleDate } from "../firecrawl/extract.ts";
 import { articleCandidates } from "../firecrawl/sweep.ts";
 import { classifyRoundCertainty } from "./certainty.ts";
-import { hostOf, isArticleUrl, isCompanyDescription, parseAmount, parseStatedDate, stripFurniture } from "./normalize.ts";
+import { hostOf, isArticleUrl, isCompanyDescription, parseAmount, parseDate, parseStatedDate, stripFurniture } from "./normalize.ts";
 import { backgroundByPageShape } from "./page-shape.ts";
 import type { ExtractedItem } from "./resolve.ts";
 import { cleanRound, datelineLocation, isRumorText, resolveRounds, scrubHeadquarters, trustedWebsite } from "./resolve.ts";
@@ -197,6 +197,47 @@ describe("page_kind: what the page is decides whether its rounds are news", () =
 });
 
 describe("dates: the text, then the page, then the URL, then the search result, never the clock", () => {
+  test("a numeric date both orders could read takes the order the page, or a fresh page's read time, supports", () => {
+    const october8 = new Date("2026-10-08T15:00:00Z");
+    const day = (s: string, ctx?: Parameters<typeof parseStatedDate>[1]) => parseStatedDate(s, ctx)?.toISOString().slice(0, 10) ?? null;
+    // Veir's Investing.com India byline, read the day it ran, is 8 October.
+    expect(day("Published08-10-2026, 07:40 pm", { near: october8 })).toBe("2026-10-08");
+    // A US page's 10-08-2026, read the same day, is 8 October too.
+    expect(day("10-08-2026", { near: october8 })).toBe("2026-10-08");
+    // An old page's read time says nothing about its order: neither reading is near it, so no date.
+    expect(day("03-04-2026", { near: october8 })).toBeNull();
+    // Both readings after the read: no date rather than a future one.
+    expect(day("11-12-2026", { near: october8 })).toBeNull();
+    // Another date on the page decides before the clock does.
+    expect(day("05-06-2026", { agree: [new Date("2026-05-06T12:00:00Z")], near: october8 })).toBe("2026-05-06");
+    // No context at all: a guess either way, so no date.
+    expect(day("08-10-2026")).toBeNull();
+    // One order only, or the same either way: read as written.
+    expect(day("25-09-2026")).toBe("2026-09-25");
+    expect(day("09-25-2026")).toBe("2026-09-25");
+    expect(day("08.08.2026")).toBe("2026-08-08");
+    expect(day("Updated 08-10-2026", { near: october8 })).toBeNull();
+    // Slashes: a fresh page's read time chooses, the page's other dates choose first, and otherwise
+    // month first. Pro Shop's Variety byline "3/7/2024", read on Oct 5, 2026, is 7 March 2024.
+    expect(day("08/10/2026", { near: october8 })).toBe("2026-10-08");
+    expect(day("10/08/2026", { near: october8 })).toBe("2026-10-08");
+    expect(day("- 3/7/2024 - by Alex Weprin", { near: new Date("2026-10-05T12:00:00Z") })).toBe("2024-03-07");
+    expect(day("3/7/2024", { agree: [new Date("2024-07-03T12:00:00Z")], near: new Date("2026-10-05T12:00:00Z") })).toBe("2024-07-03");
+    expect(day("25/09/2026")).toBe("2026-09-25");
+    // The clock-reading parser uses its own clock the same way.
+    expect(parseDate("Published08-10-2026, 07:40 pm", october8)?.toISOString().slice(0, 10)).toBe("2026-10-08");
+    expect(parseDate("10-08-2026", october8)?.toISOString().slice(0, 10)).toBe("2026-10-08");
+  });
+
+  test("a byline under the headline is read in the page's context", () => {
+    const md =
+      "# Veir raises $110M Series C for superconducting power tech\n\nPublished08-10-2026, 07:40 pm\n\nInvesting.com - VEIR closed a $110 million Series C.";
+    expect(visibleArticleDate(md, { near: new Date("2026-10-08T15:10:00Z") })).toBe("2026-10-08");
+    expect(visibleArticleDate(md, { agree: [new Date("2026-08-10T12:00:00Z")], near: new Date("2026-10-08T15:10:00Z") })).toBe(
+      "2026-08-10",
+    );
+  });
+
   test("parseStatedDate reads absolute dates and refuses anything that needs a clock", () => {
     const day = (s: string | null) => parseStatedDate(s)?.toISOString().slice(0, 10) ?? null;
     expect(day("2026-09-02")).toBe("2026-09-02");
