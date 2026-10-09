@@ -26,6 +26,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { Tag } from "@/components/ui/tag";
 import { isLanding, isPublicDemo } from "@/lib/access";
 import { digestsConfigured } from "@/lib/digest";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
 import { siteOrigin } from "@/lib/origin";
 import { siteJsonLd } from "@/lib/seo";
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
   // With LANDING=1 the page is served at `/`, so that is the address a search engine should keep.
-  alternates: isLanding() ? { canonical: "/" } : undefined,
+  alternates: isLanding() ? { canonical: "/", types: feedAlternateTypes() } : undefined,
   // Setting openGraph here replaces the root's, image included, so the site card is named again.
   openGraph: {
     title: TITLE,

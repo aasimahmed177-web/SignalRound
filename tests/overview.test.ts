@@ -162,6 +162,11 @@ describe("market", () => {
 
   test("the biggest rounds are the week's stated amounts, largest first; trending never ranks a queued round", async () => {
     expect(view.biggest.map((r) => r.company.name)).toEqual(["Alder", "Birch"]);
+    // A round still being raised is not money raised: the Capital figure leaves it out, and so does the list.
+    await add("Expectco", { daysAgo: 1, usd: 12_000, hosts: ["expected.example"], disposition: "flagged" });
+    await handle.update(fundingRounds).set({ certainty: "expected" }).where(eq(fundingRounds.id, ids.Expectco));
+    expect((await marketView(handle)).biggest.map((r) => r.company.name)).toEqual(["Alder", "Birch"]);
+    await setDisposition(handle, ids.Expectco, "rejected");
     const now = new Date();
     await handle.insert(trendingRounds).values([
       { roundId: ids.Alder, companyId: "alder", firstSeenAt: now, score: 2, people: 3, stale: false, scoredAt: now },

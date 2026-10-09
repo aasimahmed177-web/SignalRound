@@ -7,8 +7,14 @@
 import { ROUND_CERTAINTIES, STAGES } from "@fireround/core";
 import { NextResponse } from "next/server";
 import { isPublicDemo } from "@/lib/access";
+import { preflight } from "@/lib/api-params";
 import { companyRequestsDailyMax } from "@/lib/company-requests";
 import { LIMITS } from "@/lib/rate-limit";
+
+/** A browser client's CORS preflight (lib/api-params.ts preflight). */
+export function OPTIONS(): Response {
+  return preflight();
+}
 
 export function GET(request: Request) {
   const origin = process.env.APP_ORIGIN ?? new URL(request.url).origin;
@@ -40,7 +46,11 @@ export function GET(request: Request) {
   const Round = {
     type: "object",
     properties: {
-      id: { type: "string", description: "company_key:stage:announced_on; stable across updates" },
+      id: {
+        type: "string",
+        description:
+          "An opaque, stable identifier: it does not change when the round is updated or re-dated. Do not parse it; read the company, stage and date from their own fields.",
+      },
       company: {
         type: "object",
         properties: {
@@ -69,6 +79,16 @@ export function GET(request: Request) {
         description:
           "A larger total the source states beside this round's money (funding to date, a series' running total); never the round's amount",
       },
+      financing_total_quote: {
+        type: ["string", "null"],
+        description: "The source's sentence that states financing_total_as_written; null when that is null",
+      },
+      amount_scope: {
+        type: ["string", "null"],
+        enum: ["tranche", "round", "financing_total", "includes_grants", "includes_secondary", "combined_rounds", "cumulative", null],
+        description:
+          "What the source's figure covers: a tranche, the round, all new money in the financing, or a total that includes grants, secondary sales, combined rounds, or funding to date. null when the source does not say.",
+      },
       valuation_as_written: { type: ["string", "null"] },
       valuation_disclosed: {
         type: ["boolean", "null"],
@@ -76,6 +96,17 @@ export function GET(request: Request) {
           "true when a valuation is stated (valuation_as_written); false when a source says outright that the valuation was not disclosed; null when no source says either way. A null valuation_as_written with valuation_disclosed false is a known non-disclosure, not a gap.",
       },
       announced_on: { type: ["string", "null"], format: "date" },
+      reported_on: {
+        type: ["string", "null"],
+        format: "date",
+        description:
+          "For a round first known as reported or expected, the day it was reported (the report's own date, else the day it was first read); null for a round announced on the record",
+      },
+      freshness_checked_on: {
+        type: ["string", "null"],
+        format: "date",
+        description: "The announcement day the earliest-report check settled on; null before the check has run",
+      },
       date_precision: {
         type: "string",
         enum: ["day", "week", "month", "unknown"],
@@ -94,14 +125,20 @@ export function GET(request: Request) {
           "The judge's verdict: the record read back against its primary page. status is confirmed, corrected (notes say what changed), skipped (page unreadable), or unverified; contradicted and not_news records do not publish. publish requires confirmed or corrected.",
         properties: {
           status: { type: "string", enum: ["unverified", "confirmed", "corrected", "contradicted", "not_news", "skipped"] },
-          notes: { type: "array", items: { type: "string" } },
+          notes: { type: "array", items: { type: "string" }, description: "What the read-back changed, and its remarks on the sources" },
           url: { type: ["string", "null"] },
+          sources_listed: { type: "integer", description: "How many sources the round had when the verdict was read" },
           sources_seen: {
             type: "integer",
             description:
               "How many of the round's sources the verdict read. When it is below the length of sources, pages arrived after the read and a new read is due; the row's source count is always the length of sources.",
           },
         },
+      },
+      verification_checks: {
+        type: ["object", "null"],
+        description: "How many times the round has been read back against its sources, and when last; null before the first check",
+        properties: { attempts: { type: "integer" }, last_checked_at: { type: ["string", "null"], format: "date-time" } },
       },
       lead_investors: { type: "array", items: { type: "string" } },
       other_investors: { type: "array", items: { type: "string" } },
@@ -170,9 +207,29 @@ export function GET(request: Request) {
           linkedin_url: { type: ["string", "null"] },
         },
       },
+      enrichment: {
+        type: ["object", "null"],
+        description: "The company profile read off its verified homepage; null until the profile step has run for the company",
+        properties: {
+          what_they_sell: { type: ["string", "null"] },
+          pricing_model: { type: ["string", "null"] },
+          has_free_tier: { type: ["boolean", "null"] },
+          plans: {
+            type: "array",
+            items: { type: "object", properties: { name: { type: "string" }, price_as_written: { type: ["string", "null"] } } },
+          },
+          pricing_page_url: { type: ["string", "null"] },
+          verified: { type: "boolean", description: "true when a homepage passed the identity check" },
+          brand: {
+            type: ["object", "null"],
+            properties: { name: { type: ["string", "null"] }, primary_color: { type: ["string", "null"] } },
+          },
+        },
+      },
       evidence_quotes: { type: "array", items: { type: "string" } },
       confidence: { type: "number", minimum: 0, maximum: 1 },
       status: { type: "string", enum: ["new", "updated", "seen"] },
+      preset_slug: { type: "string", description: "The preset whose lane found the round; pass it as preset to list one preset's rounds" },
       disposition: { type: "string", enum: demo ? ["publish", "flagged"] : ["publish", "flagged", "review", "rejected"] },
       history: {
         type: "boolean",
@@ -527,5 +584,7 @@ export function GET(request: Request) {
   };
   // The spec only changes with a deploy (which clears the CDN) and holds no records, only the API's
   // shape and this origin, so browsers keep it an hour and the CDN a day instead of rebuilding it per hit.
-  return NextResponse.json(spec, { headers: { "cache-control": "public, max-age=3600, s-maxage=86400" } });
+  return NextResponse.json(spec, {
+    headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=3600, s-maxage=86400" },
+  });
 }

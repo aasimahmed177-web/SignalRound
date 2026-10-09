@@ -3,11 +3,16 @@
 
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";
-import { badRequest, parseLimit, readHeaders } from "@/lib/api-params";
+import { badRequest, parseLimit, preflight, readHeaders } from "@/lib/api-params";
 import { db } from "@/lib/db";
 import { listRuns } from "@/lib/news";
 import { publicRun } from "@/lib/public-view";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
+
+/** A browser client's CORS preflight (lib/api-params.ts preflight). */
+export function OPTIONS(): Response {
+  return preflight();
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

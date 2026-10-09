@@ -11,6 +11,7 @@ import { BarListSkeleton, ListSkeleton, PanelSkeleton, PresetChipsSkeleton, Stat
 import { OVERVIEW_PATH, seesReview, viewer } from "@/lib/access";
 import { cachedMarket, cachedPresets, cachedTrendingOn } from "@/lib/cached";
 import { db } from "@/lib/db";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { firstRunProps, storeIsEmpty } from "@/lib/first-run";
 import { listRounds, type RoundRow } from "@/lib/persist";
 import { PRESET_PARAM } from "@/lib/preset-param";
@@ -147,7 +148,7 @@ function OverviewSkeleton() {
 
 export const metadata = {
   title: "Overview",
-  alternates: { canonical: OVERVIEW_PATH },
+  alternates: { canonical: OVERVIEW_PATH, types: feedAlternateTypes() },
   ...shareMetadata({
     title: "The funding market this week",
     description:

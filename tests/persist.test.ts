@@ -529,9 +529,12 @@ describe("persistRecords", () => {
     await db.execute(
       sql`insert into round_sources (round_id, source_id) values (${id}, 'https://www.reuters.com/story/tracked-raises-b64c1b60?mod=markets') on conflict do nothing`,
     );
-    const before = (await listRounds(db)).rows[0].sources.length;
+    // The stored links, not the listed sources: a list shows one page once already (dedupeSources).
+    const links = async () => (await db.execute(sql`select count(*)::int n from round_sources where round_id = ${id}`)).rows[0].n;
+    expect(await links()).toBe(2);
     const { merged } = await mergeDuplicateSources(db);
-    expect(merged).toBe(before - 1);
+    expect(merged).toBe(1);
+    expect(await links()).toBe(1);
     expect((await listRounds(db)).rows[0].sources.map((s) => s.url)).toEqual(["https://www.reuters.com/story/tracked-raises-b64c1b60"]);
 
     await db.execute(sql`insert into companies (id, name, name_key) values ('ghost', 'Ghost', 'ghost')`);

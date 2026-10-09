@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FlameMark } from "@/components/brand/flame-mark";
 import NotFound from "./(dashboard)/not-found";
+
+/** The tab names the miss: "Not found · Fireround" (the root layout's title template). */
+export const metadata: Metadata = { title: "Not found" };
 
 /**
  * An unmatched URL outside every route (`/does-not-exist`) lands here rather than in the dashboard

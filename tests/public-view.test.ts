@@ -5,10 +5,12 @@ process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
 import { schema } from "@fireround/core/db";
+import { eq, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { POST as mcpPost } from "../app/api/mcp/route";
-import { GET as roundsGet } from "../app/api/v1/rounds/route";
+import { GET as openapiGet } from "../app/api/v1/openapi.json/route";
+import { GET as roundsGet, OPTIONS as roundsOptions } from "../app/api/v1/rounds/route";
 import { GET as runsGet } from "../app/api/v1/runs/route";
 import { GET as feedsGet } from "../app/feeds/[token]/[file]/route";
 import { corroborateRecord } from "../lib/corroborate";
@@ -47,6 +49,13 @@ beforeAll(async () => {
   );
   const searched = { search: async () => ({ news: [], web: [] }), map: async () => ({ links: [] }) } as unknown as Firecrawl;
   await corroborateRecord(handle, searched, "leaky:series_a:2026-09-02", { broad: true, maxPages: 0 });
+  // A published row can still carry a reviewer's note from an earlier hold (a company page showed one).
+  await handle
+    .update(schema.fundingRounds)
+    .set({
+      verification: sql`jsonb_set(${schema.fundingRounds.verification}, '{notes}', (${schema.fundingRounds.verification}->'notes') || '["held for review: another Series A on 2026-07-14 within 60 days"]'::jsonb)`,
+    })
+    .where(eq(schema.fundingRounds.id, "leaky:series_a:2026-09-02"));
   await handle.insert(schema.runs).values({
     id: "run-spend",
     presetSlug: "series-a-b",
@@ -93,10 +102,34 @@ describe("the public API carries no operator detail", () => {
     expect(text).not.toContain(MODEL);
     expect(text).not.toContain("pre-seed");
     for (const line of text.trim().split("\n")) expect(internalFields(JSON.parse(line))).toEqual([]);
-    // What stays: the verdict, its read count, and every source link.
-    const [row] = (json as { data: Array<{ verification: Record<string, unknown>; sources: Array<Record<string, unknown>> }> }).data;
-    expect(row.verification).toMatchObject({ status: "confirmed", sources_seen: 2 });
+    // What stays: the verdict, its read count, its own remarks, and every source link; the reviewer's hold, pins and notes go.
+    const [row] = (
+      json as { data: Array<Record<string, unknown> & { verification: Record<string, unknown>; sources: Array<Record<string, unknown>> }> }
+    ).data;
+    expect(row.verification).toMatchObject({ status: "confirmed", sources_seen: 2, notes: ["Sources agree."] });
+    expect(row).not.toHaveProperty("hold");
+    expect(row).not.toHaveProperty("pinned");
     expect(row.sources.map((s) => s.url)).toEqual(["https://news.example/leaky", "https://wire.example/leaky"]);
+  });
+
+  test("every field a visitor's row carries is in the OpenAPI Round schema", async () => {
+    demo();
+    const [row] = (
+      (await (await roundsGet(new Request("http://app.test/api/v1/rounds"))).json()) as { data: Array<Record<string, unknown>> }
+    ).data;
+    const spec = (await openapiGet(new Request("http://app.test/api/v1/openapi.json")).json()) as {
+      components: { schemas: { Round: { properties: Record<string, unknown> } } };
+    };
+    const documented = Object.keys(spec.components.schemas.Round.properties);
+    expect(Object.keys(row).filter((k) => !documented.includes(k))).toEqual([]);
+  });
+
+  test("a browser's CORS preflight is answered with the read's own origin rule and the Authorization header", async () => {
+    const res = roundsOptions();
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    expect(res.headers.get("access-control-allow-methods")).toContain("GET");
+    expect(res.headers.get("access-control-allow-headers")).toContain("Authorization");
   });
 
   test("the admin and a private instance still read the full row", async () => {
@@ -170,6 +203,8 @@ describe("MCP, feeds, and the browser's rows carry none either", () => {
     expect(internalFields({ verification: row.verification }).filter((p) => !p.endsWith(".verifier"))).toEqual([]);
     expect(JSON.stringify(row)).not.toContain(MODEL);
     expect(JSON.stringify(row)).not.toContain("pre-seed");
+    // The company page renders these notes: the reviewer's hold is not one of them.
+    expect(row.verification?.notes).toEqual(["Sources agree."]);
   });
 });
 

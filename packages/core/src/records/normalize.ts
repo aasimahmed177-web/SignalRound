@@ -697,6 +697,18 @@ export function canonicalUrl(url: string): string {
 }
 
 /**
+ * The page a URL names, whatever spelling of it a source used: canonicalUrl without the scheme, a
+ * leading "www.", or a trailing slash. "http://fortune.com/a" and "https://www.fortune.com/a/" are one
+ * page; the key is for comparing, never for fetching.
+ */
+export function samePageKey(url: string): string {
+  return canonicalUrl(url)
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/(?=$|[?#])/, "");
+}
+
+/**
  * True when `date` falls inside [windowStart, now + 1 day], and before `windowEnd` when one is
  * given. A day of slack at each open end covers timezones; `windowEnd` is exclusive and strict,
  * so a month sweep keeps that month's announcements and nothing from the first of the next.

@@ -3,7 +3,7 @@
 // release of it, then the established outlets, then everything else. Pure, so every surface lists the
 // same page first, and the first page is the round's `primary_source` when it is the company's or a wire's.
 
-import { DEFAULT_TIERS, registrableDomain } from "@fireround/core";
+import { DEFAULT_TIERS, registrableDomain, samePageKey } from "@fireround/core";
 
 /** Wires carry the issuer's own release: primary evidence, as the company's site is. */
 export const WIRE_DOMAINS = new Set([
@@ -51,6 +51,23 @@ export function orderSources<T extends { url: string; published?: string | null 
       (a.published ?? "9999").localeCompare(b.published ?? "9999") ||
       (a.url < b.url ? -1 : a.url > b.url ? 1 : 0),
   );
+}
+
+/**
+ * One entry per page: a round that linked the same article under two spellings (http and https, with
+ * and without www or a trailing slash) lists it once, as the https spelling, else the first one with a
+ * title, else the first.
+ */
+export function dedupeSources<T extends { url: string; title?: string | null }>(sources: readonly T[]): T[] {
+  const best = new Map<string, T>();
+  const better = (a: T, b: T) =>
+    Number(b.url.startsWith("https:")) - Number(a.url.startsWith("https:")) || Number(Boolean(b.title)) - Number(Boolean(a.title));
+  for (const s of sources) {
+    const key = samePageKey(s.url);
+    const kept = best.get(key);
+    if (!kept || better(kept, s) > 0) best.set(key, s);
+  }
+  return sources.filter((s) => best.get(samePageKey(s.url)) === s);
 }
 
 export interface PrimarySource {

@@ -55,6 +55,7 @@ import { publicRequestStatus, STILL_CHECKING } from "@/lib/company-request-statu
 import { companyRequestFor, requestTally } from "@/lib/company-requests";
 import { db } from "@/lib/db";
 import { companyRedirect } from "@/lib/entity-exists";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageAsWrittenNote, usd } from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
 import { companyHref, decodeParam, investorHref, investorHrefByName } from "@/lib/links";
@@ -83,7 +84,12 @@ export async function generateMetadata({ params }: PageProps<"/companies/[id]">)
   // like the unfurl; the canonical is the stored id, however the URL spelled it.
   const meta = shareMetadata({ title: share.title, description: share.description });
   const url = companyHref(page.company.id);
-  return { ...meta, title: share.title, alternates: { canonical: url }, openGraph: { ...meta.openGraph, url } };
+  return {
+    ...meta,
+    title: share.title,
+    alternates: { canonical: url, types: feedAlternateTypes() },
+    openGraph: { ...meta.openGraph, url },
+  };
 }
 
 const DESCRIPTION = "Every round on record, with the sources behind each and the investors on them.";

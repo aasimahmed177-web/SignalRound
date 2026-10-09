@@ -22,6 +22,7 @@ import {
   promotable,
   reconcileInvestorLists,
   registrableDomain,
+  samePageKey,
   secondhandOnly,
   unsupportedValuation,
   type ValuationClaim,
@@ -38,11 +39,11 @@ import { releaseDay, staleBeforeRelease, storedReleaseSources } from "./freshnes
 import { fullerInvestorName } from "./investor-names.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
-import { publicLane, publicVerifier } from "./public-view.ts";
+import { publicLane, publicNotes, publicVerifier } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
 import { companyAccounts, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
-import { orderSources, type PrimarySource, primarySourceOf } from "./source-order.ts";
+import { dedupeSources, orderSources, type PrimarySource, primarySourceOf } from "./source-order.ts";
 import { valuationDisclosed } from "./valuation-disclosure.ts";
 
 const { companies, fundingRounds, investors, pageVerdicts, roundInvestors, sources, roundSources, enrichments, roundMerges } = schema;
@@ -1382,8 +1383,21 @@ export async function persistRecords(
     const rowVerified = prev?.verificationStatus === "confirmed" || prev?.verificationStatus === "corrected";
     if (judged || !rowVerified) await syncRoundInvestors(handle, r.id, r.lead_investors, r.other_investors, { replace: judged });
 
+    // A page the round already links under another spelling (http for https, www or not) is not linked twice.
+    const linked = new Map(
+      (
+        await handle
+          .select({ id: sources.id })
+          .from(roundSources)
+          .innerJoin(sources, eq(sources.id, roundSources.sourceId))
+          .where(eq(roundSources.roundId, r.id))
+      ).map((l) => [samePageKey(l.id), l.id]),
+    );
     for (const s of r.sources) {
       const sourceId = canonicalUrl(s.url);
+      const already = linked.get(samePageKey(sourceId));
+      if (already && already !== sourceId) continue;
+      linked.set(samePageKey(sourceId), sourceId);
       await handle
         .insert(sources)
         .values({ id: sourceId, url: sourceId, host: s.host, title: s.title, publishedAt: s.published, query: s.query, runId })
@@ -1619,8 +1633,11 @@ export interface RoundQuery {
   /** Announced on or before this day (YYYY-MM-DD); with `since`, the reader's own date range. */
   until?: string;
   stages?: Stage[];
-  /** "current" includes reported and expected but excludes unconfirmed; "all" includes unconfirmed. */
-  certainty?: RoundCertainty | "current" | "all";
+  /**
+   * "current" includes reported and expected but excludes unconfirmed; "all" includes unconfirmed;
+   * "closed" is the rounds that closed, announced or reported, as the Overview's money figures count them.
+   */
+  certainty?: RoundCertainty | "current" | "all" | "closed";
   status?: Array<"new" | "updated" | "seen">;
   preset?: string;
   /** Everything but one preset: the review queue reads news without the Form D filings this way. */
@@ -1784,7 +1801,10 @@ export function toFeedRow(r: RoundRow): FeedRow {
     date_precision: r.date_precision,
     // A feed row reaches the browser, so the verifier's model and each source's search text go
     // (lib/public-view.ts): the row keeps whether it was reconciled and the lane each page came by.
-    verification: r.verification ? { ...r.verification, verifier: publicVerifier(r.verification.verifier) } : null,
+    // The reviewer's notes (a hold, a late report) are the review queue's, not the reader's.
+    verification: r.verification
+      ? { ...r.verification, verifier: publicVerifier(r.verification.verifier), notes: publicNotes(r.verification.notes ?? []) }
+      : null,
     lead_investors: r.lead_investors,
     other_investors: r.other_investors,
     sources: r.sources.map((s) => ({ url: s.url, title: s.title, host: s.host, query: publicLane(s.query) })),
@@ -1842,7 +1862,8 @@ function roundConds(q: RoundQuery) {
   if (q.until) conds.push(lte(fundingRounds.announcedOn, q.until));
   if (q.stages?.length) conds.push(inArray(fundingRounds.stage, q.stages));
   if (!q.certainty || q.certainty === "current") conds.push(sql`${fundingRounds.certainty} <> 'unconfirmed'`);
-  else if (q.certainty && q.certainty !== "all") conds.push(eq(fundingRounds.certainty, q.certainty));
+  else if (q.certainty === "closed") conds.push(inArray(fundingRounds.certainty, ["announced", "reported"]));
+  else if (q.certainty !== "all") conds.push(eq(fundingRounds.certainty, q.certainty));
   if (q.status?.length) conds.push(inArray(fundingRounds.status, q.status));
   if (q.preset) conds.push(eq(fundingRounds.presetSlug, q.preset));
   if (q.excludePreset) conds.push(sql`${fundingRounds.presetSlug} <> ${q.excludePreset}`);
@@ -2083,7 +2104,7 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   const out: RoundRow[] = page.map(({ round, company }) => {
     const domains = domainsOf(company);
     const ordered = orderSources(
-      (srcByRound.get(round.id) ?? []).map((s) => ({
+      dedupeSources(srcByRound.get(round.id) ?? []).map((s) => ({
         url: s.url,
         title: s.title,
         host: s.host,

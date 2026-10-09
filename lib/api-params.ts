@@ -30,6 +30,23 @@ export function readHeaders(insider: boolean): Record<string, string> {
       };
 }
 
+/**
+ * A browser's CORS preflight for a public read. The read answers any origin (readHeaders), so the
+ * preflight says so, and lets the Authorization header an API key rides in through; without this a
+ * browser client that sends a key was refused before its GET left. Cached a day by the browser.
+ */
+export function preflight(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, HEAD, OPTIONS",
+      "access-control-allow-headers": "Authorization, Content-Type",
+      "access-control-max-age": "86400",
+    },
+  });
+}
+
 export function badRequest(error: string): Response {
   return Response.json({ error }, { status: 400 });
 }

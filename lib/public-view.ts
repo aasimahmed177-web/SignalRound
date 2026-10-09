@@ -33,13 +33,29 @@ export function publicLane(query: string | null | undefined): string | null {
   return "search";
 }
 
-/** The public form of a round in the API and JSONL: no verifier, no source queries, no profile-refusal trail. */
-export function publicRound<T extends Pick<RoundRow, "verification" | "sources" | "enrichment">>(r: T) {
-  const { verification, sources, enrichment, ...rest } = r;
+/**
+ * A note a reviewer reads, not a reader: why a row waits for a person ("held for review: ...", "held: ...")
+ * or why it moved to history ("reported later: ..."). The verdict's own change lines and remarks stay.
+ */
+const REVIEWER_NOTE = /^(?:held for review|held|reported later):/i;
+
+/** A verdict's notes as a reader may see them: the reviewer's notes gone. */
+export function publicNotes(notes: readonly string[]): string[] {
+  return notes.filter((n) => !REVIEWER_NOTE.test(n));
+}
+
+/**
+ * The public form of a round in the API and JSONL: no verifier, no source queries, no profile-refusal
+ * trail, and none of the reviewer's record (the hold, a person's pins, the reviewer's notes).
+ */
+export function publicRound<T extends Pick<RoundRow, "verification" | "sources" | "enrichment">>(
+  r: T & { hold?: unknown; pinned?: unknown },
+) {
+  const { verification, sources, enrichment, hold: _hold, pinned: _pinned, ...rest } = r;
   let publicVerification: Omit<NonNullable<RoundRow["verification"]>, "verifier"> | null = null;
   if (verification) {
     const { verifier: _verifier, ...kept } = verification;
-    publicVerification = kept;
+    publicVerification = { ...kept, notes: publicNotes(kept.notes ?? []) };
   }
   let publicEnrichment: Omit<NonNullable<RoundRow["enrichment"]>, "error" | "website_source"> | null = null;
   if (enrichment) {
@@ -86,17 +102,24 @@ const MODEL_TEXT = /\bgateway:|\b(?:openai|anthropic|google|openrouter|mistral|m
 
 /**
  * Every place in a public payload where operator detail shows: a key that names spend, a verifier, a
- * source query, a profile-refusal trail, or a string value that names a model. Empty for a clean
+ * source query, a profile-refusal trail, the reviewer's hold or pins, or a string value that names a
+ * model or reads as a reviewer's note. Empty for a clean
  * payload; the tests run every public surface through it so a field that comes back fails them.
  */
 export function internalFields(value: unknown, path = "$"): string[] {
-  if (typeof value === "string") return MODEL_TEXT.test(value) ? [path] : [];
+  if (typeof value === "string") return MODEL_TEXT.test(value) || REVIEWER_NOTE.test(value) ? [path] : [];
   if (Array.isArray(value)) return value.flatMap((v, i) => internalFields(v, `${path}[${i}]`));
   if (!value || typeof value !== "object") return [];
   return Object.entries(value).flatMap(([k, v]) => {
     const here = `${path}.${k}`;
     const bad =
-      SPEND_KEY.test(k) || k === "verifier" || k === "query" || k === "website_source" || (k === "error" && path.endsWith(".enrichment"));
+      SPEND_KEY.test(k) ||
+      k === "verifier" ||
+      k === "query" ||
+      k === "website_source" ||
+      k === "hold" ||
+      k === "pinned" ||
+      (k === "error" && path.endsWith(".enrichment"));
     return [...(bad ? [here] : []), ...internalFields(v, here)];
   });
 }

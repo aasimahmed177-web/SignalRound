@@ -5,6 +5,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "@/components/ui/sonner";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { siteOrigin } from "@/lib/origin";
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export const metadata: Metadata = {
   description:
     "Funding announcements from across the open web, pre-seed to growth, extracted with Firecrawl into structured, deduped, verified records: a dashboard, a feed, an API, and an MCP server.",
   applicationName: "Fireround",
+  alternates: { types: feedAlternateTypes() },
   openGraph: {
     title: "Fireround",
     description:

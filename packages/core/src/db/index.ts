@@ -76,8 +76,10 @@ export async function connectPostgres(
   const { default: pg } = await import("pg");
   const { drizzle: drizzlePg } = await import("drizzle-orm/node-postgres");
   // A serverless instance holds its connections only while it works: idle ones close within seconds,
-  // so dozens of instances stay under a PgBouncer's client-connection ceiling.
-  const pool = new pg.Pool({ connectionString: url, max: poolMax(), idleTimeoutMillis: 5_000 });
+  // so dozens of instances stay under a PgBouncer's client-connection ceiling. A connection the
+  // pooler cannot hand out within five seconds is an error, not a wait: a page read fails fast and its
+  // cached copy keeps serving, instead of every render queueing behind the pooler's login timeout.
+  const pool = new pg.Pool({ connectionString: url, max: poolMax(), idleTimeoutMillis: 5_000, connectionTimeoutMillis: 5_000 });
   onPool?.(pool);
   // SAFETY: as above.
   return { db: drizzlePg({ client: pool }) as unknown as Db, driver, close: () => pool.end() };

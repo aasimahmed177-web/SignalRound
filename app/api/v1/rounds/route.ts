@@ -17,6 +17,7 @@ import {
   parseSort,
   parseStages,
   parseStatuses,
+  preflight,
   readHeaders,
 } from "@/lib/api-params";
 import { db } from "@/lib/db";
@@ -80,6 +81,11 @@ function toCsv(rows: RoundRow[]): string {
       .join(","),
   );
   return `${[CSV_COLUMNS.join(","), ...lines].join("\n")}\n`;
+}
+
+/** A browser client's CORS preflight (lib/api-params.ts preflight). */
+export function OPTIONS(): Response {
+  return preflight();
 }
 
 export async function GET(request: Request) {

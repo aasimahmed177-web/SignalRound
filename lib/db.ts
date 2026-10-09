@@ -19,6 +19,27 @@ const globalScope = globalThis as typeof globalThis & { __fundingFeedReady?: Pro
  */
 const NEON_MAX_IN_FLIGHT = 16;
 
+/**
+ * The longest a visitor's read waits on the database. A server-side statement_timeout cannot be set
+ * per connection here: a transaction-mode PgBouncer refuses it as a startup parameter, and a SET would
+ * outlive the request on a shared server connection. So the page or API read gives up on its own
+ * clock instead; the pipeline's lanes, which share the pool and run longer reads, are not held to it.
+ */
+export const READ_DEADLINE_MS = 15_000;
+
+/** A visitor's read, failed once it has waited READ_DEADLINE_MS: the cached copy serves, and nothing is cached. */
+export async function withinDeadline<T>(read: Promise<T>, ms = READ_DEADLINE_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`database read took longer than ${ms / 1000}s`)), ms);
+  });
+  try {
+    return await Promise.race([read, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function db(): Promise<Db> {
   return open({ onPool: process.env.VERCEL ? attachOnVercel : undefined });
 }

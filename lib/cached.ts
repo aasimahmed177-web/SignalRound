@@ -17,9 +17,10 @@
 // from workflow steps, outside any request, so what it lands shows within LIVE's minute.
 
 import type { Preset } from "@fireround/core";
+import type { Db } from "@fireround/core/db";
 import { cacheLife, cacheTag } from "next/cache";
 import { type CompanyView, readCompanyView } from "@/lib/company";
-import { db } from "@/lib/db";
+import { db, withinDeadline } from "@/lib/db";
 import { type CompanySort, type InvestorSort, listCompanies, listInvestors } from "@/lib/directory";
 import { companyTag, investorTag, TAG_ENTITY_DETAILS } from "@/lib/entity-tags";
 import { type FeedPage, type FeedPageQuery, readFeedPage } from "@/lib/feed-page";
@@ -59,12 +60,22 @@ const LIVE = { stale: 60, revalidate: 60, expire: 180 };
 
 const DETAIL = { stale: 60, revalidate: 600, expire: 3600 };
 
+/**
+ * One cached read, held to the visitor's deadline (lib/db.ts withinDeadline). A read that fails throws
+ * out of the cache function, and a thrown read is never stored: within an entry's expire window the
+ * stale copy keeps serving while the background refresh fails, and only a page with no copy left shows
+ * its error state.
+ */
+async function read<T>(query: (handle: Db) => Promise<T>): Promise<T> {
+  return withinDeadline(db().then(query));
+}
+
 /** The landing page's counters (lib/landing.ts). */
 export async function cachedLandingStats() {
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return landingStats(await db());
+  return read(landingStats);
 }
 
 /** The demo hero's week and day (lib/stats.ts). */
@@ -72,7 +83,7 @@ export async function cachedDemoStats() {
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return demoStats(await db());
+  return read(demoStats);
 }
 
 /** The newest published rounds, as the feed's first page orders them: the landing page's glimpse. */
@@ -80,7 +91,7 @@ export async function cachedLatestRounds(limit: number): Promise<RoundRow[]> {
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return (await listRounds(await db(), { limit, history: "exclude" })).rows;
+  return (await read((h) => listRounds(h, { limit, history: "exclude" }))).rows;
 }
 
 /** The newest published Series A rounds and the cursor after them: the landing page's API example. */
@@ -88,7 +99,7 @@ export async function cachedSeriesAPick(limit: number): Promise<{ rows: RoundRow
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return listRounds(await db(), { stages: ["series_a"], limit, history: "exclude" });
+  return read((h) => listRounds(h, { stages: ["series_a"], limit, history: "exclude" }));
 }
 
 /**
@@ -101,7 +112,7 @@ export async function cachedHouseRound(): Promise<RoundRow | null> {
   cacheTag(TAG_ROUNDS);
   const house = houseDomain();
   if (!house) return null;
-  const { rows } = await listRounds(await db(), { company: house, since: houseFreshSince(), limit: 1, history: "exclude" });
+  const { rows } = await read((h) => listRounds(h, { company: house, since: houseFreshSince(), limit: 1, history: "exclude" }));
   return rows.find((r) => isFreshHouseRound(r, new Date(), house)) ?? null;
 }
 
@@ -113,10 +124,11 @@ export async function cachedLandingHero(limit: number): Promise<{ rows: RoundRow
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  const handle = await db();
-  const { rounds } = await trendingTop(handle, limit);
-  if (rounds.length > 0) return { rows: rounds, trending: true };
-  return { rows: (await listRounds(handle, { limit, history: "exclude" })).rows, trending: false };
+  return read(async (handle) => {
+    const { rounds } = await trendingTop(handle, limit);
+    if (rounds.length > 0) return { rows: rounds, trending: true };
+    return { rows: (await listRounds(handle, { limit, history: "exclude" })).rows, trending: false };
+  });
 }
 
 /**
@@ -128,7 +140,7 @@ export async function cachedMarket(preset: string): Promise<MarketView> {
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return marketView(await db(), preset || undefined);
+  return read((h) => marketView(h, preset || undefined));
 }
 
 /** Whether this instance's rung runs the Trending lane: the feed opens on Trending only when it does. */
@@ -136,7 +148,7 @@ export async function cachedTrendingOn(): Promise<boolean> {
   "use cache: remote";
   cacheLife(DIRECTORY);
   cacheTag(TAG_SETTINGS);
-  return (await getCoverage(await db())).trending;
+  return (await read(getCoverage)).trending;
 }
 
 /** The sectors on published rounds, for the feed's filter menu. */
@@ -144,7 +156,7 @@ export async function cachedSectors(): Promise<string[]> {
   "use cache: remote";
   cacheLife(DIRECTORY);
   cacheTag(TAG_ROUNDS);
-  return listSectors(await db());
+  return read(listSectors);
 }
 
 /** One page of /companies. Keyed on the URL state, so the default view is the one that hits. */
@@ -152,7 +164,7 @@ export async function cachedCompanies(q: string, sort: CompanySort, page: number
   "use cache: remote";
   cacheLife(DIRECTORY);
   cacheTag(TAG_ROUNDS);
-  return listCompanies(await db(), { q, sort, page });
+  return read((h) => listCompanies(h, { q, sort, page }));
 }
 
 /** One page of /investors, keyed like cachedCompanies. */
@@ -160,7 +172,7 @@ export async function cachedInvestors(q: string, sort: InvestorSort, page: numbe
   "use cache: remote";
   cacheLife(DIRECTORY);
   cacheTag(TAG_ROUNDS);
-  return listInvestors(await db(), { q, sort, page });
+  return read((h) => listInvestors(h, { q, sort, page }));
 }
 
 /** The presets every visitor's picker lists (lib/presets.ts). The admin's Presets page reads them fresh. */
@@ -168,7 +180,7 @@ export async function cachedPresets(): Promise<Preset[]> {
   "use cache: remote";
   cacheLife(DIRECTORY);
   cacheTag(TAG_PRESETS);
-  return listPresets(await db());
+  return read(listPresets);
 }
 
 /** One page of the feed as a visitor reads it (lib/feed-page.ts), keyed on the filters, the order, and the page. */
@@ -176,7 +188,7 @@ export async function cachedFeedPage(query: FeedPageQuery): Promise<FeedPage> {
   "use cache: remote";
   cacheLife(LIVE);
   cacheTag(TAG_ROUNDS);
-  return readFeedPage(await db(), query);
+  return read((h) => readFeedPage(h, query));
 }
 
 /** A company page as a visitor reads it: the feed's rounds only (lib/company.ts readCompanyView). */
@@ -184,7 +196,7 @@ export async function cachedCompanyView(id: string): Promise<CompanyView | null>
   "use cache: remote";
   cacheLife(DETAIL);
   cacheTag(TAG_ENTITY_DETAILS, companyTag(id));
-  return readCompanyView(await db(), id);
+  return read((h) => readCompanyView(h, id));
 }
 
 /** An investor page as a visitor reads it: the feed's rounds only (lib/investor.ts). */
@@ -192,7 +204,7 @@ export async function cachedInvestor(id: string): Promise<InvestorPage | null> {
   "use cache: remote";
   cacheLife(DETAIL);
   cacheTag(TAG_ENTITY_DETAILS, investorTag(id));
-  return getInvestor(await db(), id);
+  return read((h) => getInvestor(h, id));
 }
 
 /** The News page as a visitor reads it: articles behind a published round, and the article count. */
@@ -200,7 +212,7 @@ export async function cachedNews(preset: string, show: number): Promise<{ items:
   "use cache: remote";
   cacheLife(LIVE);
   cacheTag(TAG_ROUNDS);
-  return readNews(await db(), { limit: show, preset: preset || undefined, publishedOnly: true });
+  return read((h) => readNews(h, { limit: show, preset: preset || undefined, publishedOnly: true }));
 }
 
 /** The Runs page's list as a visitor reads it: every lane but the admin ones. */
@@ -208,7 +220,7 @@ export async function cachedRuns(limit: number): Promise<RunRow[]> {
   "use cache: remote";
   cacheLife(LIVE);
   cacheTag(TAG_ROUNDS);
-  return listRuns(await db(), limit, { adminLanes: false });
+  return read((h) => listRuns(h, limit, { adminLanes: false }));
 }
 
 /** The Slack page's welcome and digest previews, drawn from the live store, keyed on the origin their links use. */
@@ -216,5 +228,5 @@ export async function cachedSlackPreviews(origin: string) {
   "use cache: remote";
   cacheLife(LIVE);
   cacheTag(TAG_ROUNDS);
-  return slackPreviews(await db(), origin);
+  return read((h) => slackPreviews(h, origin));
 }

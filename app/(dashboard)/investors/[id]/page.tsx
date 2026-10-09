@@ -19,6 +19,7 @@ import { BarList, Panel, Stat } from "@/components/ui/stat";
 import { seesReview, viewer } from "@/lib/access";
 import { cachedInvestor } from "@/lib/cached";
 import { db } from "@/lib/db";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { approxDate, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageLabel, usd } from "@/lib/format";
 import { getInvestor, investorTypeLabel } from "@/lib/investor";
 import { companyHref, investorHref, investorIdFromParam } from "@/lib/links";
@@ -39,7 +40,12 @@ export async function generateMetadata({ params }: PageProps<"/investors/[id]">)
   // reads like the unfurl; the canonical is the stored id, however the URL spelled it.
   const meta = shareMetadata({ title: share.title, description: share.description });
   const url = investorHref(page.investor.id);
-  return { ...meta, title: share.title, alternates: { canonical: url }, openGraph: { ...meta.openGraph, url } };
+  return {
+    ...meta,
+    title: share.title,
+    alternates: { canonical: url, types: feedAlternateTypes() },
+    openGraph: { ...meta.openGraph, url },
+  };
 }
 
 /** Index into NAV for the Investors entry, so the sidebar lights it on an investor page. */

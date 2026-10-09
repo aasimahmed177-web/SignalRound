@@ -610,7 +610,8 @@ export async function marketView(handle: Db, presetSlug?: string, now: Date = ne
   const week = marketSpans(now).week;
   const [m, biggest, trending] = await Promise.all([
     market(handle, presetSlug, now),
-    listRounds(handle, { since: week.since, sort: "amount", history: "exclude", preset: presetSlug, limit: 5 }),
+    // The rounds that closed, as the Capital figure above them counts them: an expected round is not raised money.
+    listRounds(handle, { since: week.since, sort: "amount", history: "exclude", certainty: "closed", preset: presetSlug, limit: 5 }),
     trendingTop(handle, 5, presetSlug, now),
   ]);
   return { market: m, biggest: biggest.rows.filter((r) => r.amount.usd_millions !== null), trending };
