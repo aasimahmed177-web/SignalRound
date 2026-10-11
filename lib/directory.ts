@@ -4,7 +4,7 @@
 // sees the same set the feed gives them.
 
 import type { Stage } from "@fireround/core";
-import { sectorLabel } from "@fireround/core";
+import { sectorLabel, sectorMembers } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, or, type SQL, sql } from "drizzle-orm";
@@ -206,7 +206,7 @@ export async function listCompanies(
   const where = and(
     inArray(fundingRounds.disposition, [...VISIBLE]),
     companyMatch(query.q ?? ""),
-    query.sector ? sql`lower(${companies.sector}) = lower(${query.sector})` : undefined,
+    query.sector ? inArray(companies.sector, sectorMembers(query.sector)) : undefined,
     raisedMatch(query.stages, query.since),
   );
   const [count] = await handle

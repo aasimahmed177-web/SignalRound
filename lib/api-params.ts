@@ -2,7 +2,7 @@
 // silent empty set. /api/v1/runs shares the limit rule.
 
 import type { RoundCertainty, Stage } from "@fireround/core";
-import { classifyStage, ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
+import { classifyStage, ROUND_CERTAINTIES, SECTOR_GROUP_LABEL, SECTOR_GROUPS, SECTORS, STAGES } from "@fireround/core";
 import { FEED_SORTS, type FeedSort, parseRoundCursor, parseTrendingCursor } from "./round-sort.ts";
 
 export const ROUND_STATUSES = ["new", "updated", "seen"] as const;
@@ -109,8 +109,8 @@ export function parsePage(raw: string | null): Parsed<number> {
 
 const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-/** Other words for a sector, compacted (lowercase, letters and digits only). */
-const SECTOR_ALIASES: Record<string, (typeof SECTORS)[number]> = {
+/** Other words for a sector or a group, compacted (lowercase, letters and digits only). */
+const SECTOR_ALIASES: Record<string, string> = {
   artificialintelligence: "ai",
   genai: "ai",
   generativeai: "ai",
@@ -126,16 +126,15 @@ const SECTOR_ALIASES: Record<string, (typeof SECTORS)[number]> = {
   dataanalytics: "data and analytics",
   security: "cybersecurity",
   cyber: "cybersecurity",
-  saas: "enterprise software",
-  b2bsoftware: "enterprise software",
+  saas: "software",
+  b2bsoftware: "software",
   enterprise: "enterprise software",
   payment: "payments",
   insurance: "insurtech",
   web3: "crypto",
   blockchain: "crypto",
   defi: "crypto",
-  health: "healthtech",
-  healthcare: "healthtech",
+  healthcare: "health",
   digitalhealth: "healthtech",
   lifesciences: "biotech",
   medicaldevices: "medtech",
@@ -144,10 +143,12 @@ const SECTOR_ALIASES: Record<string, (typeof SECTORS)[number]> = {
   ev: "mobility",
   transportation: "mobility",
   robot: "robotics",
+  deeptech: "hardware",
   chips: "semiconductors",
   semis: "semiconductors",
   semiconductor: "semiconductors",
   spacetech: "space",
+  aerospace: "aerospace and defense",
   defence: "defense",
   defensetech: "defense",
   retail: "ecommerce",
@@ -161,19 +162,31 @@ const SECTOR_ALIASES: Record<string, (typeof SECTORS)[number]> = {
   supplychain: "logistics",
   agtech: "agtech and food",
   foodtech: "agtech and food",
+  industrial: "industrials",
 };
-const SECTOR_WORDS = new Map<string, string>([...SECTORS.map((s) => [compact(s), s] as const), ...Object.entries(SECTOR_ALIASES)]);
+const GROUPS = Object.keys(SECTOR_GROUPS) as Array<keyof typeof SECTOR_GROUPS>;
+const SECTOR_WORDS = new Map<string, string>([
+  ...SECTORS.map((s) => [compact(s), s] as const),
+  ...GROUPS.flatMap((g) => [[compact(g), g] as const, [compact(SECTOR_GROUP_LABEL[g]), g] as const]),
+  ...Object.entries(SECTOR_ALIASES),
+]);
+const GROUP_HINT = GROUPS.filter((g) => SECTOR_GROUPS[g].length > 1)
+  .map((g) => `${g} (${SECTOR_GROUPS[g].join(", ")})`)
+  .join("; ");
 
 /**
- * A sector from the feed's vocabulary, as a person or an agent writes it: "AI infrastructure",
- * "ai-infra", "Fin Tech", "dev tools", "healthcare". Case, spacing and punctuation don't count, and a
- * few common other names map onto their sector. Anything else is a 400 listing the words, never a
- * silent empty set.
+ * A sector or a group of sectors from the feed's taxonomy, as a person or an agent writes it: "AI
+ * infrastructure", "ai-infra", "Fin Tech", "dev tools", "healthcare". Case, spacing and punctuation
+ * don't count, and a few common other names map on. A group ("ai", "health", "climate") matches every
+ * sector under it (SECTOR_GROUPS). Anything else is a 400 listing the words, never a silent empty set.
  */
 export function parseSector(raw: string | null): Parsed<string | undefined> {
   if (raw === null || raw.trim() === "") return ok(undefined);
   const sector = SECTOR_WORDS.get(compact(raw));
-  if (!sector) return bad(`sector must be one of: ${SECTORS.join(", ")}`);
+  if (!sector)
+    return bad(
+      `sector must be a sector or a group. Sectors: ${SECTORS.join(", ")}. Groups, each matching the sectors listed: ${GROUP_HINT}`,
+    );
   return ok(sector);
 }
 

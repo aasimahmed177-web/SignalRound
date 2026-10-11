@@ -27,3 +27,23 @@ Every round in `GET /api/v1/rounds` (and the MCP tools' compact round) carries t
 - **`valuation_disclosed`**: `true` when a valuation is stated (`valuation_as_written`); `false` when a source says outright that it was not disclosed ("The round's valuation was not disclosed"); `null` when no source says either way. A null valuation with `valuation_disclosed: false` is a known non-disclosure, not a gap. A withholding sentence counts only when it names the company or sits on a page about this round; a roundup's sentence about another deal, or one that names only another of the company's rounds, never does.
 
 A history round's `previous_rounds` entry is how the earlier-rounds pipeline surfaces: an `earlier_rounds` reading on a page queues the prior round on the history ledger, the history lane verifies it against its own announcement, and once visible it appears in every later round's `previous_rounds`.
+
+# Sectors and sector groups
+
+Each company has one sector from a fixed list. The sectors sit in a few groups, and a `sector` filter on a group matches every sector under it. A group named after a sector (`ai`, `fintech`, `climate`, `hardware`, `consumer`) is that sector plus the narrower ones beside it, so `sector=ai` includes `ai infrastructure` and a narrower sector (`sector=ai-infrastructure`) matches itself alone.
+
+| Group | Sectors |
+|---|---|
+| `ai` | ai, ai infrastructure |
+| `software` | enterprise software, developer tools, data and analytics, cybersecurity, hr tech, legal tech, edtech |
+| `fintech` | fintech, payments, insurtech, crypto |
+| `health` | healthtech, biotech, medtech |
+| `climate` | climate, energy |
+| `hardware` | hardware, semiconductors, quantum, robotics |
+| `aerospace and defense` | space, defense |
+| `mobility` | mobility, logistics |
+| `consumer` | consumer, ecommerce, marketplace, media and gaming |
+| `industrials` | manufacturing, proptech, agtech and food |
+| `other` | other |
+
+The same reading applies to `/api/v1/rounds`, `/api/v1/companies`, `/api/v1/investors/top`, `/api/v1/news`, MCP's `list_rounds`, and the feed's sector menu, which lists each group with its sectors inset under it. Case, spaces, and dashes don't matter, and common other names map on (`healthcare` is `health`, `saas` is `software`, `dev tools` is `developer tools`). An unknown word is a 400 that lists the sectors and groups. The groups live in `packages/core/src/records/sectors.ts` (`SECTOR_GROUPS`), and a test holds every sector to exactly one group.

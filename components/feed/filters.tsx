@@ -1,6 +1,6 @@
 "use client";
 
-import { STAGES } from "@fireround/core/client";
+import { STAGES, sectorMenu } from "@fireround/core/client";
 import { SlidersHorizontal, X } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { ViewSwitch } from "@/components/feed/view-switch";
@@ -19,7 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { sectorLabel, stageLabel } from "@/lib/format";
+import { stageLabel } from "@/lib/format";
 import type { PresetOption } from "@/lib/presets";
 import { defaultFeedView, toFeedView } from "@/lib/round-sort";
 import { cn } from "@/lib/utils";
@@ -177,7 +177,7 @@ export function FeedFilters({
       label="Sector"
       value={f.sector}
       onChange={(v) => setF({ sector: v })}
-      options={[{ value: "", label: "Any sector" }, ...sectors.map((s) => ({ value: s, label: sectorLabel(s) }))]}
+      options={[{ value: "", label: "Any sector" }, ...sectorMenu(sectors)]}
     />
   );
 

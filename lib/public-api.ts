@@ -3,7 +3,7 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import { normalizeInvestorKey, type Stage } from "@fireround/core";
+import { normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
@@ -376,7 +376,7 @@ export async function apiTopLeads(
     caught,
     gte(fundingRounds.announcedOn, since),
     eq(roundInvestors.role, "lead"),
-    q.sector ? sql`lower(${companies.sector}) = lower(${q.sector})` : undefined,
+    q.sector ? inArray(companies.sector, sectorMembers(q.sector)) : undefined,
     q.stages?.length ? inArray(fundingRounds.stage, q.stages) : undefined,
   );
   const leadShareUsd = sql<number>`coalesce(sum(${fundingRounds.amountUsdMillions} / (select count(*) from round_investors l where l.round_id = ${fundingRounds.id} and l.role = 'lead')), 0)::float`;
@@ -465,7 +465,13 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
     sql`r.history = false`,
     sql`r.certainty <> 'unconfirmed'`,
   ];
-  if (q.sector) roundConds.push(sql`lower(c.sector) = lower(${q.sector})`);
+  if (q.sector)
+    roundConds.push(
+      sql`c.sector in (${sql.join(
+        sectorMembers(q.sector).map((s) => sql`${s}`),
+        sql`, `,
+      )})`,
+    );
   if (q.q) roundConds.push(sql`(c.name ilike ${likeTerm(q.q)} or ${sources.title} ilike ${likeTerm(q.q)})`);
   const reports = sql`exists (select 1 from round_sources rs join funding_rounds r on r.id = rs.round_id join companies c on c.id = r.company_id where ${sql.join(roundConds, sql` and `)})`;
   const rows = await handle

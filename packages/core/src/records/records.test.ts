@@ -73,7 +73,7 @@ import {
 } from "./resolve.ts";
 import type { ExtractedRound, FeedRecord } from "./schema.ts";
 import { PAGE_KINDS, roundsPageJsonSchema } from "./schema.ts";
-import { normalizeSector, sectorLabel } from "./sectors.ts";
+import { normalizeSector, SECTOR_GROUPS, SECTORS, sectorLabel, sectorMembers, sectorMenu } from "./sectors.ts";
 
 const NOW = new Date("2026-09-04T12:00:00Z");
 const WEEK = windowStartFor("week", NOW);
@@ -377,6 +377,25 @@ describe("sectors", () => {
     expect(sectorLabel("hr tech")).toBe("HR tech");
     expect(sectorLabel("ai")).toBe("AI");
     expect(sectorLabel(null)).toBe("");
+    expect(sectorLabel("climate")).toBe("Climate");
+    expect(sectorLabel("software")).toBe("Software");
+  });
+
+  test("every sector sits in exactly one group, and a group filter reads its sectors", () => {
+    const placed = Object.values(SECTOR_GROUPS).flat();
+    expect([...placed].sort()).toEqual([...SECTORS].sort());
+    expect(new Set(placed).size).toBe(placed.length);
+    expect(sectorMembers("AI")).toEqual(["ai", "ai infrastructure"]);
+    expect(sectorMembers("health")).toEqual(["health", "healthtech", "biotech", "medtech"]);
+    expect(sectorMembers("ai infrastructure")).toEqual(["ai infrastructure"]);
+    expect(sectorMembers("toString")).toEqual(["tostring"]);
+    expect(sectorMenu(["energy", "ai", "ai infrastructure", "other"])).toEqual([
+      { value: "ai", label: "AI", inset: false },
+      { value: "ai infrastructure", label: "AI infrastructure", inset: true },
+      { value: "climate", label: "Climate and energy", inset: false },
+      { value: "energy", label: "Energy", inset: true },
+      { value: "other", label: "Other", inset: false },
+    ]);
   });
 
   test("the extraction schema offers the vocabulary as an enum and the resolver maps anything else onto it", () => {

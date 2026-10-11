@@ -3,5 +3,5 @@
 // root barrel re-exports every record module, and one client import of it ships Zod to every page.
 
 export { normalizeCompanyKey, normalizeInvestorKey } from "./records/keys.ts";
-export { SECTORS, sectorLabel } from "./records/sectors.ts";
+export { SECTORS, sectorLabel, sectorMenu } from "./records/sectors.ts";
 export { STAGES, type Stage } from "./records/stages.ts";

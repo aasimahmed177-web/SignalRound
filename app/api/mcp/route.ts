@@ -8,6 +8,7 @@ import type { ServerContext } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { isPublicDemo, mcpTrusted } from "@/lib/access";
+import { parseSector } from "@/lib/api-params";
 import { companyPath, companyRequestStatus, limitMessage, requestPath, submitCompanyRequest } from "@/lib/company-requests";
 import { dashboardPassword } from "@/lib/dashboard-auth";
 import { db } from "@/lib/db";
@@ -114,7 +115,11 @@ const handler = createMcpHandler(
           stage: z.array(z.enum(STAGES)).optional(),
           status: z.array(z.enum(["new", "updated", "seen"])).optional(),
           certainty: z.enum(ROUND_CERTAINTIES).optional(),
-          sector: z.string().max(100).optional(),
+          sector: z
+            .string()
+            .max(100)
+            .optional()
+            .describe("A sector or a group, e.g. ai (includes ai infrastructure), health (healthtech, biotech, medtech), fintech, climate"),
           min_amount_usd_millions: z.number().min(0).optional(),
           preset: z.string().max(100).optional().describe("Preset slug, for example series-a-b, seed, or growth; omit for every preset"),
           cursor: z.string().max(200).optional(),
@@ -122,13 +127,15 @@ const handler = createMcpHandler(
         }),
       },
       safe("list_rounds", async (args) => {
+        const sector = parseSector(args.sector ?? null);
+        if (!sector.ok) return refusal(sector.error);
         const handle = await db();
         const { rows, nextCursor } = await listRounds(handle, {
           since: args.since,
           stages: args.stage as Stage[] | undefined,
           status: args.status,
           certainty: args.certainty,
-          sector: args.sector,
+          sector: sector.value,
           minUsdMillions: args.min_amount_usd_millions,
           preset: args.preset,
           cursor: args.cursor,

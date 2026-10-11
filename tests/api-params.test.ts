@@ -9,11 +9,17 @@ describe("filter words", () => {
       ["ai_infrastructure", "ai infrastructure"],
       ["Fin Tech", "fintech"],
       ["dev tools", "developer tools"],
-      ["healthcare", "healthtech"],
+      ["healthcare", "health"],
+      ["Health", "health"],
+      ["Climate and energy", "climate"],
+      ["SaaS", "software"],
+      ["aerospace", "aerospace and defense"],
       ["other", "other"],
     ])
       expect(parseSector(raw)).toEqual({ ok: true, value: sector });
     expect(parseSector("robots-and-more").ok).toBe(false);
+    const refused = parseSector("robots-and-more");
+    expect(!refused.ok && refused.error).toContain("ai (ai, ai infrastructure)");
     expect(parseSector(null)).toEqual({ ok: true, value: undefined });
   });
 

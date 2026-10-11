@@ -24,6 +24,7 @@ import {
   registrableDomain,
   samePageKey,
   secondhandOnly,
+  sectorMembers,
   unsupportedValuation,
   type ValuationClaim,
   wireReleaseDay,
@@ -1868,7 +1869,7 @@ function roundConds(q: RoundQuery) {
   if (q.preset) conds.push(eq(fundingRounds.presetSlug, q.preset));
   if (q.excludePreset) conds.push(sql`${fundingRounds.presetSlug} <> ${q.excludePreset}`);
   if (q.minUsdMillions !== undefined) conds.push(gte(fundingRounds.amountUsdMillions, q.minUsdMillions.toString()));
-  if (q.sector) conds.push(sql`lower(${companies.sector}) = lower(${q.sector})`);
+  if (q.sector) conds.push(inArray(companies.sector, sectorMembers(q.sector)));
   if (q.source) {
     conds.push(
       sql`exists (select 1 from ${roundSources} rs join ${sources} s on s.id = rs.source_id where rs.round_id = ${fundingRounds.id} and s.host = ${q.source})`,

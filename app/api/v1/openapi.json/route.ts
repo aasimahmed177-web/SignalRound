@@ -4,12 +4,17 @@
 // running their own instance. The company request operations are listed only where
 // COMPANY_REQUESTS=1 serves them, so a client generator never builds calls that answer 404.
 
-import { ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
+import { ROUND_CERTAINTIES, SECTOR_GROUPS, SECTORS, STAGES } from "@fireround/core";
 import { NextResponse } from "next/server";
 import { isPublicDemo } from "@/lib/access";
 import { preflight } from "@/lib/api-params";
 import { companyRequestsDailyMax } from "@/lib/company-requests";
 import { LIMITS } from "@/lib/rate-limit";
+
+const SECTOR_GROUPS_TEXT = Object.entries(SECTOR_GROUPS)
+  .map(([group, members]) => `${group} (${members.join(", ")})`)
+  .join("; ");
+const SECTOR_PARAM = `One sector or one group of sectors. Sectors: ${SECTORS.join(", ")}. A group matches every sector under it: ${SECTOR_GROUPS_TEXT}. So sector=ai includes ai infrastructure, and sector=health includes biotech. Case, spaces and dashes don't matter ("AI infrastructure", "ai-infra"), and common other names map on ("healthcare" is health, "dev tools" is developer tools)`;
 
 /** A browser client's CORS preflight (lib/api-params.ts preflight). */
 export function OPTIONS(): Response {
@@ -476,7 +481,7 @@ export function GET(request: Request) {
             {
               name: "sector",
               in: "query",
-              description: `One sector: ${SECTORS.join(", ")}. Case, spaces and dashes don't matter ("AI infrastructure", "ai-infra"), and common other names map on ("healthcare" is healthtech, "dev tools" is developer tools)`,
+              description: SECTOR_PARAM,
               schema: { type: "string" },
             },
             { name: "q", in: "query", description: "Free text over company name, description, and investors", schema: { type: "string" } },

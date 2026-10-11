@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 export interface FilterOption {
   value: string;
   label: string;
+  /** A narrower choice under the one above it (a sector under its group). */
+  inset?: boolean;
 }
 
 interface FilterSelectProps {
@@ -39,7 +41,7 @@ export function FilterSelect({ value, onChange, options, label, className }: Fil
       </SelectTrigger>
       <SelectContent position="popper" align="start" sideOffset={6}>
         {options.map((o) => (
-          <SelectItem key={o.value || ANY} value={o.value === "" ? ANY : o.value}>
+          <SelectItem key={o.value || ANY} value={o.value === "" ? ANY : o.value} className={o.inset ? "pl-5" : undefined}>
             {o.label}
           </SelectItem>
         ))}

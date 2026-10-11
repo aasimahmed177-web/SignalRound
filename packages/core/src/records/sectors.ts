@@ -77,6 +77,63 @@ export const SECTOR_LABEL: Record<Sector, string> = {
   other: "Other",
 };
 
+/**
+ * The top of the taxonomy: a few groups, each holding the sectors under it. Every sector sits in
+ * exactly one group. A filter on a group matches every sector it holds, so sector=ai finds the AI
+ * infrastructure rounds too and sector=health finds biotech; a group named after a sector ("ai",
+ * "climate") is that sector and the narrower ones beside it. A filter on any other sector matches it alone.
+ */
+export const SECTOR_GROUPS = {
+  ai: ["ai", "ai infrastructure"],
+  software: ["enterprise software", "developer tools", "data and analytics", "cybersecurity", "hr tech", "legal tech", "edtech"],
+  fintech: ["fintech", "payments", "insurtech", "crypto"],
+  health: ["healthtech", "biotech", "medtech"],
+  climate: ["climate", "energy"],
+  hardware: ["hardware", "semiconductors", "quantum", "robotics"],
+  "aerospace and defense": ["space", "defense"],
+  mobility: ["mobility", "logistics"],
+  consumer: ["consumer", "ecommerce", "marketplace", "media and gaming"],
+  industrials: ["manufacturing", "proptech", "agtech and food"],
+  other: ["other"],
+} as const satisfies Record<string, readonly Sector[]>;
+export type SectorGroup = keyof typeof SECTOR_GROUPS;
+
+export const SECTOR_GROUP_LABEL: Record<SectorGroup, string> = {
+  ai: "AI",
+  software: "Software",
+  fintech: "Fintech",
+  health: "Health",
+  climate: "Climate and energy",
+  hardware: "Hardware and deep tech",
+  "aerospace and defense": "Aerospace and defense",
+  mobility: "Mobility and logistics",
+  consumer: "Consumer",
+  industrials: "Industrials",
+  other: "Other",
+};
+
+/** The stored sectors a filter word matches: the word itself and, for a group, every sector in it. Lowercase, as stored. */
+export function sectorMembers(filter: string): string[] {
+  const word = filter.trim().toLowerCase();
+  return Object.hasOwn(SECTOR_GROUPS, word) ? [...new Set([word, ...SECTOR_GROUPS[word as SectorGroup]])] : [word];
+}
+
+/**
+ * The feed's sector menu from the sectors its rounds carry: each group that holds one of them, then
+ * its narrower sectors that are present, inset under it. A group's own sector is the group's line.
+ */
+export function sectorMenu(present: readonly string[]): Array<{ value: string; label: string; inset: boolean }> {
+  const have = new Set(present);
+  const menu: Array<{ value: string; label: string; inset: boolean }> = [];
+  for (const [group, members] of Object.entries(SECTOR_GROUPS) as Array<[SectorGroup, readonly Sector[]]>) {
+    const shown = members.filter((m) => have.has(m));
+    if (shown.length === 0) continue;
+    menu.push({ value: group, label: SECTOR_GROUP_LABEL[group], inset: false });
+    for (const m of shown) if (m !== group) menu.push({ value: m, label: SECTOR_LABEL[m], inset: true });
+  }
+  return menu;
+}
+
 const SECTOR_SET = new Set<string>(SECTORS);
 
 /** First match wins, so the specific rows sit above the general ones ("ai infrastructure" before "ai"). */
@@ -138,5 +195,5 @@ export function normalizeSector(text: string | null | undefined): Sector | null 
 
 export function sectorLabel(sector: string | null | undefined): string {
   if (!sector) return "";
-  return SECTOR_LABEL[sector as Sector] ?? sector;
+  return SECTOR_LABEL[sector as Sector] ?? SECTOR_GROUP_LABEL[sector as SectorGroup] ?? sector;
 }

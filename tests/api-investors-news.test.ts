@@ -155,6 +155,23 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     }
   });
 
+  test("a sector group matches every sector under it, and a narrower sector only itself", async () => {
+    const handle = await db();
+    await handle.update(schema.companies).set({ sector: "ai infrastructure" }).where(eq(schema.companies.id, "beta.example"));
+    try {
+      const ids = async (path: string) => (await get(companiesGet, path)).body.data.map((r) => r.id).sort();
+      expect(await ids("/api/v1/companies?sector=ai")).toEqual(["alpha.example", "beta.example", "delta.example", "echo.example"]);
+      expect(await ids("/api/v1/companies?sector=ai-infra")).toEqual(["beta.example"]);
+      expect(await ids("/api/v1/companies?sector=healthcare")).toEqual(["zeta.example"]);
+      expect(await ids("/api/v1/companies?sector=health")).toEqual(["zeta.example"]);
+      expect(await ids("/api/v1/companies?sector=biotech")).toEqual([]);
+      const news = await get(newsGet, "/api/v1/news?sector=ai");
+      expect(news.body.data.map((a) => a.url)).toContain("https://wire.example/beta");
+    } finally {
+      await handle.update(schema.companies).set({ sector: "ai" }).where(eq(schema.companies.id, "beta.example"));
+    }
+  });
+
   test("a profile counts closed rounds only, lists rounds newest first with leads and the announcement, and investors leads first", async () => {
     const { status, body } = await company("zeta.example");
     expect(status).toBe(200);
