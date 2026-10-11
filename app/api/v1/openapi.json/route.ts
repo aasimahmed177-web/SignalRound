@@ -4,7 +4,7 @@
 // running their own instance. The company request operations are listed only where
 // COMPANY_REQUESTS=1 serves them, so a client generator never builds calls that answer 404.
 
-import { ROUND_CERTAINTIES, STAGES } from "@fireround/core";
+import { ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
 import { NextResponse } from "next/server";
 import { isPublicDemo } from "@/lib/access";
 import { preflight } from "@/lib/api-params";
@@ -445,7 +445,7 @@ export function GET(request: Request) {
             {
               name: "stage",
               in: "query",
-              description: `Comma-separated; every value must be one of: ${STAGES.join(", ")}`,
+              description: `Comma-separated; each one of ${STAGES.join(", ")}, or the words for it ("Series A", "series-a", "pre-seed")`,
               schema: { type: "string" },
             },
             {
@@ -467,7 +467,12 @@ export function GET(request: Request) {
                 "One preset's rounds: series-a-b (Series A and B, the default preset), seed (seed and pre-seed), or growth (Series C and later). Omit for every preset.",
               schema: { type: "string", examples: ["series-a-b", "seed", "growth"] },
             },
-            { name: "sector", in: "query", schema: { type: "string" } },
+            {
+              name: "sector",
+              in: "query",
+              description: `One sector: ${SECTORS.join(", ")}. Case, spaces and dashes don't matter ("AI infrastructure", "ai-infra"), and common other names map on ("healthcare" is healthtech, "dev tools" is developer tools)`,
+              schema: { type: "string" },
+            },
             { name: "q", in: "query", description: "Free text over company name, description, and investors", schema: { type: "string" } },
             {
               name: "company",
@@ -554,7 +559,7 @@ export function GET(request: Request) {
             {
               name: "sector",
               in: "query",
-              description: "One sector, e.g. ai or fintech (the same words as /api/v1/rounds?sector=)",
+              description: "One sector, e.g. ai or fintech, read the same way as /api/v1/rounds?sector=",
               schema: { type: "string" },
             },
             {
@@ -762,7 +767,7 @@ export function GET(request: Request) {
             {
               name: "sector",
               in: "query",
-              description: "One sector, e.g. ai or fintech (the same words as /api/v1/rounds?sector=)",
+              description: "One sector, e.g. ai or fintech, read the same way as /api/v1/rounds?sector=",
               schema: { type: "string" },
             },
             {

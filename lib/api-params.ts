@@ -2,7 +2,7 @@
 // silent empty set. /api/v1/runs shares the limit rule.
 
 import type { RoundCertainty, Stage } from "@fireround/core";
-import { ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
+import { classifyStage, ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
 import { FEED_SORTS, type FeedSort, parseRoundCursor, parseTrendingCursor } from "./round-sort.ts";
 
 export const ROUND_STATUSES = ["new", "updated", "seen"] as const;
@@ -73,13 +73,23 @@ export function parseMinUsd(raw: string | null): Parsed<number | undefined> {
   return ok(n);
 }
 
+/**
+ * One stage as a person or an agent writes it: the enum value ("series_a"), or the words for it
+ * ("Series A", "series-a", "pre-seed", "Series D+", "Series F"), read by the same classifier that
+ * labels rounds. A word it can't place is null, not "other".
+ */
+export function stageFromFilter(raw: string): Stage | null {
+  const t = raw.trim().toLowerCase();
+  if ((STAGES as readonly string[]).includes(t)) return t as Stage;
+  const { stage } = classifyStage(t.replace(/[_-]+/g, " "));
+  return stage === "other" ? null : stage;
+}
+
 export function parseStages(raw: string | null): Parsed<Stage[] | undefined> {
   if (raw === null) return ok(undefined);
-  const values = raw.split(",");
-  if (values.some((s) => !(STAGES as readonly string[]).includes(s))) {
-    return bad(`stage must be one or more of: ${STAGES.join(", ")}`);
-  }
-  return ok(values as Stage[]);
+  const values = raw.split(",").map(stageFromFilter);
+  if (values.some((s) => s === null)) return bad(`stage must be one or more of: ${STAGES.join(", ")}`);
+  return ok([...new Set(values as Stage[])]);
 }
 
 /** One of a fixed set of words, or the default when absent. */
@@ -97,12 +107,74 @@ export function parsePage(raw: string | null): Parsed<number> {
   return ok(n);
 }
 
-/** A sector from the feed's vocabulary (the sector filter on /api/v1/rounds takes the same words). */
+const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/** Other words for a sector, compacted (lowercase, letters and digits only). */
+const SECTOR_ALIASES: Record<string, (typeof SECTORS)[number]> = {
+  artificialintelligence: "ai",
+  genai: "ai",
+  generativeai: "ai",
+  machinelearning: "ai",
+  ml: "ai",
+  aiinfra: "ai infrastructure",
+  aicompute: "ai infrastructure",
+  devtools: "developer tools",
+  devtool: "developer tools",
+  developertool: "developer tools",
+  data: "data and analytics",
+  analytics: "data and analytics",
+  dataanalytics: "data and analytics",
+  security: "cybersecurity",
+  cyber: "cybersecurity",
+  saas: "enterprise software",
+  b2bsoftware: "enterprise software",
+  enterprise: "enterprise software",
+  payment: "payments",
+  insurance: "insurtech",
+  web3: "crypto",
+  blockchain: "crypto",
+  defi: "crypto",
+  health: "healthtech",
+  healthcare: "healthtech",
+  digitalhealth: "healthtech",
+  lifesciences: "biotech",
+  medicaldevices: "medtech",
+  climatetech: "climate",
+  cleantech: "climate",
+  ev: "mobility",
+  transportation: "mobility",
+  robot: "robotics",
+  chips: "semiconductors",
+  semis: "semiconductors",
+  semiconductor: "semiconductors",
+  spacetech: "space",
+  defence: "defense",
+  defensetech: "defense",
+  retail: "ecommerce",
+  dtc: "ecommerce",
+  gaming: "media and gaming",
+  media: "media and gaming",
+  education: "edtech",
+  hr: "hr tech",
+  legal: "legal tech",
+  realestate: "proptech",
+  supplychain: "logistics",
+  agtech: "agtech and food",
+  foodtech: "agtech and food",
+};
+const SECTOR_WORDS = new Map<string, string>([...SECTORS.map((s) => [compact(s), s] as const), ...Object.entries(SECTOR_ALIASES)]);
+
+/**
+ * A sector from the feed's vocabulary, as a person or an agent writes it: "AI infrastructure",
+ * "ai-infra", "Fin Tech", "dev tools", "healthcare". Case, spacing and punctuation don't count, and a
+ * few common other names map onto their sector. Anything else is a 400 listing the words, never a
+ * silent empty set.
+ */
 export function parseSector(raw: string | null): Parsed<string | undefined> {
-  if (raw === null || raw === "") return ok(undefined);
-  const s = raw.trim().toLowerCase();
-  if (!(SECTORS as readonly string[]).includes(s)) return bad(`sector must be one of: ${SECTORS.join(", ")}`);
-  return ok(s);
+  if (raw === null || raw.trim() === "") return ok(undefined);
+  const sector = SECTOR_WORDS.get(compact(raw));
+  if (!sector) return bad(`sector must be one of: ${SECTORS.join(", ")}`);
+  return ok(sector);
 }
 
 /** Free search text: at most 200 characters. */

@@ -141,6 +141,9 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     });
     expect((await get(companiesGet, "/api/v1/companies?q=london")).body.data.map((r) => r.id)).toEqual(["zeta.example"]);
     expect((await get(companiesGet, "/api/v1/companies?sector=fintech")).body.data.map((r) => r.id)).toEqual(["gamma.example"]);
+    for (const sector of ["Fin%20Tech", "FINTECH", "fin-tech"])
+      expect((await get(companiesGet, `/api/v1/companies?sector=${sector}`)).body.data.map((r) => r.id)).toEqual(["gamma.example"]);
+    expect((await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=Series%20A`)).body.data).toHaveLength(4);
     const recent = await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=series_a`);
     expect(recent.body.data.map((r) => r.id).sort()).toEqual(["alpha.example", "beta.example", "delta.example", "echo.example"]);
     expect((await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=seed`)).body.data).toEqual([]);
@@ -182,7 +185,7 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
 
 describe("/api/v1/investors/top", () => {
   test("ranks the leads of closed, current rounds in the window and sector, splitting co-led amounts", async () => {
-    const { status, body } = await get(topGet, "/api/v1/investors/top?window=30d&sector=ai");
+    const { status, body } = await get(topGet, "/api/v1/investors/top?window=30d&sector=Artificial%20Intelligence");
     expect(status).toBe(200);
     expect(body.data.map((r) => [r.id, r.rounds_led, r.lead_share_usd_millions])).toEqual([
       ["fund-one", 2, 20],

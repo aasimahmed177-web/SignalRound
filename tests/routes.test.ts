@@ -99,6 +99,12 @@ describe("GET /api/v1/rounds", () => {
       data: Array<{ company: { name: string } }>;
     };
     expect(b.data.map((r) => r.company.name)).toEqual(["Beta"]);
+    for (const stage of ["Series%20B", "series-b", "SERIES_B"]) {
+      const res = (await (await roundsGet(new Request(`http://app.test/api/v1/rounds?stage=${stage}`))).json()) as typeof b;
+      expect(res.data.map((r) => r.company.name)).toEqual(["Beta"]);
+    }
+    expect((await roundsGet(new Request("http://app.test/api/v1/rounds?stage=series_z"))).status).toBe(400);
+    expect((await roundsGet(new Request("http://app.test/api/v1/rounds?sector=robots-and-more"))).status).toBe(400);
 
     const q = (await (await roundsGet(new Request("http://app.test/api/v1/rounds?q=big%20fund"))).json()) as {
       data: Array<{ company: { name: string } }>;
