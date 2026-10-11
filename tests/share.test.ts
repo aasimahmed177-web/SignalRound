@@ -96,7 +96,28 @@ describe("companyShare", () => {
     const share = companyShare(company([round()]));
     expect(share.title).toBe("Zeliq: $8M Seed");
     expect(share.description).toBe(
-      "Zeliq raised $8M in its seed, led by The Moon Venture and CMI (Sep 2026). 5 sources. A sales prospecting platform based in Europe.",
+      "Zeliq raised $8M in its seed round, led by The Moon Venture and CMI (Sep 2026). 5 sources. A sales prospecting platform based in Europe.",
+    );
+  });
+
+  test("a lowercase stage reads as a round; a lettered series stands alone", () => {
+    const growth = round({
+      stage: "growth",
+      amount: { value: 150, currency: "USD", as_written: "$150M", usd_millions: 150 },
+      lead_investors: ["GIC"],
+    });
+    expect(companyShare(company([growth], null)).description).toBe(
+      "Zeliq raised $150M in its growth round, led by GIC (Sep 2026). 5 sources.",
+    );
+    const preA = round({ stage: "pre_a", lead_investors: [] });
+    expect(companyShare(company([preA], null)).description).toBe("Zeliq raised $8M in its pre-A round (Sep 2026). 5 sources.");
+    const seriesB = round({
+      stage: "series_b",
+      amount: { value: 75, currency: "USD", as_written: "$75M", usd_millions: 75 },
+      lead_investors: ["Smash Capital"],
+    });
+    expect(companyShare(company([seriesB], null)).description).toBe(
+      "Zeliq raised $75M in its Series B, led by Smash Capital (Sep 2026). 5 sources.",
     );
   });
 

@@ -99,7 +99,7 @@ export interface CompanyShare {
 }
 
 /**
- * "Zeliq raised $8M in its seed, led by The Moon Venture and CMI (Sep 2026). 5 sources." Then what
+ * "Zeliq raised $8M in its seed round, led by The Moon Venture and CMI (Sep 2026). 5 sources." Then what
  * the company does, when the record knows. The count is the sources the page lists for the round.
  */
 export function companyShare(page: CompanyPage): CompanyShare {
@@ -117,7 +117,7 @@ export function companyShare(page: CompanyPage): CompanyShare {
   const round = ["undisclosed", "other"].includes(latest.stage)
     ? `a funding round${ext}`
     : amount
-      ? `its ${stage}${ext}`
+      ? `its ${stage}${stage.startsWith("Series") ? "" : " round"}${ext}`
       : `a ${stage} round${ext}`;
   let sentence = amount ? `${company.name} raised ${amount} in ${round}` : `${company.name} raised ${round}`;
   if (latest.lead_investors.length) sentence += `, led by ${nameList(latest.lead_investors)}`;

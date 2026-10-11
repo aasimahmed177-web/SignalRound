@@ -11,14 +11,10 @@
 // The site's own from/to attributes are dropped: SMIL ignores both when values
 // is present, and they were byte-copies of the first and last frame.
 //
-// There is a second copy of these frames, and it is deliberate: flameMarkup() in
-// stack/firebrain/api/handlers/auth-brand.ts carries the same timing and the
-// same 15 values as a server-rendered HTML string, so the hosted sign-in page
-// lights the same flame this module lights in the portal. Two runtimes, one
-// asset, and stack/firebrain must never import from stack/app (AGENTS.md), so
-// the duplication is inherent rather than lazy. Re-extracting the mark from the
-// site means regenerating both files in the same pass; auth-brand.test.ts reads
-// this file and fails while they disagree.
+// Another surface outside this repository renders the same flame as a static
+// HTML string, with the same timing and the same 15 values, so the two marks
+// light identically. Re-extracting the mark from the site means updating that
+// copy in the same pass.
 
 import { FLAME_REST_PATH } from "./flame-geometry";
 
