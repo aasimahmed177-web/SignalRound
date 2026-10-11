@@ -60,7 +60,7 @@ export function directoryHref(basePath: string, params: Record<string, string>, 
 }
 
 /** An ILIKE pattern with the user's own wildcards stripped, as the feed's search does. */
-function likeTerm(q: string): string {
+export function likeTerm(q: string): string {
   return `%${q.replace(/[%_\\]/g, "")}%`;
 }
 
@@ -71,6 +71,7 @@ export interface CompanyListing {
   logo_url: string | null;
   description: string | null;
   sector: string | null;
+  hq: string | null;
   rounds: number;
   /** Sum of the stated USD amounts; null when no visible round states one. */
   usd_millions_raised: number | null;
@@ -95,7 +96,7 @@ export interface DirectoryPage<T> {
 function companyMatch(q: string): SQL | undefined {
   if (!q) return undefined;
   const term = likeTerm(q);
-  return sql`(${companies.name} ilike ${term} or coalesce(${companies.description}, '') ilike ${term} or coalesce(${companies.sector}, '') ilike ${term} or coalesce(${companies.domain}, '') ilike ${term})`;
+  return sql`(${companies.name} ilike ${term} or coalesce(${companies.description}, '') ilike ${term} or coalesce(${companies.sector}, '') ilike ${term} or coalesce(${companies.domain}, '') ilike ${term} or coalesce(${companies.hq}, '') ilike ${term})`;
 }
 
 /** A name or domain prefix among all search results, including those beyond the current page. */
@@ -162,13 +163,52 @@ async function latestRounds(handle: Db, companyIds: string[]): Promise<Map<strin
   return out;
 }
 
-/** One page of companies with at least one visible round, searched over name, description, sector, and domain. */
+/** A visible round of the company at one of the stages, announced on or after the day; undefined when neither is asked. */
+function raisedMatch(stages: readonly Stage[] | undefined, since: string | undefined): SQL | undefined {
+  if (!stages?.length && !since) return undefined;
+  const conds = [
+    sql`r.company_id = ${companies.id}`,
+    sql`r.disposition in (${sql.join(
+      VISIBLE.map((d) => sql`${d}`),
+      sql`, `,
+    )})`,
+  ];
+  if (stages?.length)
+    conds.push(
+      sql`r.stage::text in (${sql.join(
+        stages.map((s) => sql`${s}`),
+        sql`, `,
+      )})`,
+    );
+  if (since) conds.push(sql`r.announced_on >= ${since}`);
+  return sql`exists (select 1 from funding_rounds r where ${sql.join(conds, sql` and `)})`;
+}
+
+/**
+ * One page of companies with at least one visible round, searched over name, description, sector,
+ * domain, and headquarters. `sector` narrows to one sector; `stages` and `since` to companies with a
+ * visible round at one of those stages announced on or after that day. Counts and totals stay over
+ * all of a company's visible rounds.
+ */
 export async function listCompanies(
   handle: Db,
-  query: { q?: string; sort?: CompanySort; page?: number; pageSize?: number } = {},
+  query: {
+    q?: string;
+    sector?: string;
+    stages?: readonly Stage[];
+    since?: string;
+    sort?: CompanySort;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): Promise<DirectoryPage<CompanyListing>> {
   const size = query.pageSize ?? DIRECTORY_PAGE_SIZE;
-  const where = and(inArray(fundingRounds.disposition, [...VISIBLE]), companyMatch(query.q ?? ""));
+  const where = and(
+    inArray(fundingRounds.disposition, [...VISIBLE]),
+    companyMatch(query.q ?? ""),
+    query.sector ? sql`lower(${companies.sector}) = lower(${query.sector})` : undefined,
+    raisedMatch(query.stages, query.since),
+  );
   const [count] = await handle
     .select({ n: sql<number>`count(distinct ${companies.id})::int` })
     .from(companies)
@@ -186,6 +226,7 @@ export async function listCompanies(
       logoUrl: companies.logoUrl,
       description: companies.description,
       sector: companies.sector,
+      hq: companies.hq,
       rounds: sql<number>`count(*)::int`,
       raised,
     })
@@ -208,6 +249,7 @@ export async function listCompanies(
       logo_url: r.logoUrl,
       description: r.description,
       sector: r.sector,
+      hq: r.hq,
       rounds: r.rounds,
       usd_millions_raised: r.raised === null ? null : Math.round(Number(r.raised) * 1000) / 1000,
       latest: latest.get(r.id) ?? null,

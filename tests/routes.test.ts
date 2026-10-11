@@ -239,7 +239,16 @@ describe("GET /api/v1/openapi.json", () => {
     };
     expect(spec.openapi).toBe("3.1.0");
     expect(spec.servers[0].url).toBe("http://app.test");
-    expect(Object.keys(spec.paths)).toEqual(["/api/v1/rounds", "/api/v1/runs"]);
+    expect(Object.keys(spec.paths)).toEqual([
+      "/api/v1/rounds",
+      "/api/v1/companies",
+      "/api/v1/companies/{id}",
+      "/api/v1/investors",
+      "/api/v1/investors/top",
+      "/api/v1/investors/{id}",
+      "/api/v1/news",
+      "/api/v1/runs",
+    ]);
     const params = (spec.paths["/api/v1/rounds"] as { get: { parameters: Array<{ name: string; description?: string }> } }).get.parameters;
     const preset = params.find((p) => p.name === "preset");
     for (const slug of ["series-a-b", "seed", "growth"]) expect(preset?.description).toContain(slug);

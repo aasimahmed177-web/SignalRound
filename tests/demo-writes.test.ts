@@ -103,6 +103,12 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
   "app/api/slack/connected/route.ts": { GET: "demo only, OAuth state cookie" },
   "app/api/slack/install/route.ts": { GET: "adminRefusal" },
   "app/api/slack/oauth/callback/route.ts": { GET: "adminRefusal" },
+  "app/api/v1/companies/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/companies/[id]/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/investors/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/investors/[id]/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/investors/top/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/news/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
   "app/api/v1/openapi.json/route.ts": { GET: "public read", OPTIONS: "CORS preflight, no data" },
   "app/api/v1/rounds/route.ts": {
     GET: "public read, rate limited; include_review needs the password",

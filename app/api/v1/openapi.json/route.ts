@@ -241,6 +241,54 @@ export function GET(request: Request) {
       trending: Trending,
     },
   };
+  const RoundRef = {
+    type: "object",
+    description: "A round as the company, investor and news reads list it: whose, what, how much, and when",
+    properties: {
+      company: { type: "string" },
+      company_domain: { type: ["string", "null"] },
+      company_url: { type: "string", description: "The company's page on this site, with every round and its sources" },
+      stage: { type: "string", enum: [...STAGES] },
+      stage_as_written: { type: "string" },
+      amount: {
+        type: "object",
+        properties: { as_written: { type: ["string", "null"] }, usd_millions: { type: ["number", "null"] } },
+      },
+      announced_on: { type: ["string", "null"], format: "date" },
+    },
+  };
+  const InvestorId = {
+    type: "string",
+    description: 'The investor\'s URL slug, e.g. "sequoia-capital-india": pass it to /api/v1/investors/{id}',
+  };
+  const CompanyId = {
+    type: "string",
+    description:
+      "The company's id, the segment of its page's URL: its domain when known (\"ramp.com\"), else its name hyphenated. Pass it to /api/v1/companies/{id}, which also takes the company's domain or an earlier id",
+  };
+  const CompanyRound = {
+    allOf: [
+      RoundRef,
+      {
+        type: "object",
+        properties: {
+          certainty: { type: "string", enum: [...ROUND_CERTAINTIES] },
+          lead_investors: { type: "array", items: { type: "string" } },
+          other_investors: { type: "array", items: { type: "string" } },
+          primary_source: {
+            type: ["string", "null"],
+            description:
+              "The round's official announcement: the company's own page, else its release on a newswire; null when neither is among its sources",
+          },
+          earlier_round: { type: "boolean", description: "An earlier round of the company, not this week's news" },
+        },
+      },
+    ],
+  };
+  const BadRequest = {
+    description: "A parameter failed validation",
+    content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } }, required: ["error"] } } },
+  };
   const Problem = {
     type: "object",
     properties: { error: { type: "string", description: "One sentence a person can act on" } },
@@ -485,6 +533,430 @@ export function GET(request: Request) {
                 },
                 "text/csv": { schema: { type: "string" } },
                 "application/x-ndjson": { schema: { type: "string" } },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/companies": {
+        get: {
+          operationId: "listCompanies",
+          summary: "Companies with published rounds, newest raise first",
+          description:
+            "Every company the feed lists a round for, with what it raised and its newest round. Search with q over the name, description, sector, domain, and headquarters (q=london finds companies based there); narrow by sector, and by stage and since to companies with a round at that stage announced on or after that day. Sort by the newest raise (default), the most raised, or name. total_raised_usd_millions counts announced and reported rounds only.",
+          parameters: [
+            {
+              name: "q",
+              in: "query",
+              description: "Free text over the company's name, description, sector, domain, and headquarters, e.g. ramp or london",
+              schema: { type: "string", maxLength: 200 },
+            },
+            {
+              name: "sector",
+              in: "query",
+              description: "One sector, e.g. ai or fintech (the same words as /api/v1/rounds?sector=)",
+              schema: { type: "string" },
+            },
+            {
+              name: "stage",
+              in: "query",
+              description: `Comma-separated stages, any of: ${STAGES.join(", ")}; with since, a round at one of them announced on or after that day`,
+              schema: { type: "string" },
+            },
+            {
+              name: "since",
+              in: "query",
+              description: "Only companies with a round announced on or after this day",
+              schema: { type: "string", format: "date" },
+            },
+            { name: "sort", in: "query", schema: { type: "string", enum: ["latest", "raised", "name"], default: "latest" } },
+            { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+            {
+              name: "limit",
+              in: "query",
+              description: "Page size, at most 100",
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            },
+          ],
+          responses: {
+            "400": BadRequest,
+            "200": {
+              description: "One page of companies",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id: CompanyId,
+                            name: { type: "string" },
+                            domain: { type: ["string", "null"] },
+                            logo_url: { type: ["string", "null"] },
+                            url: { type: "string", description: "The company's page on this site" },
+                            description: { type: ["string", "null"] },
+                            sector: { type: ["string", "null"] },
+                            headquarters: { type: ["string", "null"] },
+                            rounds_total: { type: "integer", description: "Rounds the feed lists for the company" },
+                            total_raised_usd_millions: {
+                              type: ["number", "null"],
+                              description: "Stated USD amounts of its announced and reported rounds; null when none states one",
+                            },
+                            latest_round: {
+                              type: ["object", "null"],
+                              properties: {
+                                stage: { type: "string", enum: [...STAGES] },
+                                stage_as_written: { type: "string" },
+                                announced_on: { type: ["string", "null"], format: "date" },
+                              },
+                            },
+                          },
+                        },
+                      },
+                      total: { type: "integer", description: "Companies matching the search" },
+                      next_page: { type: ["integer", "null"] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/companies/{id}": {
+        get: {
+          operationId: "getCompany",
+          summary: "One company's funding",
+          description:
+            "Who the company is, what it raised (announced and reported rounds only), every round the feed lists for it, newest first, each with its leads and official announcement, and the investors on those rounds, leads first.",
+          parameters: [{ name: "id", in: "path", required: true, schema: CompanyId }],
+          responses: {
+            "404": {
+              description: "No company with that id has a published round",
+              content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } },
+            },
+            "200": {
+              description: "The profile",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      id: CompanyId,
+                      name: { type: "string" },
+                      domain: { type: ["string", "null"] },
+                      logo_url: { type: ["string", "null"] },
+                      url: { type: "string", description: "The company's page on this site" },
+                      description: { type: ["string", "null"] },
+                      sector: { type: ["string", "null"] },
+                      headquarters: { type: ["string", "null"] },
+                      total_raised_usd_millions: {
+                        type: "number",
+                        description:
+                          "Stated USD amounts of its announced and reported rounds; expected and unconfirmed rounds are left out",
+                      },
+                      latest_round: { ...CompanyRound, type: ["object", "null"], description: "The first of rounds" },
+                      rounds: { type: "array", description: "Every round the feed lists for it, newest first", items: CompanyRound },
+                      investors: {
+                        type: "array",
+                        description: "The investors on its rounds, leads first",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id: InvestorId,
+                            name: { type: "string" },
+                            domain: { type: ["string", "null"] },
+                            logo_url: { type: ["string", "null"] },
+                            url: { type: "string" },
+                            rounds_led: { type: "integer" },
+                            rounds_participated: { type: "integer" },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/investors": {
+        get: {
+          operationId: "listInvestors",
+          summary: "Investors named on published rounds, searched by name",
+          description:
+            "Every investor named on a round the feed lists, with the rounds it led and joined and its newest round. Search by name with q; sort by rounds led (default), all rounds, the newest round, or name.",
+          parameters: [
+            {
+              name: "q",
+              in: "query",
+              description: "Part of the investor's name, e.g. sequoia",
+              schema: { type: "string", maxLength: 200 },
+            },
+            { name: "sort", in: "query", schema: { type: "string", enum: ["led", "rounds", "latest", "name"], default: "led" } },
+            { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+            {
+              name: "limit",
+              in: "query",
+              description: "Page size, at most 100",
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+            },
+          ],
+          responses: {
+            "400": BadRequest,
+            "200": {
+              description: "One page of investors",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id: InvestorId,
+                            name: { type: "string" },
+                            domain: { type: ["string", "null"], description: "The investor's own website, bare" },
+                            logo_url: { type: ["string", "null"] },
+                            url: { type: "string", description: "The investor's page on this site" },
+                            rounds_led: { type: "integer" },
+                            rounds_participated: { type: "integer" },
+                            rounds_total: { type: "integer" },
+                            latest_round: {
+                              type: ["object", "null"],
+                              properties: {
+                                company: { type: "string" },
+                                company_url: { type: "string" },
+                                stage: { type: "string", enum: [...STAGES] },
+                                stage_as_written: { type: "string" },
+                                announced_on: { type: ["string", "null"], format: "date" },
+                              },
+                            },
+                          },
+                        },
+                      },
+                      total: { type: "integer", description: "Investors matching the search" },
+                      next_page: { type: ["integer", "null"] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/investors/top": {
+        get: {
+          operationId: "topInvestors",
+          summary: "The investors that led the most rounds in a window",
+          description:
+            "Ranks investors by the announced or reported rounds they led in the last 7, 30, or 90 days, optionally within one sector or set of stages, as the Overview's most active leads. lead_share_usd_millions splits each led round's stated amount evenly between its leads, so the figures add up to the money led. Each investor lists its newest led rounds.",
+          parameters: [
+            { name: "window", in: "query", schema: { type: "string", enum: ["7d", "30d", "90d"], default: "30d" } },
+            {
+              name: "sector",
+              in: "query",
+              description: "One sector, e.g. ai or fintech (the same words as /api/v1/rounds?sector=)",
+              schema: { type: "string" },
+            },
+            {
+              name: "stage",
+              in: "query",
+              description: `Comma-separated stages, any of: ${STAGES.join(", ")}`,
+              schema: { type: "string" },
+            },
+            { name: "limit", in: "query", description: "At most 50", schema: { type: "integer", minimum: 1, maximum: 50, default: 10 } },
+          ],
+          responses: {
+            "400": BadRequest,
+            "200": {
+              description: "The ranking",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      window: { type: "string" },
+                      since: { type: "string", format: "date", description: "The first day the window counts" },
+                      sector: { type: ["string", "null"] },
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            rank: { type: "integer" },
+                            id: InvestorId,
+                            name: { type: "string" },
+                            domain: { type: ["string", "null"] },
+                            logo_url: { type: ["string", "null"] },
+                            url: { type: "string" },
+                            rounds_led: { type: "integer" },
+                            lead_share_usd_millions: { type: "number" },
+                            led_rounds: { type: "array", description: "Its newest led rounds in the window, at most 3", items: RoundRef },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/investors/{id}": {
+        get: {
+          operationId: "getInvestor",
+          summary: "One investor's profile",
+          description:
+            "Who the investor is (its kind, description, and headquarters as its own site states them), the rounds it led and joined, its sectors and stages, the investors it backs companies beside, and its newest rounds with its role in each.",
+          parameters: [{ name: "id", in: "path", required: true, schema: InvestorId }],
+          responses: {
+            "404": {
+              description: "No investor with that id is named on a published round",
+              content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } },
+            },
+            "200": {
+              description: "The profile",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      id: InvestorId,
+                      name: { type: "string" },
+                      domain: { type: ["string", "null"] },
+                      logo_url: { type: ["string", "null"] },
+                      url: { type: "string" },
+                      kind: {
+                        type: ["string", "null"],
+                        description: "venture_capital, corporate_venture, accelerator, person, and so on; null until resolved",
+                      },
+                      kind_label: { type: ["string", "null"] },
+                      description: { type: ["string", "null"] },
+                      headquarters: { type: ["string", "null"] },
+                      totals: {
+                        type: "object",
+                        properties: {
+                          rounds_led: { type: "integer" },
+                          rounds_co_led: { type: "integer" },
+                          rounds_participated: { type: "integer" },
+                          lead_share_usd_millions: { type: "number" },
+                        },
+                      },
+                      sectors: {
+                        type: "array",
+                        items: { type: "object", properties: { sector: { type: "string" }, count: { type: "integer" } } },
+                      },
+                      stages: {
+                        type: "array",
+                        items: { type: "object", properties: { stage: { type: "string" }, count: { type: "integer" } } },
+                      },
+                      co_investors: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id: InvestorId,
+                            name: { type: "string" },
+                            url: { type: "string" },
+                            shared_rounds: { type: "integer" },
+                          },
+                        },
+                      },
+                      recent_rounds: {
+                        type: "array",
+                        description: "Its newest rounds, at most 25",
+                        items: {
+                          allOf: [
+                            RoundRef,
+                            {
+                              type: "object",
+                              properties: {
+                                role: { type: "string", enum: ["lead", "participant"] },
+                                certainty: { type: "string", enum: [...ROUND_CERTAINTIES] },
+                                lead_investors: { type: "array", items: { type: "string" } },
+                                sector: { type: ["string", "null"] },
+                                earlier_round: { type: "boolean", description: "An earlier round of the company, not this week's news" },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/v1/news": {
+        get: {
+          operationId: "listNews",
+          summary: "The latest funding news, newest first",
+          description:
+            "The articles behind the rounds the feed lists: each with its title, publisher, day, and the rounds it reports (with amount, stage, certainty, and leads). A roundup reports several rounds; a single-round article carries the round's own sentence as its excerpt. Regulatory filings are not listed.",
+          parameters: [
+            {
+              name: "since",
+              in: "query",
+              description: "YYYY-MM-DD; articles published on or after this day",
+              schema: { type: "string", format: "date" },
+            },
+            { name: "sector", in: "query", description: "Articles about rounds in one sector", schema: { type: "string" } },
+            { name: "q", in: "query", description: "A company name or a word in the headline", schema: { type: "string", maxLength: 200 } },
+            { name: "limit", in: "query", description: "At most 100", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
+            { name: "cursor", in: "query", description: "next_cursor from the previous page", schema: { type: "string" } },
+          ],
+          responses: {
+            "400": BadRequest,
+            "200": {
+              description: "One page of articles",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            title: { type: ["string", "null"] },
+                            url: { type: "string" },
+                            publisher: { type: "string", description: "The publisher's host, e.g. techcrunch.com" },
+                            published_on: { type: "string", format: "date", description: "The article's day, else the day it was read" },
+                            excerpt: { type: ["string", "null"] },
+                            rounds: {
+                              type: "array",
+                              items: {
+                                allOf: [
+                                  RoundRef,
+                                  {
+                                    type: "object",
+                                    properties: {
+                                      certainty: { type: "string", enum: [...ROUND_CERTAINTIES] },
+                                      sector: { type: ["string", "null"] },
+                                      lead_investors: { type: "array", items: { type: "string" } },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                      next_cursor: { type: ["string", "null"] },
+                    },
+                  },
+                },
               },
             },
           },

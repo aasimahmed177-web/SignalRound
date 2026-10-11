@@ -190,11 +190,31 @@ describe("OpenAPI", () => {
     };
 
   test("documents the request operations only with COMPANY_REQUESTS=1", async () => {
-    expect(Object.keys((await spec()).paths)).toEqual(["/api/v1/rounds", "/api/v1/runs"]);
+    expect(Object.keys((await spec()).paths)).toEqual([
+      "/api/v1/rounds",
+      "/api/v1/companies",
+      "/api/v1/companies/{id}",
+      "/api/v1/investors",
+      "/api/v1/investors/top",
+      "/api/v1/investors/{id}",
+      "/api/v1/news",
+      "/api/v1/runs",
+    ]);
     vi.stubEnv("COMPANY_REQUESTS", "1");
     vi.stubEnv("COMPANY_REQUESTS_DAILY_MAX", "20");
     const { paths } = await spec();
-    expect(Object.keys(paths)).toEqual(["/api/v1/rounds", "/api/v1/runs", "/api/company-requests", "/api/company-requests/{id}"]);
+    expect(Object.keys(paths)).toEqual([
+      "/api/v1/rounds",
+      "/api/v1/companies",
+      "/api/v1/companies/{id}",
+      "/api/v1/investors",
+      "/api/v1/investors/top",
+      "/api/v1/investors/{id}",
+      "/api/v1/news",
+      "/api/v1/runs",
+      "/api/company-requests",
+      "/api/company-requests/{id}",
+    ]);
     const post = paths["/api/company-requests"].post;
     expect(Object.keys(post.responses).sort()).toEqual(["200", "202", "400", "403", "404", "429", "503"]);
     expect(post.description).toContain("3 per address per day");

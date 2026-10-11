@@ -2,7 +2,7 @@
 // silent empty set. /api/v1/runs shares the limit rule.
 
 import type { RoundCertainty, Stage } from "@fireround/core";
-import { ROUND_CERTAINTIES, STAGES } from "@fireround/core";
+import { ROUND_CERTAINTIES, SECTORS, STAGES } from "@fireround/core";
 import { FEED_SORTS, type FeedSort, parseRoundCursor, parseTrendingCursor } from "./round-sort.ts";
 
 export const ROUND_STATUSES = ["new", "updated", "seen"] as const;
@@ -80,6 +80,36 @@ export function parseStages(raw: string | null): Parsed<Stage[] | undefined> {
     return bad(`stage must be one or more of: ${STAGES.join(", ")}`);
   }
   return ok(values as Stage[]);
+}
+
+/** One of a fixed set of words, or the default when absent. */
+export function parseChoice<T extends string>(raw: string | null, name: string, choices: readonly T[], fallback: T): Parsed<T> {
+  if (raw === null || raw === "") return ok(fallback);
+  if (!(choices as readonly string[]).includes(raw)) return bad(`${name} must be one of: ${choices.join(", ")}`);
+  return ok(raw as T);
+}
+
+/** A 1-based page number. */
+export function parsePage(raw: string | null): Parsed<number> {
+  if (raw === null || raw === "") return ok(1);
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 10_000) return bad("page must be a whole number from 1");
+  return ok(n);
+}
+
+/** A sector from the feed's vocabulary (the sector filter on /api/v1/rounds takes the same words). */
+export function parseSector(raw: string | null): Parsed<string | undefined> {
+  if (raw === null || raw === "") return ok(undefined);
+  const s = raw.trim().toLowerCase();
+  if (!(SECTORS as readonly string[]).includes(s)) return bad(`sector must be one of: ${SECTORS.join(", ")}`);
+  return ok(s);
+}
+
+/** Free search text: at most 200 characters. */
+export function parseQuery(raw: string | null): Parsed<string | undefined> {
+  if (raw === null || raw.trim() === "") return ok(undefined);
+  if (raw.length > 200) return bad("q must be at most 200 characters");
+  return ok(raw.trim());
 }
 
 export function parseStatuses(raw: string | null): Parsed<Array<(typeof ROUND_STATUSES)[number]> | undefined> {

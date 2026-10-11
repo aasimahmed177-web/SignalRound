@@ -20,7 +20,7 @@ const visible = inArray(fundingRounds.disposition, ["publish", "flagged"]);
  * dossier, lib/history.ts) carries its real, older date, so it rarely falls inside a window at all,
  * and it is left out here so one never inflates a week's count or its "new" figure.
  */
-const caught = and(visible, eq(fundingRounds.history, false), inArray(fundingRounds.certainty, ["announced", "reported"]));
+export const caught = and(visible, eq(fundingRounds.history, false), inArray(fundingRounds.certainty, ["announced", "reported"]));
 
 export interface Overview {
   window_days: number;
