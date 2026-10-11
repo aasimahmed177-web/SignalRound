@@ -2333,7 +2333,12 @@ function survivorFacts(keep: MergeRow, dup: MergeRow): Partial<typeof fundingRou
   if (dup.lastSeenAt > keep.lastSeenAt) set.lastSeenAt = dup.lastSeenAt;
   const evidence = [...new Set([...keep.evidence, ...dup.evidence])];
   if (evidence.length > keep.evidence.length) set.evidenceQuotes = evidence;
-  if (keep.amountAsWritten === null && dup.amountAsWritten !== null) {
+  // A survivor with no amount takes the other row's, unless its own headline was ruled not this
+  // round's money (a scope on no amount: the release's $70 million includes debt). The duplicate's
+  // figure is then an early or partial reading of that same headline (a filing's $60 million two
+  // days before the release), not a better one.
+  const amountRuledOut = keep.amountScope !== null && keep.amountScope !== "round";
+  if (keep.amountAsWritten === null && dup.amountAsWritten !== null && !amountRuledOut) {
     set.amountAsWritten = dup.amountAsWritten;
     set.amountValue = dup.amountValue?.toString() ?? null;
     set.amountCurrency = dup.amountCurrency;

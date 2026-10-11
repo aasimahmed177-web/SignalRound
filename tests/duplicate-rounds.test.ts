@@ -435,6 +435,83 @@ describe("merging a stored duplicate pair", () => {
     ]);
   });
 
+  test("the Ultrahuman case: a survivor whose headline was ruled not this round's money takes no figure from an early report", async () => {
+    const usd = (m: number, day: string) => ({
+      value: m,
+      currency: "USD",
+      as_written: `$${m} million`,
+      usd_millions: m,
+      fx_rate: 1,
+      fx_date: day,
+    });
+    const ring = { company_name: "Ringco", company_key: "ringco", company_domain: "ringco.com", lead_investors: ["Chip Ventures"] };
+    // The release's row, and a filings report of the same round written under a misread year and
+    // re-dated onto it later, as Ultrahuman's was: two rows the rule joins only by an operator's pair.
+    const store = async () => {
+      const db = await testDb();
+      await persistRecords(
+        db,
+        [
+          record({
+            ...ring,
+            stage: "series_c",
+            stage_as_written: "Series C",
+            announced_date: "2026-09-03",
+            date_basis: "stated",
+            amount: usd(70, "2026-09-03"),
+            sources: [{ url: "https://ringco.com/press/ringco-raises-70-million", host: "ringco.com" }],
+          }),
+          record({
+            ...ring,
+            stage: "other",
+            stage_as_written: "funding round",
+            announced_date: "2023-10-01",
+            date_basis: "page",
+            amount: usd(60, "2023-10-01"),
+            confidence: 0.6,
+            sources: [{ url: "https://news.example/ringco-raises-60-million-filings", host: "news.example" }],
+          }),
+        ],
+        "growth",
+        "run-1",
+      );
+      const ids = (await listRounds(db, { includeReview: true })).rows.map((r) => r.id);
+      expect(ids).toHaveLength(2);
+      const release = ids.find((id) => id.includes("series_c")) as string;
+      const early = ids.find((id) => id !== release) as string;
+      await db.update(schema.fundingRounds).set({ announcedOn: "2026-09-01" }).where(sql`${schema.fundingRounds.id} = ${early}`);
+      return { db, release, early };
+    };
+
+    const ruled = await store();
+    // The audit's ruling on the release row: $70 million includes debt, so it is the financing total, not the amount.
+    await ruled.db
+      .update(schema.fundingRounds)
+      .set({
+        amountAsWritten: null,
+        amountValue: null,
+        amountUsdMillions: null,
+        amountScope: "financing_total",
+        financingTotalAsWritten: "$70 million",
+        financingTotalQuote: "Ringco has raised $70m, split into $65m of equity and $5m of debt",
+      })
+      .where(sql`${schema.fundingRounds.id} = ${ruled.release}`);
+    expect((await mergeRoundPairs(ruled.db, { apply: true, force: true, pairs: [[ruled.release, ruled.early]] })).merged).toBe(1);
+    const [row] = (await listRounds(ruled.db, { includeReview: true })).rows;
+    expect(row?.id).toBe(ruled.release);
+    expect(row?.amount).toMatchObject({ as_written: null, usd_millions: null });
+
+    // Without that ruling, a survivor with no figure still takes the duplicate's.
+    const plain = await store();
+    await plain.db
+      .update(schema.fundingRounds)
+      .set({ amountAsWritten: null, amountValue: null, amountUsdMillions: null, amountScope: null })
+      .where(sql`${schema.fundingRounds.id} = ${plain.release}`);
+    await mergeRoundPairs(plain.db, { apply: true, force: true, pairs: [[plain.release, plain.early]] });
+    const [merged] = (await listRounds(plain.db, { includeReview: true })).rows;
+    expect(merged?.amount.as_written).toBe("$60 million");
+  });
+
   test("the IPID case: whichever row survives a forced merge, the round keeps the stage one of them named", async () => {
     const db = await testDb();
     const amount = { value: 16, currency: "USD", as_written: "$16 million", usd_millions: 16, fx_rate: 1, fx_date: "2026-09-24" };
