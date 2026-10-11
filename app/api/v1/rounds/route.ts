@@ -24,6 +24,7 @@ import {
 import { db } from "@/lib/db";
 import type { RoundRow } from "@/lib/persist";
 import { feedHistory, listRounds } from "@/lib/persist";
+import { didYouMean } from "@/lib/public-api";
 import { publicRound } from "@/lib/public-view";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
 import { parseTrendingCursor, trendingCursorAfter } from "@/lib/round-sort";
@@ -186,5 +187,16 @@ export async function GET(request: Request) {
       headers: { ...readHeaders(insider), "content-type": "application/x-ndjson" },
     });
   }
-  return NextResponse.json({ data: withTrending, next_cursor: nextCursor }, { headers: readHeaders(insider) });
+  const named = p.get("company") ?? p.get("q");
+  const near =
+    rows.length === 0 && !cursor.value && named
+      ? [
+          ...(await didYouMean(handle, "companies", named)),
+          ...(p.get("company") ? [] : await didYouMean(handle, "investors", named)),
+        ].slice(0, 3)
+      : [];
+  return NextResponse.json(
+    { data: withTrending, next_cursor: nextCursor, ...(near.length ? { did_you_mean: near } : {}) },
+    { headers: readHeaders(insider) },
+  );
 }

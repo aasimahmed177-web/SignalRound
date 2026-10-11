@@ -179,6 +179,12 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     // A name it is known by reads the same profile, as its page redirects it.
     expect((await company("zeta-health")).body.id).toBe("zeta.example");
     expect((await company("nobody.example")).status).toBe(404);
+    // A typo is still a 404, naming the company it was probably meant to be, in the message too.
+    const typo = await company("zetta");
+    expect(typo.status).toBe(404);
+    expect(typo.body.did_you_mean).toEqual([{ id: "zeta.example", name: "Zeta" }]);
+    expect(typo.body.error).toMatch(/Did you mean Zeta \(id zeta\.example\)\?$/);
+    expect((await company("nobody.example")).body.did_you_mean).toEqual([]);
     expect((await company("hidden.example")).status).toBe(404);
   });
 });
@@ -211,6 +217,11 @@ describe("/api/v1/investors and /api/v1/investors/{id}", () => {
     expect(body.data.map((r) => r.id)).not.toContain("fund-four");
     const one = body.data.find((r) => r.id === "fund-one");
     expect(one).toMatchObject({ name: "Fund One", rounds_led: 2, url: expect.stringMatching(/\/investors\/fund-one$/) });
+    expect(body.did_you_mean).toBeUndefined();
+    const typo = await get(investorsGet, "/api/v1/investors?q=fund%20sevn");
+    expect(typo.body).toMatchObject({ data: [], total: 0, did_you_mean: [{ id: "fund-seven", name: "Fund Seven" }] });
+    const missed = await get(companiesGet, "/api/v1/companies?q=gammma");
+    expect(missed.body).toMatchObject({ data: [], total: 0, did_you_mean: [{ id: "gamma.example", name: "Gamma" }] });
   });
 
   test("a profile lists the investor's rounds, totals, and co-investors; an unknown id is a 404", async () => {
@@ -228,6 +239,17 @@ describe("/api/v1/investors and /api/v1/investors/{id}", () => {
       params: Promise.resolve({ id: "nobody" }),
     } as never);
     expect(missing.status).toBe(404);
+    const byName = async (id: string) => {
+      const r = await profileGet(new Request(`http://app.test/api/v1/investors/${encodeURIComponent(id)}`), {
+        params: Promise.resolve({ id: encodeURIComponent(id) }),
+      } as never);
+      return { status: r.status, body: (await r.json()) as Record<string, unknown> };
+    };
+    // Its name as written finds it too, legal and generic tails and all.
+    for (const name of ["Fund One", "FUND ONE", "Fund One Capital"]) expect((await byName(name)).body.id).toBe("fund-one");
+    const typo = await byName("Fund Sevenn");
+    expect(typo.status).toBe(404);
+    expect(typo.body.did_you_mean).toEqual([{ id: "fund-seven", name: "Fund Seven" }]);
   });
 });
 

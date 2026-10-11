@@ -285,6 +285,12 @@ export function GET(request: Request) {
       },
     ],
   };
+  const DidYouMean = {
+    type: "array",
+    description:
+      "Only when nothing matched: up to three companies or investors whose name is a typo or two away from the one asked for, nearest first. Retry with one of them.",
+    items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } }, required: ["id", "name"] },
+  };
   const BadRequest = {
     description: "A parameter failed validation",
     content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } }, required: ["error"] } } },
@@ -533,7 +539,11 @@ export function GET(request: Request) {
                 "application/json": {
                   schema: {
                     type: "object",
-                    properties: { data: { type: "array", items: Round }, next_cursor: { type: ["string", "null"] } },
+                    properties: {
+                      data: { type: "array", items: Round },
+                      next_cursor: { type: ["string", "null"] },
+                      did_you_mean: DidYouMean,
+                    },
                   },
                 },
                 "text/csv": { schema: { type: "string" } },
@@ -623,6 +633,7 @@ export function GET(request: Request) {
                       },
                       total: { type: "integer", description: "Companies matching the search" },
                       next_page: { type: ["integer", "null"] },
+                      did_you_mean: DidYouMean,
                     },
                   },
                 },
@@ -640,8 +651,10 @@ export function GET(request: Request) {
           parameters: [{ name: "id", in: "path", required: true, schema: CompanyId }],
           responses: {
             "404": {
-              description: "No company with that id has a published round",
-              content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } },
+              description: "No company with that id has a published round. The message names the closest matches, if any",
+              content: {
+                "application/json": { schema: { type: "object", properties: { error: { type: "string" }, did_you_mean: DidYouMean } } },
+              },
             },
             "200": {
               description: "The profile",
@@ -699,7 +712,7 @@ export function GET(request: Request) {
             {
               name: "q",
               in: "query",
-              description: "Part of the investor's name, e.g. sequoia",
+              description: "Part of the investor's name or site, e.g. sequoia or a16z",
               schema: { type: "string", maxLength: 200 },
             },
             { name: "sort", in: "query", schema: { type: "string", enum: ["led", "rounds", "latest", "name"], default: "led" } },
@@ -748,6 +761,7 @@ export function GET(request: Request) {
                       },
                       total: { type: "integer", description: "Investors matching the search" },
                       next_page: { type: ["integer", "null"] },
+                      did_you_mean: DidYouMean,
                     },
                   },
                 },
@@ -821,11 +835,21 @@ export function GET(request: Request) {
           summary: "One investor's profile",
           description:
             "Who the investor is (its kind, description, and headquarters as its own site states them), the rounds it led and joined, its sectors and stages, the investors it backs companies beside, and its newest rounds with its role in each.",
-          parameters: [{ name: "id", in: "path", required: true, schema: InvestorId }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: 'The investor\'s slug, or its name or site as written ("Andreessen Horowitz", "a16z.com")',
+              schema: InvestorId,
+            },
+          ],
           responses: {
             "404": {
-              description: "No investor with that id is named on a published round",
-              content: { "application/json": { schema: { type: "object", properties: { error: { type: "string" } } } } },
+              description: "No investor with that id is named on a published round. The message names the closest matches, if any",
+              content: {
+                "application/json": { schema: { type: "object", properties: { error: { type: "string" }, did_you_mean: DidYouMean } } },
+              },
             },
             "200": {
               description: "The profile",

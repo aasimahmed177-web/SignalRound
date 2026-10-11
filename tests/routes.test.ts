@@ -125,6 +125,14 @@ describe("GET /api/v1/rounds", () => {
     expect(withReview.data).toHaveLength(4);
   });
 
+  test("a name that matched nothing names the near ones; the right name ruled out by a filter does not", async () => {
+    type Page = { data: unknown[]; next_cursor: string | null; did_you_mean?: Array<{ id: string; name: string }> };
+    const read = async (query: string) => (await (await roundsGet(new Request(`http://app.test/api/v1/rounds?${query}`))).json()) as Page;
+    expect(await read("stage=series_b")).not.toHaveProperty("did_you_mean");
+    expect(await read("q=alpah")).toMatchObject({ data: [], did_you_mean: [{ id: "alpha.com", name: "Alpha" }] });
+    expect(await read("q=alpha&stage=seed")).toEqual({ data: [], next_cursor: null });
+  });
+
   test("include_review on a public demo needs the dashboard password", async () => {
     const auth = (pw: string) => ({ authorization: `Basic ${Buffer.from(`u:${pw}`).toString("base64")}` });
     const url = "http://app.test/api/v1/rounds?include_review=true";

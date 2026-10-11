@@ -281,7 +281,9 @@ export interface InvestorListing {
 }
 
 function investorMatch(q: string): SQL | undefined {
-  return q ? sql`${investors.name} ilike ${likeTerm(q)}` : undefined;
+  if (!q) return undefined;
+  const term = likeTerm(q);
+  return sql`(${investors.name} ilike ${term} or coalesce(${investors.domain}, '') ilike ${term})`;
 }
 
 const led = sql<number>`(count(*) filter (where ${roundInvestors.role} = 'lead'))::int`;

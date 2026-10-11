@@ -3,10 +3,10 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import type { Stage } from "@fireround/core";
+import { normalizeInvestorKey, type Stage } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { getCompany } from "./company.ts";
 import { type CompanySort, likeTerm, listCompanies, listInvestors } from "./directory.ts";
 import { companyRedirect } from "./entity-exists.ts";
@@ -74,7 +74,7 @@ export interface ApiCompany {
 export async function apiCompanies(
   handle: Db,
   q: { q?: string; sector?: string; stages?: Stage[]; since?: string; sort: CompanySort; page: number; limit: number },
-): Promise<{ data: ApiCompany[]; total: number; next_page: number | null }> {
+): Promise<{ data: ApiCompany[]; total: number; next_page: number | null; did_you_mean?: Array<{ id: string; name: string }> }> {
   const page = await listCompanies(handle, { ...q, pageSize: q.limit });
   const origin = siteOrigin();
   return {
@@ -95,6 +95,7 @@ export async function apiCompanies(
     })),
     total: page.total,
     next_page: q.page * q.limit < page.total ? q.page + 1 : null,
+    ...(page.total === 0 && q.q ? { did_you_mean: await didYouMean(handle, "companies", q.q) } : {}),
   };
 }
 
@@ -177,7 +178,7 @@ export interface ApiInvestor {
 export async function apiInvestors(
   handle: Db,
   q: { q?: string; sort: ApiInvestorSort; page: number; limit: number },
-): Promise<{ data: ApiInvestor[]; total: number; next_page: number | null }> {
+): Promise<{ data: ApiInvestor[]; total: number; next_page: number | null; did_you_mean?: Array<{ id: string; name: string }> }> {
   const page = await listInvestors(handle, { q: q.q, sort: q.sort, page: q.page, pageSize: q.limit });
   const origin = siteOrigin();
   return {
@@ -202,7 +203,98 @@ export async function apiInvestors(
     })),
     total: page.total,
     next_page: q.page * q.limit < page.total ? q.page + 1 : null,
+    ...(page.total === 0 && q.q ? { did_you_mean: await didYouMean(handle, "investors", q.q) } : {}),
   };
+}
+
+/**
+ * The investor a caller means when the id itself misses: its name as written ("Andreessen
+ * Horowitz", "Sequoia Capital") or its site ("a16z.com", "a16z"). The id, or null when no investor
+ * named on a published round answers to it.
+ */
+async function investorIdFor(handle: Db, raw: string): Promise<string | null> {
+  const keys = [...new Set([investorIdFromParam(raw).toLowerCase(), normalizeInvestorKey(raw)])].filter(Boolean);
+  const site = raw.trim().toLowerCase();
+  const seats = sql<number>`count(*)::int`;
+  const hits = await handle
+    .select({ id: investors.id, seats })
+    .from(investors)
+    .innerJoin(roundInvestors, eq(roundInvestors.investorId, investors.id))
+    .innerJoin(fundingRounds, eq(fundingRounds.id, roundInvestors.roundId))
+    .where(
+      and(
+        inArray(fundingRounds.disposition, ["publish", "flagged"]),
+        or(inArray(investors.id, keys), eq(investors.domain, site), sql`split_part(${investors.domain}, '.', 1) = ${site}`),
+      ),
+    )
+    .groupBy(investors.id)
+    .orderBy(desc(seats));
+  return keys.find((k) => hits.some((h) => h.id === k)) ?? hits[0]?.id ?? null;
+}
+
+/** Edit distance with an adjacent swap counted as one edit ("sequioa"), or max + 1 once it is past max. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev2: number[] = [];
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) row[j] = Math.min(row[j], prev2[j - 2] + 1);
+    }
+    if (Math.min(...row) > max) return max + 1;
+    prev2 = prev;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/**
+ * What a name that matched nothing was probably meant to be ("supabse", "Antropic", "Sequioa"): up
+ * to three companies or investors on published rounds whose name, id or site is a typo or two away
+ * from it, nearest first, then the most rounds. Empty when nothing is that close, and empty when the
+ * name is exactly right (another filter ruled it out, so a near name would mislead).
+ */
+export async function didYouMean(handle: Db, kind: "companies" | "investors", text: string): Promise<Array<{ id: string; name: string }>> {
+  const want = compact(text.replace(/^https?:\/\/(www\.)?/i, "").replace(/\.[a-z.]+\/?$/i, ""));
+  if (want.length < 5) return [];
+  const max = want.length < 8 ? 1 : 2;
+  const rounds = sql<number>`count(*)::int`;
+  const visible = inArray(fundingRounds.disposition, ["publish", "flagged"]);
+  const rows =
+    kind === "companies"
+      ? await handle
+          .select({ id: companies.id, name: companies.name, domain: companies.domain, rounds })
+          .from(companies)
+          .innerJoin(fundingRounds, eq(fundingRounds.companyId, companies.id))
+          .where(visible)
+          .groupBy(companies.id)
+      : await handle
+          .select({ id: investors.id, name: investors.name, domain: investors.domain, rounds })
+          .from(investors)
+          .innerJoin(roundInvestors, eq(roundInvestors.investorId, investors.id))
+          .innerJoin(fundingRounds, eq(fundingRounds.id, roundInvestors.roundId))
+          .where(visible)
+          .groupBy(investors.id);
+  const scored = rows.map((r) => {
+    const forms = [r.name, r.id.split(".")[0], r.domain?.split(".")[0] ?? ""].map(compact).filter(Boolean);
+    return { r, d: Math.min(...forms.map((f) => editDistance(want, f, max))) };
+  });
+  if (scored.some(({ d }) => d === 0)) return [];
+  return scored
+    .filter(({ d }) => d <= max)
+    .sort((a, b) => a.d - b.d || b.r.rounds - a.r.rounds)
+    .slice(0, 3)
+    .map(({ r }) => ({ id: kind === "investors" ? investorSlug(r.id) : r.id, name: r.name }));
+}
+
+/** A 404 body that names the closest matches, in the message too, so a caller that only reads the message sees them. */
+export function notFound(message: string, near: Array<{ id: string; name: string }>) {
+  const hint = near.length ? ` Did you mean ${near.map((n) => `${n.name} (id ${n.id})`).join(", ")}?` : "";
+  return { error: `${message}.${hint}`, did_you_mean: near };
 }
 
 /** How many of an investor's rounds its profile lists, newest first. */
@@ -210,7 +302,11 @@ const PROFILE_ROUNDS = 25;
 
 /** An investor's profile: who it is, what it led and joined, its sectors and stages, and who it invests beside. */
 export async function apiInvestorProfile(handle: Db, idOrSlug: string) {
-  const page = await getInvestor(handle, investorIdFromParam(idOrSlug));
+  let page = await getInvestor(handle, investorIdFromParam(idOrSlug));
+  if (!page) {
+    const id = await investorIdFor(handle, idOrSlug);
+    if (id) page = await getInvestor(handle, id);
+  }
   if (!page) return null;
   const origin = siteOrigin();
   const { investor, totals } = page;
