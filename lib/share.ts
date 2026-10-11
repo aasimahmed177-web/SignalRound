@@ -4,10 +4,10 @@
 
 import type { Metadata } from "next";
 import type { CompanyPage } from "@/lib/company";
-import { reportedAmount, roundStageLabel, sectorLabel, stageLabel, stageOf, usd } from "@/lib/format";
+import { reportedAmount, roundStageLabel, sectorLabel, stageLabel, stageOf } from "@/lib/format";
 import type { InvestorPage } from "@/lib/investor";
 import type { RoundRow } from "@/lib/persist";
-import { readAgainst } from "@/lib/source-count";
+import { readAgainst, sourceCount, sourcesLabel } from "@/lib/source-count";
 import { capitalizeFirst } from "@/lib/text";
 
 const SITE = "Fireround";
@@ -99,11 +99,11 @@ export interface CompanyShare {
 }
 
 /**
- * "Zeliq raised $8M in its seed round, led by The Moon Venture and CMI (Sep 2026), verified against
- * 5 sources; $8M across 1 round on record." Then what the company does, when the record knows.
+ * "Zeliq raised $8M in its seed, led by The Moon Venture and CMI (Sep 2026). 5 sources." Then what
+ * the company does, when the record knows. The count is the sources the page lists for the round.
  */
 export function companyShare(page: CompanyPage): CompanyShare {
-  const { company, rounds, totals } = page;
+  const { company, rounds } = page;
   const counted = rounds.filter((r) => r.disposition !== "rejected");
   const latest = counted[0] ?? null;
   const what = capitalise(company.description);
@@ -117,18 +117,15 @@ export function companyShare(page: CompanyPage): CompanyShare {
   const round = ["undisclosed", "other"].includes(latest.stage)
     ? `a funding round${ext}`
     : amount
-      ? `its ${stage} round${ext}`
+      ? `its ${stage}${ext}`
       : `a ${stage} round${ext}`;
   let sentence = amount ? `${company.name} raised ${amount} in ${round}` : `${company.name} raised ${round}`;
   if (latest.lead_investors.length) sentence += `, led by ${nameList(latest.lead_investors)}`;
   const when = monthYear(latest.announced_on);
   if (when) sentence += ` (${when})`;
-  const seen = verifiedAgainst(latest);
-  if (seen !== null) sentence += `, verified against ${seen}`;
-  const total = totals.usd_millions_raised > 0 ? usd(totals.usd_millions_raised) : "";
-  if (counted.length > 1)
-    sentence += total ? `; ${total} across ${plural(counted.length, "round")} on record` : `; ${plural(counted.length, "round")} on record`;
-  const description = what ? `${sentence}. ${withStop(what)}` : `${sentence}.`;
+  sentence += ".";
+  if (sourceCount(latest) > 0) sentence += ` ${sourcesLabel(latest)}.`;
+  const description = what ? `${sentence} ${withStop(what)}` : sentence;
   const headline = amount ? `${amount} ${roundLabel(latest)}` : `${roundLabel(latest)} round`;
   return { title: `${company.name}: ${headline}`, description: clip(description, MAX_DESCRIPTION), latest, counted };
 }

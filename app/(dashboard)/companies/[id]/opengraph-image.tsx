@@ -5,6 +5,7 @@ import { isHouseCompany } from "@/lib/house";
 import { decodeParam } from "@/lib/links";
 import { CardFrame, Figure, GenericCard, Heading, loadLogo, OG_SIZE, renderCard } from "@/lib/og";
 import { amountLabel, capitalise, cardDate, clip, companyShare, nameList, roundLabel, verifiedAgainst } from "@/lib/share";
+import { sourcesLabel } from "@/lib/source-count";
 
 export const alt = "Fireround company card: the latest round, total raised, and the sources behind it";
 export const size = OG_SIZE;
@@ -42,12 +43,10 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const mark = company.name.trim().charAt(0).toUpperCase() || "?";
   const line = house ? HOUSE_LINE : clip(capitalise(company.description) ?? company.domain ?? "", 130);
   const stated = counted.filter((r) => r.amount.usd_millions).length;
-  const seen = latest ? verifiedAgainst(latest) : null;
+  const seen = latest && verifiedAgainst(latest) !== null ? sourcesLabel(latest) : null;
 
   const footer =
-    seen !== null
-      ? { text: `Verified against ${seen}`, check: true }
-      : { text: `${sources.length} ${sources.length === 1 ? "source" : "sources"} on record` };
+    seen !== null ? { text: seen, check: true } : { text: `${sources.length} ${sources.length === 1 ? "source" : "sources"} on record` };
 
   const card = (withLogo: boolean) => (
     <CardFrame tag="COMPANY" footer={footer}>

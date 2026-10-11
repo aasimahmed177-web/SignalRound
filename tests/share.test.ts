@@ -92,15 +92,15 @@ function company(rounds: RoundRow[], description: string | null = "a sales prosp
 }
 
 describe("companyShare", () => {
-  test("the latest round, its lead, when, how verified, then what the company does", () => {
+  test("the latest round, its lead, when, how many sources, then what the company does", () => {
     const share = companyShare(company([round()]));
     expect(share.title).toBe("Zeliq: $8M Seed");
     expect(share.description).toBe(
-      "Zeliq raised $8M in its seed round, led by The Moon Venture and CMI (Sep 2026), verified against 5 sources. A sales prospecting platform based in Europe.",
+      "Zeliq raised $8M in its seed, led by The Moon Venture and CMI (Sep 2026). 5 sources. A sales prospecting platform based in Europe.",
     );
   });
 
-  test("no amount, no lead, unverified: it claims none of them", () => {
+  test("no amount, no lead, unverified: it claims none of them, and still counts the sources", () => {
     const r = round({
       amount: { value: null, currency: null, as_written: null, usd_millions: null },
       lead_investors: [],
@@ -108,10 +108,10 @@ describe("companyShare", () => {
     });
     const share = companyShare(company([r], null));
     expect(share.title).toBe("Zeliq: Seed round");
-    expect(share.description).toBe("Zeliq raised a seed round (Sep 2026).");
+    expect(share.description).toBe("Zeliq raised a seed round (Sep 2026). 5 sources.");
   });
 
-  test("several rounds add the total; rejected ones count for nothing", () => {
+  test("several rounds: the description speaks for the latest counted one; rejected ones count for nothing", () => {
     const b = round({
       id: "b",
       stage: "series_a",
@@ -124,9 +124,14 @@ describe("companyShare", () => {
       amount: { value: 900, currency: "USD", as_written: "$900M", usd_millions: 900 },
     });
     const share = companyShare(company([b, round(), rejected], null));
-    expect(share.description).toBe(
-      "Zeliq raised $20M in its Series A round, led by Big Fund (Sep 2026), verified against 5 sources; $28M across 2 rounds on record.",
-    );
+    expect(share.description).toBe("Zeliq raised $20M in its Series A, led by Big Fund (Sep 2026). 5 sources.");
+  });
+
+  test("the old verified-against phrasing is gone from every description", () => {
+    const flagged = round({ disposition: "flagged" });
+    for (const page of [company([round()]), company([flagged], null)]) {
+      expect(companyShare(page).description).not.toMatch(/verified against|of \d+ sources/);
+    }
   });
 
   test("a company whose rounds were all rejected still gets a line", () => {
