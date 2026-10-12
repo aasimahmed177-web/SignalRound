@@ -1,4 +1,4 @@
-// The in-process schedule for hosts with no Vercel Cron. vercel.json ticks /api/cron/sweep and
+// The in-process schedule for hosts with no Vercel Cron. vercel.ts (with FIREROUND_SCHEDULE=frequent) ticks /api/cron/sweep and
 // /api/cron/trending hourly, /api/cron/verify-rounds and /api/cron/announcements every quarter hour,
 // /api/cron/deliveries hourly, /api/cron/accuracy at 05:00 UTC,
 // and /api/cron/slack-digest at 07:00 UTC on Vercel; everywhere else `pnpm start`
@@ -37,7 +37,7 @@ export function nextVerifyDelayMs(now: Date): number {
 }
 
 /**
- * The routes one tick calls, mirroring vercel.json: the sweep, Trending, and X announcements hourly,
+ * The routes one tick calls, mirroring vercel.ts's frequent schedule: the sweep, Trending, and X announcements hourly,
  * deliveries (with the X lane) hourly, the accuracy check at 05:00 UTC, the Slack digest at 07:00 UTC.
  */
 export function tickPaths(now: Date): string[] {

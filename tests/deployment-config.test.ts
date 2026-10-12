@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { DEPLOY_URL } from "../lib/landing";
+import { config, cronsFor } from "../vercel";
 
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const deploy = readFileSync(new URL("../docs/deploy.md", import.meta.url), "utf8");
@@ -13,12 +14,21 @@ test("the one-click deployment asks only for what a first deploy needs, and the 
   expect(DEPLOY_URL).toBe(link);
 });
 
-test("sub-daily Vercel crons have a Pro warning next to Deploy and an authenticated Hobby alternative", () => {
-  const crons = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8")).crons as Array<{ schedule: string }>;
-  expect(crons.some(({ schedule }) => schedule.split(" ")[1].includes("*"))).toBe(true);
-  expect(readme.slice(readme.indexOf("Deploy with Vercel"), readme.indexOf("![Fireround:"))).toContain("Vercel Pro");
+test("a clone deploys on Vercel Hobby by default, and FIREROUND_SCHEDULE=frequent restores the full cadence", () => {
+  const onceADay = /^\d+ \d+ \* \* \*$/;
+  const daily = cronsFor(undefined);
+  expect(daily.every(({ schedule }) => onceADay.test(schedule))).toBe(true);
+  expect(config.crons).toEqual(cronsFor(process.env.FIREROUND_SCHEDULE));
+  expect(cronsFor("Frequent ")).toEqual(cronsFor("frequent"));
+  const frequent = cronsFor("frequent");
+  // Every route that runs at all runs in both schedules; only the cadence differs.
+  expect(daily.map((c) => c.path).sort()).toEqual(frequent.map((c) => c.path).sort());
+  expect(frequent).toContainEqual({ path: "/api/cron/sweep", schedule: "0 * * * *" });
+  expect(frequent).toContainEqual({ path: "/api/cron/verify-rounds", schedule: "*/15 * * * *" });
+  expect(frequent).toContainEqual({ path: "/api/cron/health", schedule: "*/10 * * * *" });
+  for (const { path } of frequent) expect(existsSync(new URL(`../app${path}/route.ts`, import.meta.url))).toBe(true);
+  expect(readme.slice(readme.indexOf("Deploy with Vercel"), readme.indexOf("![Fireround:"))).toContain("FIREROUND_SCHEDULE=frequent");
   expect(deploy).toContain("### Vercel Hobby");
-  expect(deploy).toContain('"schedule": "0 0 * * *"');
   expect(deploy).toContain(`\${{ secrets.CRON_SECRET }}`);
   expect(deploy).toContain("Authorization: Bearer $CRON_SECRET");
 });

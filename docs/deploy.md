@@ -6,7 +6,7 @@ Everything past the quick start: hosting on Vercel or anywhere else, running a p
 
 Press the Deploy button in the README, or import the repo and add `FIRECRAWL_API_KEY` plus a Neon database from the Vercel Marketplace. Migrations apply at build.
 
-Set `CRON_SECRET` too (any random string of 16+ characters): Vercel sends it as the bearer on every cron call, and without it the scheduled sweep answers 401. `vercel.json` runs `/api/cron/sweep`, `/api/cron/trending`, and `/api/cron/announcements` hourly, `/api/cron/deliveries` hourly (outbox retries and [posting to X](#posting-to-x)), `/api/cron/accuracy` at 05:00 UTC (the daily accuracy check), `/api/cron/slack-digest` at 07:00 UTC (the public Slack digest, a no-op without it), and `/api/cron/health` every 10 minutes ([production alerts](#production-alerts)); the hourly tick is a clock, and the coverage rung decides which hours sweep.
+Set `CRON_SECRET` too (any random string of 16+ characters): Vercel sends it as the bearer on every cron call, and without it the scheduled sweep answers 401. `vercel.ts` sets the Vercel Cron schedule when the project builds, from `FIREROUND_SCHEDULE`. Unset, every route runs once a day (UTC): `/api/cron/accuracy` at 05:00, `/api/cron/sweep`, `/api/cron/company-newsrooms`, and `/api/cron/announcements` at 06:00, `/api/cron/slack-digest` at 07:00, `/api/cron/trending` at 08:00, `/api/cron/deliveries` at 09:00, `/api/cron/verify-rounds` at 10:00, `/api/cron/publication-audit` at 11:00, and `/api/cron/health` at 12:00. With `FIREROUND_SCHEDULE=frequent` (Vercel Pro), the sweep, Trending, and deliveries ([posting to X](#posting-to-x)) run hourly, announcements and verification every 15 minutes, the publication audit every 5, and the health check every 10 ([production alerts](#production-alerts)); accuracy, newsrooms, and the Slack digest keep their daily hours. The hourly tick is a clock, and the coverage rung decides which hours sweep. A change to `FIREROUND_SCHEDULE` takes effect at the next deployment.
 
 Set `AI_GATEWAY_API_KEY` to read every record back against its sources with a model. A deployed function does not see Vercel's OIDC token in its environment, so the key is needed on Vercel too; without one, the judge reads the primary page with Firecrawl alone.
 
@@ -16,13 +16,9 @@ Vercel Web Analytics and Speed Insights (cookieless) report once you enable them
 
 ### Vercel Hobby
 
-The supplied `vercel.json` requires **Vercel Pro**, because it schedules calls more than once a day. On Hobby, replace its `crons` array before deploying with a daily schedule, for example:
+The default schedule deploys on Hobby as it is: Hobby accepts only crons that run at most once a day (each at some minute of its hour), and with `FIREROUND_SCHEDULE` unset every route is daily. That covers the default Lite coverage, whose sweep runs Mondays at 06:00 UTC. Do not set `FIREROUND_SCHEDULE=frequent` on Hobby: Vercel refuses a deployment with sub-daily crons, and the refusal may not show in the dashboard.
 
-```json
-"crons": [{ "path": "/api/cron/sweep", "schedule": "0 0 * * *" }]
-```
-
-Use an external scheduler for the remaining routes and for any sub-daily sweep cadence you want. Send `Authorization: Bearer <CRON_SECRET>` on each request. GitHub Actions is one option: save `FIREROUND_ORIGIN` as a repository variable and `CRON_SECRET` as an Actions secret, then add a workflow such as:
+On a daily schedule, verification and the publication audit work through their backlog once a day, so new rounds can take a day longer to publish, and a rung above Lite sweeps at most once a day. For a faster cadence on Hobby, call the routes from an external scheduler. Send `Authorization: Bearer <CRON_SECRET>` on each request. GitHub Actions is one option: save `FIREROUND_ORIGIN` as a repository variable and `CRON_SECRET` as an Actions secret, then add a workflow such as:
 
 ```yaml
 name: Fireround hourly lanes
@@ -46,7 +42,7 @@ jobs:
           done
 ```
 
-This example covers the three hourly lanes only. Schedule the other paths at the cadences in `vercel.json`, including deliveries, verification, newsroom refreshes, and the daily Slack digest. Workflow-starting routes deduplicate calls within a UTC minute; a later minute is a new tick. GitHub Actions schedules can run late and are disabled after 60 days of repository inactivity in public repositories, so they are not a punctuality guarantee. External scheduling does not raise Hobby's function-duration limits; long workflow steps may still need Pro.
+This example covers the three hourly lanes only. Schedule the other paths at the frequent cadences in `vercel.ts`, including deliveries, verification, newsroom refreshes, and the daily Slack digest. Workflow-starting routes deduplicate calls within a UTC minute; a later minute is a new tick. GitHub Actions schedules can run late and are disabled after 60 days of repository inactivity in public repositories, so they are not a punctuality guarantee. External scheduling does not raise Hobby's function-duration limits; long workflow steps may still need Pro.
 
 ## Anywhere else
 
@@ -186,7 +182,7 @@ New investors get a site, a logo, and a profile on every enrichment pass, and ev
 
 ## Dossiers for every company
 
-Every dossier is checked against its sources before it is saved ([how-it-works.md](how-it-works.md#dossiers-are-checked-before-they-are-saved)), so the check needs a model key (`AI_GATEWAY_API_KEY`). It uses `DOSSIER_VERIFY_MODEL` when set, else `RECONCILE_MODEL`, else `openai/gpt-6-sol`; a gateway team that enforces Zero Data Retention should set `DOSSIER_VERIFY_MODEL` to a model with a ZDR provider. One route gives every visible company a checked dossier. It is not in `vercel.json`: an operator starts it with the cron bearer, and it answers with the pass's run id.
+Every dossier is checked against its sources before it is saved ([how-it-works.md](how-it-works.md#dossiers-are-checked-before-they-are-saved)), so the check needs a model key (`AI_GATEWAY_API_KEY`). It uses `DOSSIER_VERIFY_MODEL` when set, else `RECONCILE_MODEL`, else `openai/gpt-6-sol`; a gateway team that enforces Zero Data Retention should set `DOSSIER_VERIFY_MODEL` to a model with a ZDR provider. One route gives every visible company a checked dossier. It is not in `vercel.ts`: an operator starts it with the cron bearer, and it answers with the pass's run id.
 
 ```bash
 # Check the dossiers written before the check; no agent runs
@@ -203,7 +199,7 @@ A dive costs what the agent reports (effort high, capped at 2,500; a run that hi
 
 ## History rounds for every checked dossier
 
-Each checked dossier lists the company's earlier rounds (and a company's timeline search queues the rounds its results state that the store lacks); each is promoted to a verified round marked history only when its own announcement is found and read back like any record ([how-it-works.md](how-it-works.md#history-rounds-a-companys-earlier-rounds-each-verified-on-its-own)). New dossiers queue theirs on their own; this route does the ones already on the store. It is not in `vercel.json`: an operator starts it with the cron bearer, and it answers with the pass's run id and its workflow run id. It is idempotent, so running it again only picks up rounds not yet looked for and failures whose backoff is over.
+Each checked dossier lists the company's earlier rounds (and a company's timeline search queues the rounds its results state that the store lacks); each is promoted to a verified round marked history only when its own announcement is found and read back like any record ([how-it-works.md](how-it-works.md#history-rounds-a-companys-earlier-rounds-each-verified-on-its-own)). New dossiers queue theirs on their own; this route does the ones already on the store. It is not in `vercel.ts`: an operator starts it with the cron bearer, and it answers with the pass's run id and its workflow run id. It is idempotent, so running it again only picks up rounds not yet looked for and failures whose backoff is over.
 
 ```bash
 # A pilot: ten dossiers

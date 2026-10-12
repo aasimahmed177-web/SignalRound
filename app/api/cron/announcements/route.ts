@@ -1,5 +1,5 @@
 // The X announcements lane, every quarter hour. Vercel Cron calls this with `Authorization: Bearer
-// $CRON_SECRET` (vercel.json); `pnpm start` ticks it from lib/scheduler.ts. It runs when the coverage rung
+// $CRON_SECRET` (vercel.ts); `pnpm start` ticks it from lib/scheduler.ts. It runs when the coverage rung
 // has the discovery lanes on (Deep and Max, the same switch as watch sites): the X search runs every
 // quarter hour on Max (X's own index has a post minutes after it is posted) and once at 06:00 UTC on
 // Deep, looking back a day, and the leads due a search for their article are worked on every tick. `?force=1` runs the search now whatever the rung.

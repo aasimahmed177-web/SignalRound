@@ -1,5 +1,5 @@
 // The Trending lane, hourly. Vercel Cron calls this with `Authorization: Bearer $CRON_SECRET`
-// (vercel.json); `pnpm start` ticks it from lib/scheduler.ts. The coverage rung decides whether it
+// (vercel.ts); `pnpm start` ticks it from lib/scheduler.ts. The coverage rung decides whether it
 // runs (on at Deep and Max); `?force=1` runs it whatever the rung says. Each run follows the visible
 // rounds first seen in the last 72 hours, searches the ones a checkpoint has come for, rescores
 // every one, and records a row on Runs.

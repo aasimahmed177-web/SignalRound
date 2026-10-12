@@ -1,5 +1,5 @@
 // The daily accuracy check. Vercel Cron calls GET at 05:00 UTC with `Authorization: Bearer
-// $CRON_SECRET` (vercel.json); `pnpm start` ticks it from lib/scheduler.ts. An operator runs it by
+// $CRON_SECRET` (vercel.ts); `pnpm start` ticks it from lib/scheduler.ts. An operator runs it by
 // hand with the same bearer, on GET or POST. Each run reads the companies that matter most (the top
 // 100 by largest round and by total raised, plus every $100M round), records the flags an admin sees
 // in Review under Accuracy, clears the ones whose condition no longer holds, starts the capped safe

@@ -6,7 +6,7 @@ The open-source funding feed built on [Firecrawl](https://www.firecrawl.dev). Fi
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffirecrawl%2Ffireround&env=FIRECRAWL_API_KEY%2CDASHBOARD_PASSWORD%2CCRON_SECRET&envDescription=Your%20Firecrawl%20API%20key%2C%20a%20password%20that%20puts%20the%20dashboard%20behind%20Basic%20auth%2C%20and%20a%20random%20string%20the%20cron%20routes%20require&envLink=https%3A%2F%2Fwww.firecrawl.dev%2Fapp%2Fapi-keys&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D)
 
-The supplied sub-daily cron schedules require **Vercel Pro**. On Hobby, replace them with a daily cron and use an external scheduler or GitHub Actions to call the other routes with `CRON_SECRET`; see [the deployment guide](docs/deploy.md#vercel-hobby).
+The cron schedule deploys on any Vercel plan: by default every scheduled route runs once a day, which is what Hobby allows and all the default Lite coverage needs. On **Vercel Pro**, set `FIREROUND_SCHEDULE=frequent` for the full cadence (hourly lanes, quarter-hour verification); see [the deployment guide](docs/deploy.md#vercel-hobby).
 
 [![ci](https://img.shields.io/github/actions/workflow/status/firecrawl/fireround/ci.yml?branch=main&label=ci)](https://github.com/firecrawl/fireround/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -63,7 +63,7 @@ Everything else is optional. Without a model key the read-back uses Firecrawl al
 
 ## Deploy
 
-**Vercel.** Press **Deploy with Vercel** above. It asks for your Firecrawl key, a dashboard password, and a cron secret (any random string of 16+ characters, such as `openssl rand -hex 24`), and provisions a Neon database (which sets `DATABASE_URL`). Migrations apply at build. The supplied Vercel Cron schedules require Pro, and a Hobby project refuses to deploy them: switch to the daily schedule and external scheduler linked above first. Add `AI_GATEWAY_API_KEY` afterwards to turn on the cross-source read-back and Deep dive, `MCP_API_KEY` to turn on MCP (a password-protected deployment refuses MCP until it is set), and `APP_ORIGIN` once you have a production URL.
+**Vercel.** Press **Deploy with Vercel** above. It asks for your Firecrawl key, a dashboard password, and a cron secret (any random string of 16+ characters, such as `openssl rand -hex 24`), and provisions a Neon database (which sets `DATABASE_URL`). Migrations apply at build. The default schedule runs each cron route once a day, so it deploys on Hobby; on Pro, set `FIREROUND_SCHEDULE=frequent` and redeploy for the full cadence. Add `AI_GATEWAY_API_KEY` afterwards to turn on the cross-source read-back and Deep dive, `MCP_API_KEY` to turn on MCP (a password-protected deployment refuses MCP until it is set), and `APP_ORIGIN` once you have a production URL.
 
 **Anywhere else.** Set `DATABASE_URL` to any Postgres 15+ and `CRON_SECRET` to any random string of 16+ characters, then `pnpm db:migrate && pnpm build && pnpm start`. A production `pnpm start` calls its own cron routes on the hour with that secret; without it every scheduled call is refused and nothing sweeps. With a throwaway local Postgres:
 
