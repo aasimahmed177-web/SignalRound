@@ -12,6 +12,7 @@ import {
   regroundValuation,
   type SourceText,
   sourcesToRead,
+  statedLeads,
 } from "./reconcile.ts";
 
 const RATES = { date: "2026-09-02", perUsd: { EUR: 0.9 } };
@@ -545,6 +546,56 @@ describe("the investor rule: only investors a source places in this round stay",
     const prompt = reconcilePrompt(ultraviolette(), pages(Object.values(UV)));
     expect(prompt).toContain("The two investor lists are this round's whole syndicate");
     expect(prompt).toContain("existing backer");
+  });
+});
+
+describe("a lead stands only on the page it cites saying so", () => {
+  const RELEASE = "https://gimletlabs.ai/news/series-a";
+  const COVERAGE = "https://siliconangle.com/2026/09/04/gimlet-labs-raises-41m/";
+  const page = (url: string, markdown: string): SourceText => ({ url, host: new URL(url).hostname, markdown });
+  const leadsOn = (url: string | null): Reconciliation => ({ ...AGREES, lead_investors: [{ name: "Maverick Silicon", source: url }] });
+
+  test("a lone firm the cited release names as the money's source joins the participants", () => {
+    const pages = [page(RELEASE, "Gimlet Labs today announced it has secured a $41 million Series A investment from Maverick Silicon.")];
+    const r = applyReconciliation(record(), leadsOn(RELEASE), { ...OPTS, pages });
+    expect(r.lead_investors).toEqual([]);
+    expect(r.other_investors).toContain("Maverick Silicon");
+  });
+
+  test("the same firm stands as lead when the page it cites says it led", () => {
+    const pages = [page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Maverick Silicon.")];
+    const r = applyReconciliation(record(), leadsOn(COVERAGE), { ...OPTS, pages });
+    expect(r.lead_investors).toEqual(["Maverick Silicon"]);
+  });
+
+  test("the cited page decides, not another page's wording", () => {
+    const pages = [
+      page(RELEASE, "Gimlet Labs closes its $41 million Series A with Maverick Silicon and Samsung Ventures."),
+      page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Maverick Silicon and Samsung Ventures."),
+    ];
+    expect(statedLeads(leadsOn(RELEASE).lead_investors, pages)).toEqual({ leads: [], participants: ["Maverick Silicon"] });
+    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages).participants).toEqual([]);
+  });
+
+  test("a lead citing no page, or a page not read, stands on any page read that says it led", () => {
+    const pages = [page(COVERAGE, "Maverick Silicon co-led the $41 million round alongside Samsung Ventures.")];
+    expect(statedLeads(leadsOn(null).lead_investors, pages).participants).toEqual([]);
+    expect(statedLeads(leadsOn("https://unread.example/gimlet").lead_investors, pages).participants).toEqual([]);
+    expect(
+      statedLeads(leadsOn(null).lead_investors, [page(COVERAGE, "Gimlet Labs raised $41 million from Maverick Silicon.")]).participants,
+    ).toEqual(["Maverick Silicon"]);
+  });
+
+  test("a title that says who led counts", () => {
+    const pages = [
+      { ...page(COVERAGE, "Gimlet Labs raised $41 million."), title: "Gimlet Labs raises $41M Series A led by Maverick Silicon" },
+    ];
+    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages).participants).toEqual([]);
+  });
+
+  test("without the pages read, the verdict's leads apply as given", () => {
+    const r = applyReconciliation(record(), leadsOn(RELEASE), OPTS);
+    expect(r.lead_investors).toEqual(["Maverick Silicon"]);
   });
 });
 

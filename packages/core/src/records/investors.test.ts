@@ -13,6 +13,7 @@ import {
   levenshtein,
   MAX_UNATTRIBUTED_LEADS,
   normalizeInvestorName,
+  statedRole,
 } from "./investors.ts";
 import { normalizeCompanyKey } from "./keys.ts";
 
@@ -1239,5 +1240,65 @@ describe("display hygiene", () => {
     expect(investorKeyForMerge("Sovereign’s Capital")).toBe("sovereign");
     expect(investorKeyForMerge("FJ Labs")).toBe("fj labs");
     expect(normalizeCompanyKey("Acme AI")).toBe("acme");
+  });
+});
+
+describe("statedRole: a lead only where a sentence says so", () => {
+  const role = (name: string, ...evidence: string[]) => statedRole(name, evidence);
+
+  test("a firm named only as the money's source is a participant, even when it is the only one", () => {
+    expect(
+      role(
+        "Vector Line Capital",
+        "Tessolve Semiconductor today announced that it has secured a $75 million investment from Vector Line Capital.",
+      ),
+    ).toBe("participant");
+    expect(role("Vehra Ventures", "QuikApp Raises Seed Funding from Vehra Ventures to Scale India's Logistics Layer")).toBe("participant");
+    expect(
+      role(
+        "Benchmark Capital",
+        "Instinct today announced that it has raised $1 billion from Sequoia Capital, Benchmark Capital, and Coatue.",
+      ),
+    ).toBe("participant");
+    expect(role("Acme Ventures", "Acme Ventures, a leader in enterprise AI investing, joined the round.")).toBe("participant");
+  });
+
+  test("a name with a region on its end is found without it", () => {
+    const release = "JAOPS closes its $260 million seed round with UntroD Capital and Midtown Frontier Fund.";
+    expect(role("UntroD Capital Japan", release)).toBe("participant");
+    expect(role("UntroD Capital Japan", "The seed round was led by UntroD Capital and Midtown Frontier Fund.")).toBe("lead");
+  });
+
+  test("any sentence that puts lead language on the name makes it a lead", () => {
+    expect(
+      role("Vector Line Capital", "It secured $75 million from Vector Line Capital.", "The round was led by Vector Line Capital."),
+    ).toBe("lead");
+  });
+
+  test("a name nowhere in the evidence, or named with no role, is unattributed", () => {
+    expect(role("Matt Murphy", "Factory raised $150 million at a $5 billion valuation.")).toBe("unattributed");
+  });
+
+  test.each([
+    ["B Capital", "The company raised $30 million, with B Capital leading the round."],
+    ["B Capital", "It closed a B Capital-led round of $30 million."],
+    ["Accel", "Lovable raised $200 million from Accel, with participation from Creandum and 20VC."],
+    ["Krafton", "Acme co-led the round alongside Krafton."],
+    ["Beta Partners", "The round was led by Acme Capital, together with Beta Partners."],
+    ["NFX", "NFX – known for its network-effects thesis – led the round."],
+    ["Founders Fund", "Founders Fund, the Peter Thiel-backed VC, led Cognition's latest round, with participation from Lux Capital."],
+    ["Patrick Soon-Shiong", "The round was led by Dr. Patrick Soon-Shiong with NantWorks, with new investors AstraZeneca and Teradyne."],
+    ["The House Fund", "Co-leading the round with Third Prime is The House Fund, a UC Berkeley-focused venture firm."],
+    ["Energize Capital", "Energize Capital is proud to lead this round alongside DCVC."],
+    ["SBI Group", "The round saw SBI Group join as anchor co-lead investor."],
+    ["Acme Growth", "The round was led by new investment from Acme Growth."],
+    ["Acme Capital", "Die Finanzierungsrunde wurde angeführt von Acme Capital."],
+    ["Acme Capital", "Le tour de table est mené par Acme Capital."],
+  ])("%s reads as a lead in: %s", (name, sentence) => {
+    expect(role(name, sentence)).toBe("lead");
+  });
+
+  test("participation set apart from the lead stays participation", () => {
+    expect(role("Index Ventures", "Lovable raised $200 million from Accel, with participation from Index Ventures.")).toBe("participant");
   });
 });

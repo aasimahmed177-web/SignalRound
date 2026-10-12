@@ -85,10 +85,10 @@ function head(name: string): string {
   return (name.split(/\s+[\u2013\u2014-]\s+|\s*[:(]\s*/)[0] ?? name).trim();
 }
 
-/** Sentence spans of the evidence as [start, end) indexes; a single-letter abbreviation ("J.P.") does not end one. */
+/** Sentence spans of the evidence as [start, end) indexes; a single-letter abbreviation ("J.P.") does not end one, a blank line does. */
 function sentenceSpans(evidence: string): Array<[number, number]> {
   const spans: Array<[number, number]> = [];
-  const re = /(?<=[a-z\d)\]"”][.!?])\s+(?=["“(]?[A-Z0-9])/g;
+  const re = /(?<=[a-z\d)\]"”][.!?])(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St)\.)\s+(?=["“(]?[A-Z0-9])|\n\s*\n\s*/g;
   let start = 0;
   for (const m of evidence.matchAll(re)) {
     spans.push([start, m.index]);
@@ -1160,7 +1160,7 @@ const MIN_TYPO_KEY_LENGTH = 5;
 
 /** Markers a lead's name follows. */
 const LEAD_BEFORE =
-  /\b(?:co-?led by|led (?:entirely |solely |jointly )?by|lead investors?(?: is| was| are| were|:)?|lead(?:ing)? investors? (?:is|was|are|were|:)|spearheaded by|anchored by|headed by|leading the round (?:is|was|are|were))\b/gi;
+  /\b(?:(?:co-?)?led by (?:a |an |the )?(?:new |fresh )?(?:investments?|capital|funding) from|co-?led by|led (?:entirely |solely |jointly )?by|lead investors?(?: is| was| are| were|:)?|lead(?:ing)? investors? (?:is|was|are|were|:)|spearheaded by|anchored by|headed by|leading the round (?:is|was|are|were)|(?:from |with )?co-?leads|co-?leaders? (?:are|is|were|was|include|includes|included)|angeführt von|unter (?:der )?(?:Führung|Leitung) von|(?:co-?)?(?:mené|menée|dirigé|dirigée) par|(?:co-?)?(?:liderad[ao]|encabezad[ao]) por|(?:co-?)?guidat[ao] da|geleid door|onder leiding van)\b/gi;
 
 /**
  * "Acme Capital was a leader in the startup's $10 million seed funding round": the noun form of leading,
@@ -1169,15 +1169,19 @@ const LEAD_BEFORE =
 const LEADER_IN =
   "(?:was|is|were|are) (?:a |the )?(?:co-?)?leaders? (?:in|of)(?=.{0,80}\\b(?:round|financing|funding|investment|raise)\\b)";
 
+/** A lead's role after its name: "with Acme as lead investor", "Beta joining as co-lead", "mit Acme als führendem Investor". */
+const AS_LEAD =
+  "(?:(?:joining|joins|joined|acting|serving|serves|served) )?as (?:the |a |an |its )?(?:anchor )?(?:co-?)?(?:(?:lead|anchor)(?: investors?| backers?|(?=\\s*(?:[,.;:)]|$|and\\b)))|leading (?:investors?|backers?))|as co-?leads|als (?:führende[mnr]?|Lead-?) ?Investor(?:en)?";
+
 /** Verbs a lead's name precedes ("Acme Capital led the round", "with Acme leading"). */
 const LEAD_AFTER = new RegExp(
-  `\\b(?:leads|co-?leads|led|co-?led|is (?:the |a )?lead investor|is leading|are leading|will lead|leading|co-?leading|spearheaded|anchored|${LEADER_IN})\\b`,
+  `\\b(?:leads|co-?leads|led|co-?led|lead(?= (?:a|an|the|this|its|[$€£¥₹]|\\d))|is (?:the |a )?lead investor|is leading|are leading|will lead|to (?:co-?)?lead|leading|co-?leading|spearheaded|anchored|headed|${AS_LEAD}|${LEADER_IN})\\b`,
   "gi",
 );
 
 /** Lead language as a whole: the verb forms here exclude the adjective in "a leading AI startup". */
 const LEAD_LANGUAGE = new RegExp(
-  `\\b(?:leads|co-?leads|co-?led|led(?:\\s+(?:a|an|the|this|its|their)\\b|(?=[,.;:]|$))|is (?:the |a )?lead investor|is leading|are leading|will lead|leading the|co-?leading|spearheaded|anchored|${LEADER_IN})\\b`,
+  `\\b(?:leads|co-?leads|co-?led|led(?:\\s+(?:a|an|the|this|its|their)\\b|(?=[,.;:]|$))|is (?:the |a )?lead investor|is leading|are leading|will lead|to (?:co-?)?lead (?:a|an|the|this|its)|(?:proud|excited|thrilled|pleased|delighted) to (?:co-?)?lead|leading the|co-?leading|spearheaded|anchored|${AS_LEAD}|${LEADER_IN})\\b`,
   "i",
 );
 
@@ -1212,7 +1216,13 @@ function markersOf(evidence: string): { before: Marker[]; after: Marker[] } {
   return { before, after };
 }
 
-type Attribution = "lead" | "participant" | "unattributed";
+export type Attribution = "lead" | "participant" | "unattributed";
+
+/** What may stand between a name and its verb: more names, commas, "and", a parenthesis, "who". */
+const VERB_GAP = /^-?[\s,]*(?:and\s+|&\s+)?(?:(?:[A-Z0-9][\w'’.&-]*|\([^)]*\))\s*,?\s*(?:and\s+|&\s+)?)*(?:[(,]\s*(?:who|which)\s+)?$/;
+
+/** An appositive after a name: ", the Boston firm," or " – known for its portfolio – ". */
+const APPOSITIVE = /^\s*(?:,\s+(?:a|an|the|its|which|who)\s[^,;]{0,100},|\s[-\u2013\u2014]\s[^-\u2013\u2014;]{0,140}\s[-\u2013\u2014])\s*/i;
 
 /**
  * The marker that speaks for a name at `index`: the nearest marker before it inside its sentence
@@ -1239,7 +1249,10 @@ function markerFor(
   return /^[\s,]*(?:and\s+|&\s+)?(?:[A-Z0-9][\w'’.&-]*\s*,?\s*(?:and\s+|&\s+)?)*$/.test(between) ? following : undefined;
 }
 
-/** What the evidence says about a name at `index`: the kind of the marker that speaks for it, or nothing. */
+/**
+ * What the evidence says about a name at `index`: the nearest marker before it inside its sentence
+ * and within reach decides; failing that, a verb shortly after it; failing both, nothing.
+ */
 function attribute(
   evidence: string,
   sentences: Array<[number, number]>,
@@ -1247,7 +1260,157 @@ function attribute(
   index: number,
   nameLength: number,
 ): Attribution {
-  return markerFor(evidence, sentences, markers, index, nameLength)?.kind ?? "unattributed";
+  const [sStart, sEnd] = sentenceAt(sentences, index);
+  let nearest: Marker | undefined;
+  for (const m of markers.before) {
+    if (m.end > index || m.index < sStart || index - m.end > MARKER_REACH) continue;
+    if (!nearest || m.end > nearest.end || (m.end === nearest.end && m.index < nearest.index)) nearest = m;
+  }
+  // "A, B and C led the round", "a B Capital-led round", "S2G Investments (S2G) leading", "Acme, the
+  // Boston firm, led": nothing but names, commas, a hyphen, a parenthesis, and an appositive may stand
+  // between the name and the verb, and the appositive's own words ("the Thiel-backed VC") mark nothing.
+  const nameEnd = index + nameLength + (APPOSITIVE.exec(evidence.slice(index + nameLength))?.[0].length ?? 0);
+  const following = markers.after.find((m) => m.index >= nameEnd && m.index < sEnd && m.index - nameEnd <= VERB_REACH);
+  const gap = evidence.slice(nameEnd, following?.index ?? nameEnd);
+  // "Acme, who led this round": a relative clause speaks for the round only when its verb names it.
+  const relative = /,\s*(?:who|which)\s+$/.test(gap);
+  const verb =
+    following &&
+    VERB_GAP.test(gap) &&
+    (!relative || /^(?:co-?)?led (?:the|this) (?:round|financing|investment)/i.test(evidence.slice(following.index)))
+      ? following
+      : undefined;
+  // "with Acme leading the round": a lead verb right after the name outranks the "with" before it,
+  // though not the adjective in "from Acme and Beta, leading investors in fintech".
+  if (
+    nearest?.kind === "participant" &&
+    verb?.kind === "lead" &&
+    !/^leading\s+(?!(?:the|this|its|a|an|and|or|with|alongside|as|in|for|while)\b)\w/i.test(evidence.slice(verb.index))
+  ) {
+    return "lead";
+  }
+  if (nearest?.kind === "participant") {
+    const opening = evidence.slice(sStart, nearest.index);
+    const marker = evidence.slice(nearest.index, nearest.end);
+    // "Acme co-led the round alongside Beta", "Acme led the round together with Beta": whom a lead
+    // leads together with, or a co-lead alongside, is the other lead.
+    if (/^alongside$/i.test(marker) && /\bco-?(?:lead|leads|leading|led)\b(?!\s+by\b)/i.test(opening)) return "lead";
+    if (/^together with$/i.test(marker) && /\b(?:co-?)?(?:led|leads|leading|headed)\s+(?:the|this|its)\s+\w+\s*$/i.test(opening))
+      return "lead";
+    const prior = markers.before.filter((m) => m.index >= sStart && m.end <= nearest.index).at(-1);
+    // "led by new industry investors including Acme": the investors the lead marker named.
+    if (
+      /^(?:investors?\s+)?(?:including|includes|included|include|such as)$/i.test(marker) &&
+      prior?.kind === "lead" &&
+      nearest.index - prior.end <= 100
+    ) {
+      return "lead";
+    }
+  }
+  if (nearest) return nearest.kind;
+  return verb?.kind ?? "unattributed";
+}
+
+/**
+ * Whether the name follows "together with" that continues a list a lead marker opened: "co-led by A,
+ * B, together with C, and D", "led by long-term shareholder A, together with B".
+ */
+function continuesLeadList(
+  text: string,
+  sentences: Array<[number, number]>,
+  markers: { before: Marker[]; after: Marker[] },
+  index: number,
+): boolean {
+  const [sStart] = sentenceAt(sentences, index);
+  const before = markers.before.filter((m) => m.index >= sStart && m.end <= index);
+  const joint = before.at(-1);
+  const opened = before.at(-2);
+  if (!joint || !opened || opened.kind !== "lead" || !/^together with$/i.test(text.slice(joint.index, joint.end))) return false;
+  return VERB_GAP.test(text.slice(opened.end, joint.index).replace(/^[a-z\s-]+(?=[A-Z])/, " "));
+}
+
+/** Participation set against the firm just named: ", with participation from", "with continued participation by". */
+const SET_APART = /^[\s,]*(?:with|and)\s+(?:further\s+|continued\s+|additional\s+|follow-on\s+)?participation\s+(?:from|of|by)\b/i;
+
+/** The lead named after its verb: "Leading the round is Acme", "Co-leading the round with Beta is Acme". */
+const INVERTED_LEAD =
+  /\b(?:co-?)?leading\s+(?:the|this)\s+(?:[\w$€£.,-]+\s+){0,4}?(?:round|financing|investment)\b[^.;]{0,80}?\b(?:is|are|was|were)\s+$/i;
+
+/** Lead language as the verb of a sentence an investor opens: "leading a combined investment", "delighted to be leading" too. */
+const SUBJECT_LEAD = new RegExp(`${LEAD_LANGUAGE.source}|\\bleading (?:a|an)\\b|\\bto be (?:co-?)?leading\\b`, "i");
+
+/**
+ * Whether the name opens its sentence and the sentence's own verb is lead language: "The IFC has
+ * announced plans to lead an equity round", "Aspirity acquires majority stake in Onomondo, leads
+ * €100M investment". No investor marker may stand between the name and the verb.
+ */
+function leadsAsSubject(
+  text: string,
+  sentences: Array<[number, number]>,
+  markers: { before: Marker[]; after: Marker[] },
+  index: number,
+  nameLength: number,
+): boolean {
+  const [sentenceStart, sEnd] = sentenceAt(sentences, index);
+  // Quoted speech opens a clause of its own: 'Jane Doe, partner at Acme, said: "Acme is delighted to be leading'.
+  const quoteMark = Math.max(text.lastIndexOf("“", index), text.lastIndexOf('"', index));
+  const sStart = quoteMark >= sentenceStart ? quoteMark + 1 : sentenceStart;
+  const opening = text.slice(sStart, index);
+  if (opening.length > 60 || /[,;:]/.test(opening) || markers.before.some((m) => m.index >= sStart && m.end <= index)) return false;
+  const rest = text.slice(index + nameLength, Math.min(sEnd, text.length));
+  const verb = SUBJECT_LEAD.exec(rest);
+  if (!verb) return false;
+  const verbAt = index + nameLength + verb.index;
+  return !markers.before.some((m) => m.index > index && m.index < verbAt);
+}
+
+/**
+ * What the evidence says of one investor across all its texts: "lead" when some sentence puts lead
+ * language on it ("led by Acme", "Acme co-led"), "participant" when it is named only as investing
+ * ("from Acme", "backed by Acme", "Acme joined"), "unattributed" when it is not named or no role is said.
+ */
+export function statedRole(name: string, evidence: string[]): Attribution {
+  // The name's head, the head without a region it ends on ("UntroD Capital Japan" is "UntroD Capital"),
+  // and an acronym it carries in parentheses ("Qatar Investment Authority (QIA)") speak for either role.
+  // A lead is often written shorter ("a Vista-led round", "SBI Group as anchor investor"), so the
+  // identity key and its first word speak for a lead, never for a participant.
+  const key = normalizeInvestorKey(name).split(" ").filter(Boolean);
+  const short = key[0] && key[0].length >= 3 && key[0] !== "the" ? [key[0]] : [];
+  const regional = new RegExp(`^(\\S+\\s+\\S.*?)\\s+(?:${PLACES.map(escapeRegExp).join("|")})$`).exec(head(name))?.[1] ?? "";
+  const forms = [
+    [tokens(head(name)), false],
+    [tokens(regional), false],
+    [tokens(/\(([^)]{2,})\)/.exec(name)?.[1] ?? ""), false],
+    [key, true],
+    [short, true],
+  ] as const;
+  let role: Attribution = "unattributed";
+  for (const raw of evidence) {
+    const text = raw.replace(/[\u2010-\u2015]/g, "-");
+    const folded = fold(text);
+    const sentences = sentenceSpans(text);
+    const markers = markersOf(text);
+    for (const [form, leadOnly] of forms) {
+      if (form.length === 0) continue;
+      for (let i = findTokens(folded, form); i >= 0; i = findTokens(folded, form, i + 1)) {
+        const said = attribute(text, sentences, markers, i, form.join(" ").length);
+        const [sStart, sEnd] = sentenceAt(sentences, i);
+        if (INVERTED_LEAD.test(text.slice(sStart, i))) return "lead";
+        if (said === "lead" || leadsAsSubject(text, sentences, markers, i, form.join(" ").length)) return "lead";
+        // "led by A, B, together with C": the list a lead marker opened, continued.
+        if (said === "participant" && continuesLeadList(text, sentences, markers, i)) return "lead";
+        // "$200M from Acme, with participation from Beta": the one firm set apart from the participants.
+        const after = text.slice(i + form.join(" ").length).replace(APPOSITIVE, "");
+        if (said === "participant" && /\bfrom\s+(?:\S+\s+){0,3}$/i.test(text.slice(Math.max(0, i - 40), i)) && SET_APART.test(after))
+          return "lead";
+        // Lead language the sentence places on no one may be this name's: "Jane Doe of Acme, who is
+        // one of the lead investors in this round".
+        if (said === "unattributed" && hasLeadLanguage(text.slice(sStart, sEnd))) return "lead";
+        if (said === "participant" && !leadOnly) role = "participant";
+      }
+    }
+  }
+  return role;
 }
 
 // ---------------------------------------------------------------------------------------------

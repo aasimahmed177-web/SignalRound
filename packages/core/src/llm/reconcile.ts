@@ -12,7 +12,7 @@ import { mapLimit } from "../firecrawl/credits.ts";
 import { groundingCheck } from "../firecrawl/extract.ts";
 import { applyCorrection, samePage } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
-import { investorMentions } from "../records/investors.ts";
+import { investorMentions, statedRole } from "../records/investors.ts";
 import { hostOf, parseAmount } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import type { FeedRecord } from "../records/schema.ts";
@@ -155,13 +155,31 @@ export function readCoverage(record: FeedRecord, pages: SourceText[]): { readAll
 }
 
 /**
+ * The verdict's leads that stand, and the names that join the participants instead. A lead stands
+ * only on the page it cites saying so ("led by Acme", "Acme co-led", "lead investor Acme"); a page
+ * that names the firm only as an investor ("a $75 million investment from Acme") or not at all makes
+ * it a participant. A lead that cites no page read stands on any page read saying so.
+ */
+export function statedLeads(
+  leads: Reconciliation["lead_investors"],
+  pages: SourceText[],
+): { leads: Reconciliation["lead_investors"]; participants: string[] } {
+  const stated = (lead: Reconciliation["lead_investors"][number]) => {
+    const cited = lead.source ? pages.filter((p) => samePage(p.url, lead.source as string)) : [];
+    const read = (cited.length ? cited : pages).map((p) => `${p.title ?? ""}\n${p.markdown.slice(0, PAGE_CHARS)}`);
+    return statedRole(lead.name, read) === "lead";
+  };
+  return { leads: leads.filter(stated), participants: leads.filter((l) => !stated(l)).map((l) => l.name) };
+}
+
+/**
  * Apply what the sources state to the record. Pure: the tests exercise it without a model. The verdict
  * maps into a Correction and the shared applier does the rest. What is the reconciler's alone: every
  * field cites the page that stated it; the date comes graded (day, week, month), so only its day that
  * sharpens a list's stamp while citing the list is refused (the judge's wider echo guard does not
- * apply); an empty amount fills from the cited sentence; a record
- * investor the lists leave out is unsupported when the pages read say so (readCoverage); and the
- * verification names the model and how many sources it saw.
+ * apply); an empty amount fills from the cited sentence; a lead its cited page does not call one
+ * joins the participants (statedLeads); a record investor the lists leave out is unsupported when the
+ * pages read say so (readCoverage); and the verification names the model and how many sources it saw.
  */
 export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts: ApplyOptions): FeedRecord {
   // With the pages read, every correction stands on its sentence: the quote must be on the page it
@@ -196,6 +214,7 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
   const total = checked("financing total", v.financing_total, true) ? v.financing_total : null;
   const headquarters = checked("headquarters", v.headquarters) ? stated(v.headquarters) : kept(null);
   const notes = /^sources agree\.?$/i.test(v.notes.trim()) ? null : v.notes;
+  const leads = opts.pages ? statedLeads(v.lead_investors, opts.pages) : { leads: v.lead_investors, participants: [] };
   const corrected = applyCorrection(
     record,
     {
@@ -208,8 +227,8 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
         ...date,
         precision: dateGrounded ? v.announced_date.precision : record.date_precision === "unknown" ? null : record.date_precision,
       },
-      leads: v.lead_investors,
-      others: v.other_investors.map((n) => n.name),
+      leads: leads.leads,
+      others: [...v.other_investors.map((n) => n.name), ...leads.participants],
       notThisRound: v.not_this_round,
       headquarters,
       // "Sources agree." with its period says nothing more either.
