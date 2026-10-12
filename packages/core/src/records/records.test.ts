@@ -33,6 +33,7 @@ import {
   parseWindow,
   registrableDomain,
   stageForAmount,
+  stageLabel,
   tbsFor,
   windowEndFor,
   windowLabel,
@@ -508,6 +509,21 @@ describe("stages", () => {
     );
     expect(kept[0]?.stage).toBe("growth");
     expect(kept[0]?.stage_as_written).toBe("funding round");
+  });
+
+  test("stageLabel: a label that names no stage reads funding round; a qualified one keeps its words", () => {
+    for (const label of ["investment", "Funding", "equity capital raise", "latest round", "unknown", " funding round "])
+      expect(stageLabel(label), label).toBe("funding round");
+    for (const label of [
+      "strategic investment",
+      "Form D (equity)",
+      "Series A",
+      "pre-seed round",
+      "token purchase",
+      "financing",
+      "equity financing round",
+    ])
+      expect(stageLabel(label), label).toBe(label);
   });
 
   test("maps labels onto the stage enum", () => {

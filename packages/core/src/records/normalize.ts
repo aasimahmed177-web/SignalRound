@@ -59,6 +59,22 @@ export interface StageClassification {
   isExtension: boolean;
 }
 
+/**
+ * A label that names no stage, only that money came in: "investment", "Funding", "equity capital raise".
+ * "Financing" is not one: it says the figure may include debt (Solcoa's $75M in financing, $45M of it equity).
+ */
+const GENERIC_STAGE_LABEL =
+  /^(?:(?:an?|the|its|new|latest|additional|private|fresh|initial)\s+)*(?:equity\s+)?(?:capital\s+)?(?:investment|funding|raise|round)(?:\s+(?:round|raise))?$|^unknown$/i;
+
+/**
+ * The stage label a record carries: the page's own words, except a label that names no stage, which
+ * reads "funding round" (Tessolve's "investment" sat beside "Other" as if it were a stage). A label
+ * with a qualifier ("strategic investment", "Form D (equity)") keeps its words. Pure.
+ */
+export function stageLabel(asWritten: string): string {
+  return GENERIC_STAGE_LABEL.test(asWritten.trim()) ? "funding round" : asWritten;
+}
+
 /** Map a free-text round label onto the stage enum. "Series A extension" is series_a with isExtension. */
 export function classifyStage(label: string): StageClassification {
   const t = label.toLowerCase().replace(/\s+/g, " ").trim();

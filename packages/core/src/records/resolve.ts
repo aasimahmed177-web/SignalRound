@@ -29,6 +29,7 @@ import {
   registrableDomain,
   SOCIAL_AND_DIRECTORY_HOSTS,
   stageForAmount,
+  stageLabel,
   stripFurniture,
   withinWindow,
 } from "./normalize.ts";
@@ -1489,7 +1490,7 @@ function recordFor(reading: Reading): FeedRecord {
     company_description: round.company_description ?? null,
     stage,
     certainty: reading.certainty,
-    stage_as_written: round.round_type_as_written,
+    stage_as_written: stageLabel(round.round_type_as_written),
     is_extension: reading.isExtension,
     amount: reading.amount,
     ...(reading.amountScope ? { amount_scope: reading.amountScope } : {}),
