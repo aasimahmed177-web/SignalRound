@@ -145,6 +145,7 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     for (const sector of ["Fin%20Tech", "FINTECH", "fin-tech"])
       expect((await get(companiesGet, `/api/v1/companies?sector=${sector}`)).body.data.map((r) => r.id)).toEqual(["gamma.example"]);
     expect((await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=Series%20A`)).body.data).toHaveLength(4);
+    expect((await get(companiesGet, "/api/v1/companies?since=10d&stage=series_a")).body.data).toHaveLength(4);
     const recent = await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=series_a`);
     expect(recent.body.data.map((r) => r.id).sort()).toEqual(["alpha.example", "beta.example", "delta.example", "echo.example"]);
     expect((await get(companiesGet, `/api/v1/companies?since=${isoDaysAgo(10)}&stage=seed`)).body.data).toEqual([]);
@@ -223,6 +224,13 @@ describe("/api/v1/investors/top", () => {
     const wide = await get(topGet, "/api/v1/investors/top?window=90d");
     expect(wide.body.data.map((r) => r.id)).toEqual(["fund-two", "fund-one"]);
     expect(JSON.stringify(wide.body)).not.toMatch(/Fund Three|Fund Four/);
+  });
+
+  test("reads week, month and quarter as its windows", async () => {
+    const ids = async (window: string) => (await get(topGet, `/api/v1/investors/top?window=${window}`)).body.data.map((r) => r.id);
+    expect(await ids("quarter")).toEqual(await ids("90d"));
+    expect(await ids("Month")).toEqual(await ids("30d"));
+    expect((await get(topGet, "/api/v1/investors/top?window=week")).body.window).toBe("7d");
   });
 
   test("refuses a window or sector it does not know", async () => {
@@ -304,6 +312,7 @@ describe("/api/v1/news", () => {
     expect(fintech.body.data.map((a) => a.url)).toEqual(["https://news.example/gamma"]);
     const recent = await get(newsGet, `/api/v1/news?since=${isoDaysAgo(10)}`);
     expect(recent.body.data.map((a) => a.url)).not.toContain("https://news.example/gamma");
+    expect((await get(newsGet, "/api/v1/news?since=10d")).body.data).toEqual(recent.body.data);
     expect((await get(newsGet, "/api/v1/news?cursor=nope")).status).toBe(400);
   });
 });

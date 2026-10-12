@@ -148,6 +148,9 @@ describe("each tool answers what its route answers", () => {
     ["list_news", {}, newsGet, "/api/v1/news"],
     ["list_news", { sector: "fintech" }, newsGet, "/api/v1/news?sector=fintech"],
     ["list_news", { q: "alpha", since: isoDaysAgo(10), limit: 1 }, newsGet, `/api/v1/news?q=alpha&since=${isoDaysAgo(10)}&limit=1`],
+    ["list_companies", { since: "30d" }, companiesGet, "/api/v1/companies?since=30d"],
+    ["top_investors", { window: "quarter" }, topGet, "/api/v1/investors/top?window=quarter"],
+    ["list_news", { since: "7d" }, newsGet, "/api/v1/news?since=7d"],
   ] as const)("%s %j", async (name, args, handler, path) => {
     const { status, body } = await http(handler, path);
     expect(status).toBe(200);

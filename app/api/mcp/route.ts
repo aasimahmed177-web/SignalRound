@@ -9,7 +9,7 @@ import type { ServerContext } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import { isPublicDemo, mcpTrusted } from "@/lib/access";
-import { parseQuery, parseSector, parseSince, parseStages } from "@/lib/api-params";
+import { parseQuery, parseSector, parseSince, parseStages, parseWindow } from "@/lib/api-params";
 import { companyPath, companyRequestStatus, limitMessage, requestPath, submitCompanyRequest } from "@/lib/company-requests";
 import { dashboardPassword } from "@/lib/dashboard-auth";
 import { db, visitorRead } from "@/lib/db";
@@ -130,9 +130,11 @@ const handler = createMcpHandler(
         inputSchema: z.object({
           since: z
             .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .max(20)
             .optional()
-            .describe("YYYY-MM-DD; only rounds announced on or after this date"),
+            .describe(
+              "Only rounds announced on or after this day: YYYY-MM-DD, a month as YYYY-MM, today, yesterday, or days back such as 7d",
+            ),
           stage: z.array(z.enum(STAGES)).optional(),
           status: z.array(z.enum(["new", "updated", "seen"])).optional(),
           certainty: z.enum(ROUND_CERTAINTIES).optional(),
@@ -157,10 +159,12 @@ const handler = createMcpHandler(
       reader("list_rounds", async (args, handle) => {
         const sector = parseSector(args.sector ?? null);
         if (!sector.ok) return refusal(sector.error);
+        const since = parseSince(args.since ?? null);
+        if (!since.ok) return refusal(since.error);
         const { rows, nextCursor } = await listRounds(
           handle,
           publicRoundQuery({
-            since: args.since,
+            since: since.value,
             stages: args.stage as Stage[] | undefined,
             status: args.status,
             certainty: args.certainty,
@@ -169,7 +173,7 @@ const handler = createMcpHandler(
             preset: args.preset,
             cursor: args.cursor,
             limit: args.limit ?? 25,
-            history: feedHistory({ since: args.since }),
+            history: feedHistory({ since: since.value }),
           }),
         );
         return text({ rounds: rows.map(compactRound), next_cursor: nextCursor });
@@ -249,7 +253,13 @@ const handler = createMcpHandler(
           q: z.string().max(200).optional().describe("Free text: a name, a domain, a city"),
           sector: sectorParam,
           stage: stageParam,
-          since: z.string().optional().describe("YYYY-MM-DD; only companies with a round announced on or after this date"),
+          since: z
+            .string()
+            .max(20)
+            .optional()
+            .describe(
+              "Only companies with a round announced on or after this day: YYYY-MM-DD, a month as YYYY-MM, today, yesterday, or days back such as 7d",
+            ),
           sort: z.enum(COMPANY_SORTS).optional().describe("latest (default), raised, or name"),
           page: z.number().int().min(1).max(10_000).optional(),
           limit: z.number().int().min(1).max(100).optional(),
@@ -356,12 +366,9 @@ const handler = createMcpHandler(
       {
         title: "Top investors",
         description:
-          "The investors that led the most rounds in the window (7d, 30d, or 90d), optionally within a sector or set of stages, each with the money it led (a co-led round split evenly between its leads) and its latest led rounds.",
+          "The investors that led the most rounds in the window (7d, 30d, or 90d, or week, month, or quarter), optionally within a sector or set of stages, each with the money it led (a co-led round split evenly between its leads) and its latest led rounds.",
         inputSchema: z.object({
-          window: z
-            .enum(Object.keys(TOP_WINDOWS) as [TopWindow, ...TopWindow[]])
-            .optional()
-            .describe("7d, 30d (default), or 90d"),
+          window: z.string().max(10).optional().describe("7d or week, 30d or month (default), 90d or quarter"),
           sector: sectorParam,
           stage: stageParam,
           limit: z.number().int().min(1).max(50).optional(),
@@ -373,9 +380,11 @@ const handler = createMcpHandler(
         if (!sector.ok) return refusal(sector.error);
         const stages = parseStages(args.stage?.length ? args.stage.join(",") : null);
         if (!stages.ok) return refusal(stages.error);
+        const window = parseWindow(args.window ?? null, Object.keys(TOP_WINDOWS) as TopWindow[], "30d");
+        if (!window.ok) return refusal(window.error);
         return text(
           await apiTopLeads(handle, {
-            window: args.window ?? "30d",
+            window: window.value,
             sector: sector.value,
             stages: stages.value,
             limit: args.limit ?? 10,
@@ -393,7 +402,13 @@ const handler = createMcpHandler(
         inputSchema: z.object({
           q: z.string().max(200).optional().describe("Free text over company names and article titles"),
           sector: sectorParam,
-          since: z.string().optional().describe("YYYY-MM-DD; only articles published on or after this date"),
+          since: z
+            .string()
+            .max(20)
+            .optional()
+            .describe(
+              "Only articles published on or after this day: YYYY-MM-DD, a month as YYYY-MM, today, yesterday, or days back such as 7d",
+            ),
           cursor: z.string().max(4096).optional().describe("The next_cursor of the previous page"),
           limit: z.number().int().min(1).max(100).optional(),
         }),

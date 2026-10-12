@@ -1,9 +1,9 @@
-// GET /api/v1/investors/top?window=7d|30d|90d&sector=ai&stage=seed,series_a&limit=10
+// GET /api/v1/investors/top?window=7d|30d|90d (or week|month|quarter)&sector=ai&stage=seed,series_a&limit=10
 // The investors that led the most rounds in the window, with their share of the money led and their latest led rounds.
 
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";
-import { badRequest, parseChoice, parseLimit, parseSector, parseStages, preflight, readHeaders } from "@/lib/api-params";
+import { badRequest, parseLimit, parseSector, parseStages, parseWindow, preflight, readHeaders } from "@/lib/api-params";
 import { visitorRead, withinDeadline } from "@/lib/db";
 import { apiTopLeads, TOP_WINDOWS, type TopWindow } from "@/lib/public-api";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
@@ -15,7 +15,7 @@ export function OPTIONS(): Response {
 
 export async function GET(request: Request) {
   const p = new URL(request.url).searchParams;
-  const window = parseChoice(p.get("window"), "window", Object.keys(TOP_WINDOWS) as TopWindow[], "30d");
+  const window = parseWindow(p.get("window"), Object.keys(TOP_WINDOWS) as TopWindow[], "30d");
   if (!window.ok) return badRequest(window.error);
   const sector = parseSector(p.get("sector"));
   if (!sector.ok) return badRequest(sector.error);

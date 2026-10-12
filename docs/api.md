@@ -51,3 +51,16 @@ The same reading applies to `/api/v1/rounds`, `/api/v1/companies`, `/api/v1/inve
 # SEC Form D filings
 
 Rounds read from SEC Form D filings (`preset_slug: "form-d"`) rarely state an amount, a lead, or what the company does, so default lists leave them out. These are `GET /api/v1/rounds`, MCP's `list_rounds`, the feed, Biggest rounds and RSS. Ask for them with `preset=form-d`, for example `GET /api/v1/rounds?preset=form-d`. A company's own record still lists its filings: `company=<domain>`, `get_company` and the company page.
+
+# Dates and windows
+
+`since` on `/api/v1/rounds`, `/api/v1/companies`, `/api/v1/news` and MCP's `list_rounds`, `list_companies` and `list_news` takes the day to count from in any of these forms. Days are UTC.
+
+| Form | Example | Counts from |
+|---|---|---|
+| A date | `2026-10-04` | that day |
+| A month | `2026-10` | the month's first day |
+| `today`, `yesterday` | `today` | today, or the day before |
+| Days back | `7d` | the day that many days before today |
+
+Anything else is a 400 that lists these forms. `window` on `/api/v1/investors/top` and MCP's `top_investors` is `7d`, `30d` or `90d`, and `week`, `month` and `quarter` read as the same three.

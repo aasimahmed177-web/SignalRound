@@ -450,8 +450,8 @@ export function GET(request: Request) {
               name: "since",
               in: "query",
               description:
-                "Only rounds announced on or after this day; must be a real YYYY-MM-DD date. With it, earlier rounds promoted from dossiers (history: true) are listed too.",
-              schema: { type: "string", format: "date", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+                "Only rounds announced on or after this day, as YYYY-MM-DD. Also a month (YYYY-MM, from its first day), today, yesterday, or a number of days back such as 7d; days are UTC. With it, earlier rounds promoted from dossiers (history: true) are listed too.",
+              schema: { type: "string" },
             },
             {
               name: "stage",
@@ -591,8 +591,9 @@ export function GET(request: Request) {
             {
               name: "since",
               in: "query",
-              description: "Only companies with a round announced on or after this day",
-              schema: { type: "string", format: "date" },
+              description:
+                "Only companies with a round announced on or after this day, as YYYY-MM-DD. Also a month (YYYY-MM, from its first day), today, yesterday, or a number of days back such as 7d; days are UTC.",
+              schema: { type: "string" },
             },
             { name: "sort", in: "query", schema: { type: "string", enum: ["latest", "raised", "name"], default: "latest" } },
             { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
@@ -787,7 +788,12 @@ export function GET(request: Request) {
           description:
             "Ranks investors by the announced or reported rounds they led in the last 7, 30, or 90 days, optionally within one sector or set of stages, as the Overview's most active leads. lead_share_usd_millions splits each led round's stated amount evenly between its leads, so the figures add up to the money led. Each investor lists its newest led rounds.",
           parameters: [
-            { name: "window", in: "query", schema: { type: "string", enum: ["7d", "30d", "90d"], default: "30d" } },
+            {
+              name: "window",
+              in: "query",
+              description: "7d, 30d or 90d; week, month and quarter read as the same",
+              schema: { type: "string", enum: ["7d", "30d", "90d", "week", "month", "quarter"], default: "30d" },
+            },
             {
               name: "sector",
               in: "query",
@@ -946,8 +952,9 @@ export function GET(request: Request) {
             {
               name: "since",
               in: "query",
-              description: "YYYY-MM-DD; articles published on or after this day",
-              schema: { type: "string", format: "date" },
+              description:
+                "Articles published on or after this day, as YYYY-MM-DD. Also a month (YYYY-MM, from its first day), today, yesterday, or a number of days back such as 7d; days are UTC.",
+              schema: { type: "string" },
             },
             { name: "sector", in: "query", description: "Articles about rounds in one sector", schema: { type: "string" } },
             { name: "q", in: "query", description: "A company name or a word in the headline", schema: { type: "string", maxLength: 200 } },

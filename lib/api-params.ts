@@ -58,12 +58,42 @@ export function parseLimit(raw: string | null, fallback = 50): Parsed<number> {
   return ok(n);
 }
 
-export function parseSince(raw: string | null): Parsed<string | undefined> {
+const SINCE_HELP = "since must be a date (YYYY-MM-DD), a month (YYYY-MM), today, yesterday, or a number of days back such as 7d";
+const MAX_DAYS_BACK = 36_500;
+
+/**
+ * The first day a read counts, as a person or an agent writes it: a date ("2026-10-04"), a month
+ * ("2026-10", its first day), "today", "yesterday", or a number of days back ("7d", the day a week
+ * before today). Days are UTC, the clock the rankings' windows count on. Anything else is a 400.
+ */
+export function parseSince(raw: string | null, now: Date = new Date()): Parsed<string | undefined> {
   if (raw === null) return ok(undefined);
-  if (!DAY.test(raw)) return bad("since must be a real date as YYYY-MM-DD");
-  const d = new Date(`${raw}T00:00:00Z`);
-  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== raw) return bad("since must be a real date as YYYY-MM-DD");
-  return ok(raw);
+  const word = raw.trim().toLowerCase();
+  const daysBack = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString().slice(0, 10);
+  if (word === "today") return ok(daysBack(0));
+  if (word === "yesterday") return ok(daysBack(1));
+  const back = /^(\d+)d$/.exec(word);
+  if (back) {
+    const n = Number(back[1]);
+    return n <= MAX_DAYS_BACK ? ok(daysBack(n)) : bad(SINCE_HELP);
+  }
+  const day = /^\d{4}-\d{2}$/.test(word) ? `${word}-01` : word;
+  if (!DAY.test(day)) return bad(SINCE_HELP);
+  const d = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== day) return bad(SINCE_HELP);
+  return ok(day);
+}
+
+/** Other words for the rankings' windows. */
+const WINDOW_WORDS: Record<string, string> = { week: "7d", month: "30d", quarter: "90d" };
+
+/** A ranking's window: one of `choices` ("7d"), or week, month or quarter for 7d, 30d or 90d. */
+export function parseWindow<T extends string>(raw: string | null, choices: readonly T[], fallback: T): Parsed<T> {
+  if (raw === null || raw.trim() === "") return ok(fallback);
+  const word = raw.trim().toLowerCase();
+  const value = WINDOW_WORDS[word] ?? word;
+  if (!(choices as readonly string[]).includes(value)) return bad(`window must be one of: ${choices.join(", ")}, or week, month, quarter`);
+  return ok(value as T);
 }
 
 export function parseMinUsd(raw: string | null): Parsed<number | undefined> {

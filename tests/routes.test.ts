@@ -208,6 +208,8 @@ describe("GET /api/v1/rounds", () => {
       ["limit=201", "limit"],
       ["since=not-a-date", "since"],
       ["since=2026-02-30", "since"],
+      ["since=7w", "since"],
+      ["since=last%20week", "since"],
       ["min_usd=-1", "min_usd"],
       ["min_usd=abc", "min_usd"],
       ["stage=series_z", "stage"],
@@ -237,6 +239,13 @@ describe("GET /api/v1/rounds", () => {
     expect(ok.status).toBe(200);
     const body = (await ok.json()) as { data: unknown[] };
     expect(body.data.length).toBeGreaterThan(0);
+    // A month reads from its first day, and days back from today.
+    const ids = async (since: string) =>
+      (
+        (await (await roundsGet(new Request(`http://app.test/api/v1/rounds?since=${since}`))).json()) as { data: Array<{ id: string }> }
+      ).data.map((r) => r.id);
+    expect(await ids("2026-08")).toEqual(await ids("2026-08-01"));
+    expect(await ids("36500d")).toEqual(await ids("1926-01-01"));
   });
 
   test("runs shares the limit rule", async () => {

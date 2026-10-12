@@ -1,5 +1,5 @@
 // The read API. Every other surface (feeds, exports, MCP, Slack) renders from this.
-// GET /api/v1/rounds?since=YYYY-MM-DD&stage=series_a,series_b&status=new&certainty=announced&preset=series-a-b&sector=fintech&q=acme&company=acme.com&min_usd=10&sort=amount|trending&cursor=...&limit=50&format=json|csv|jsonl
+// GET /api/v1/rounds?since=YYYY-MM-DD (or YYYY-MM, today, yesterday, 7d)&stage=series_a,series_b&status=new&certainty=announced&preset=series-a-b&sector=fintech&q=acme&company=acme.com&min_usd=10&sort=amount|trending&cursor=...&limit=50&format=json|csv|jsonl
 // A CSV without `limit` is the whole filtered set (up to 10,000 rows; `x-next-cursor` when there are more).
 // Every JSON and JSONL row carries `trending`: the Trending lane's counts, rank, and label while
 // the round is inside its 72 hours, null otherwise.
