@@ -5,7 +5,7 @@
 
 import type { Firecrawl } from "firecrawl";
 import { jevCertaintyClassifier, jevIssuerClassifier, jevMoneyClassifier } from "../llm/jev.ts";
-import { mixedFinancingScope } from "../records/money-kind.ts";
+import { mixedFinancingScope, moneyKindFromSentence, nonDilutiveLender } from "../records/money-kind.ts";
 import type { DateContext } from "../records/normalize.ts";
 import {
   classifyStage,
@@ -347,6 +347,20 @@ export function settleOnPage(round: ExtractedRound, markdown: string): Extracted
     groundingCheck({ evidence_quote: moneyContext }, markdown)
       ? mixedFinancingScope(moneyContext)
       : null;
+  // The sentence after the round's own may say what its money is ("The financing commitment ... combines
+  // capital with a multi-year package of strategic resources"); read the figure across both.
+  const described =
+    following &&
+    round.amount_as_written &&
+    /^(?:the|this|its) (?:new )?(?:financing|funding|investment|round|capital|deal)\b/i.test(following) &&
+    !/\b(?:debt|credit|loans?|facility|grants?|awards?|subsid(?:y|ies))\b/i.test(following) &&
+    ["primary", "tranche", "unknown"].includes(moneyKindFromSentence(round.evidence_quote, round.amount_as_written))
+      ? `${round.evidence_quote} ${following}`
+      : null;
+  const describedKind = described ? moneyKindFromSentence(described, round.amount_as_written) : null;
+  const notNewMoney =
+    describedKind && ["future_commitment", "debt", "grant", "project_cost"].includes(describedKind) ? describedKind : null;
+  const lender = nonDilutiveLender(round.evidence_quote, [...round.lead_investors, ...round.other_investors], sentences);
   const extension =
     round.extension_quote && groundingCheck({ evidence_quote: round.extension_quote }, markdown)
       ? round.extension_quote
@@ -369,19 +383,21 @@ export function settleOnPage(round: ExtractedRound, markdown: string): Extracted
   return {
     ...round,
     round_type_as_written: label,
-    ...(split ?? { debt_quote: debtOnPage ?? creditorDebt ?? null }),
+    ...(split ?? { debt_quote: lender ?? debtOnPage ?? creditorDebt ?? null }),
     extension_quote: extension,
     valuation_as_written: valuationQuote ? round.valuation_as_written : null,
     valuation_quote: valuationQuote,
     financing_total_as_written: mixedScope ? round.amount_as_written : total ? round.financing_total_as_written : null,
     financing_total_quote: mixedScope ? moneyContext : total ? round.financing_total_quote : null,
     amount_scope: mixedScope ?? round.amount_scope,
-    money_kind: mixedScope ? "mixed" : round.money_kind,
+    money_kind: mixedScope ? "mixed" : (notNewMoney ?? round.money_kind),
     money_kind_quote: mixedScope
       ? moneyContext
-      : round.money_kind_quote && groundingCheck({ evidence_quote: round.money_kind_quote }, markdown)
-        ? round.money_kind_quote
-        : null,
+      : notNewMoney
+        ? described
+        : round.money_kind_quote && groundingCheck({ evidence_quote: round.money_kind_quote }, markdown)
+          ? round.money_kind_quote
+          : null,
     certainty_quote:
       round.certainty_quote && groundingCheck({ evidence_quote: round.certainty_quote }, markdown) ? round.certainty_quote : null,
     issuer_quote: round.issuer_quote && groundingCheck({ evidence_quote: round.issuer_quote }, markdown) ? round.issuer_quote : null,

@@ -12,6 +12,7 @@ export const MONEY_KINDS = [
   "debt",
   "grant",
   "internal_spending",
+  "project_cost",
   "unknown",
 ] as const;
 export type MoneyKind = (typeof MONEY_KINDS)[number];
@@ -21,7 +22,7 @@ export function mixedFinancingScope(text: string): "includes_grants" | "includes
   // "entirely of primary equity, with no debt or secondary transactions" rules a secondary out, not in.
   const sentence = text.replace(/\b(?:no|without|excluding|nor)\b[^.;]{0,60}?\b(?:secondary|grants?|subsid(?:y|ies))\b/gi, " ");
   if (
-    /\b(?:including|included|inclusive of|compris(?:es|ing)|combined with|combination of|both|funding and)\b.{0,100}\b(?:grants?|subsid(?:y|ies))\b|\b(?:grants?|subsid(?:y|ies))\s+(?:and|plus)\s+(?:equity|series|funding)\b/i.test(
+    /\b(?:including|included|inclusive of|compris(?:es|ing)|combined with|combination of|both|funding and)\b.{0,100}\b(?:grants?|subsid(?:y|ies)|non-?dilutive)\b|\b(?:grants?|subsid(?:y|ies))\s+(?:and|plus)\s+(?:equity|series|funding)\b/i.test(
       sentence,
     )
   )
@@ -123,14 +124,41 @@ export function moneyKindFromSentence(sentence: string, figure: string | null): 
   const afterFigure = match
     ? context.slice(context.lastIndexOf(match[0]) + match[0].length, context.lastIndexOf(match[0]) + match[0].length + 45)
     : "";
+  // The words from this figure to the next one, across a following sentence that refers back to the financing.
+  const restOfClause = match ? context.slice(context.lastIndexOf(match[0]) + match[0].length) : "";
+  const figureIs = (words: RegExp) => match !== undefined && words.test(afterFigure.replace(/^\s*\([^)]*\)/, ""));
+  if (
+    figureIs(/^\s*(?:capex|capital expenditure)\b/i) ||
+    (/\b(?:represents?|requires?|costs?|costing|budget(?:ed)? at|price tag of)\s+(?:an?\s+|about\s+|around\s+|approximately\s+|roughly\s+)?$/i.test(
+      beforeFigure,
+    ) &&
+      figureIs(/^\s*(?:capital investment|investment)\b/i)) ||
+    figureIs(
+      /^\s*(?:[\w-]+\s+){0,2}(?:facility|plant|factory|site|project|campus)\s+(?:is|was|will be)\s+(?:\w+\s+)?(?:funded|financed)\b/i,
+    ) ||
+    (/\binvest(?:s|ing)?\s*$/i.test(beforeFigure) &&
+      figureIs(/^\s*in (?:a|an|the|its) (?:new )?(?:[\w-]+\s+){0,2}(?:plant|facility|factory|site|production line|campus)\b/i))
+  )
+    return "project_cost";
   if (
     (/\b(?:future (?:investment|commitment)|forthcoming|conditional|expected|pledged|committed|commitment|will invest|to be invested|subject to)\b/i.test(
       beforeFigure,
     ) &&
       !/\b(?:closed|already invested|initial closing)\b/i.test(beforeFigure)) ||
-    /^\s*(?:future |conditional |additional )?commitment\b/i.test(afterFigure)
+    figureIs(/^\s*(?:future |conditional |additional |strategic )?(?:(?:financing|investment|capital|funding) )?commitments?\b/i) ||
+    /\b(?:the|this) (?:financing|investment|funding|capital) commitment\b|\b(?:financing|funding|investment|round|deal)\b[^.]{0,60}\bcombines? (?:capital|cash|funding|investment|equity) with\b/i.test(
+      restOfClause,
+    )
   )
     return "future_commitment";
+  if (
+    /\b(?:non-?dilutive|revenue[- ]based|revenue[- ]share)\b/i.test(beforeFigure.slice(-25)) ||
+    figureIs(/^\s*(?:in |of )?(?:\w+ )?(?:non-?dilutive|revenue[- ]based|revenue[- ]share)\b/i) ||
+    /\b(?:the|this) (?:financing|funding|investment|capital|facility)\b[^.]{0,30}\b(?:is|was)\b[^.]{0,20}\bnon-?dilutive\b/i.test(
+      restOfClause,
+    )
+  )
+    return /\bnon-?dilutive (?:funding|grants?|awards?)\b/i.test(`${beforeFigure} ${afterFigure}`) ? "grant" : "debt";
   if (/\b(?:grant|award|subsidy)\b/i.test(context) && !/\b(?:equity|round|financing)\b/i.test(context)) return "grant";
   if (
     /\b(?:debt financing|venture debt|debt facility|debt proceeds|growth capital facility|multi[ -]year facility|(?:term |venture )?loan (?:financing|facility|proceeds)|credit facility|credit line|borrowed|project financing|project finance|warehouse (?:financing|facility|line)|tax (?:credit|equity) (?:financing|commitments?|investment)|asset[- ]backed (?:financing|facility))\b|\b(?:in|of|through|via)\s+debt\b|\bdebt\s+(?:of|worth|totaling)\b/i.test(
@@ -139,6 +167,17 @@ export function moneyKindFromSentence(sentence: string, figure: string | null): 
     !/\b(?:equity|round|convertible|SAFE)\b/i.test(context)
   )
     return "debt";
+  const breakdown =
+    next < money.length && /\b(?:including|comprising|consisting of|made up of|split (?:into|between))\b[^.]{0,12}$/i.test(restOfClause);
+  const partStages = new Set(
+    breakdown
+      ? [...sentence.slice(end).matchAll(/\d[\d,.]*\s*(?:million|billion|m|bn)?\s+(?:in\s+)?(pre[ -]?seed|seed|series [a-z])\b/gi)].map(
+          (m) => m[1].toLowerCase().replace(/[ -]/g, ""),
+        )
+      : [],
+  );
+  if (partStages.size >= 2) return "combined";
+  if (breakdown && /\ba total of\s*$/i.test(beforeFigure) && partStages.size === 1) return "cumulative";
   // Only the words at this figure: "$23 million in Series A funding ... brings its total funding to $29 million" totals the next one.
   if (
     /\b(?:funding (?:to date|since inception)|total (?:funding|raised|financing|proceeds)|cumulative|in total|raised (?:to date|so far|since)|bringing (?:its |the )?total|across (?:all|several|multiple) rounds)\b/i.test(
@@ -161,6 +200,26 @@ export function moneyKindFromSentence(sentence: string, figure: string | null): 
   )
     return "primary";
   return "unknown";
+}
+
+/**
+ * The page's sentence introducing a round's only financier as a lender of non-dilutive or revenue-based
+ * money ("Braavo Capital is a non-dilutive financing platform"), when the round's own sentence names no
+ * equity: the money is a facility, not a round, however the headline words it.
+ */
+export function nonDilutiveLender(evidence: string, financiers: string[], sentences: string[]): string | null {
+  if (financiers.length !== 1 || /\b(?:equity|shares?|stake|series [a-z]|seed|convertible)\b/i.test(evidence)) return null;
+  const name = financiers[0].toLowerCase();
+  return (
+    sentences.find((sentence) => {
+      const at = sentence.toLowerCase().indexOf(name);
+      return (
+        at >= 0 &&
+        at <= 6 &&
+        /^[^.]{0,40}?\b(?:is|,)\s+(?:a|an|the)\b[^.]{0,60}?\b(?:non-?dilutive|revenue[- ]based)\b/i.test(sentence.slice(at + name.length))
+      );
+    }) ?? null
+  );
 }
 
 export function safeMoneyKind(sentence: string, figure: string | null, model: MoneyKind | null = null): MoneyKind {

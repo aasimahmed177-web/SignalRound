@@ -77,7 +77,7 @@ export interface FinancingReplay {
   changes: FinancingChange[];
 }
 
-const NOT_ROUND: MoneyKind[] = ["ipo_allocation", "internal_spending", "secondary", "debt", "grant"];
+const NOT_ROUND: MoneyKind[] = ["ipo_allocation", "internal_spending", "project_cost", "secondary", "debt", "grant"];
 
 /** A stored sentence can correct a row only if it states that exact figure, not merely another number. */
 export function financingChange(row: VisibleMoney): FinancingChange | null {

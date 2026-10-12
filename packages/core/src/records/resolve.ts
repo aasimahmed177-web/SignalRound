@@ -7,7 +7,14 @@ import { assertedRoundCertainty, classifyRoundCertainty, ROUND_CERTAINTY_RANK } 
 import type { RateTable } from "./fx.ts";
 import { convertToUsd } from "./fx.ts";
 import { cleanInvestors, dedupeInvestorNames, hasLeadLanguage, investorMentions } from "./investors.ts";
-import { issuerTypeFromEvidence, mixedFinancingScope, nonStartupIssuerReason, safeMoneyKind } from "./money-kind.ts";
+import {
+  issuerTypeFromEvidence,
+  mixedFinancingScope,
+  moneyKindFromSentence,
+  nonDilutiveLender,
+  nonStartupIssuerReason,
+  safeMoneyKind,
+} from "./money-kind.ts";
 import {
   classifyStage,
   cleanText,
@@ -1167,7 +1174,8 @@ function classifyRound(
   const classified = extended && !isStageless(extended.stage) ? { ...extended, isExtension: true } : read;
   const creditProvider = /\b(?:from|by)\s+[\p{L}\p{N}&.-]+(?:\s+[\p{L}\p{N}&.-]+){0,4}\s+Credit Partners\b/iu.test(round.evidence_quote);
   const stage =
-    creditProvider && round.debt_quote && /\b(?:private credit|provides? debt financing)\b/i.test(round.debt_quote)
+    (creditProvider && round.debt_quote && /\b(?:private credit|provides? debt financing)\b/i.test(round.debt_quote)) ||
+    (round.debt_quote && nonDilutiveLender(round.evidence_quote, [...round.lead_investors, ...round.other_investors], [round.debt_quote]))
       ? "debt"
       : classified.stage;
   const labelExtension = classified.isExtension;
@@ -1393,10 +1401,12 @@ function priceRound(
       : null;
   // New money is published when both are stated. One financing announced now in tranches is all new
   // money (Positron's $875 million Series C and C-1, not its $375 million first tranche); a running total
-  // counts money raised before and is never the amount (FORE's $110 million Series D-2 beside its $67.4 million).
+  // counts money raised before and is never the amount (FORE's $110 million Series D-2 beside its $67.4 million),
+  // and neither is a total split across two stages (Melius's $25 million, a $5 million seed and a $20 million Series A).
   const together =
     kind !== "combined" &&
     total !== null &&
+    moneyKindFromSentence(total.quote, total.asWritten) !== "combined" &&
     (round.amount_scope === "tranche" || round.amount_scope === "financing_total") &&
     ANNOUNCED_TOGETHER.test(total.quote) &&
     !RUNNING_TOTAL.test(total.quote);
@@ -1406,9 +1416,18 @@ function priceRound(
   const amountQuote = together ? total.quote : round.evidence_quote;
   const isRoundAmount =
     round.amount_kind === "round" &&
-    !["combined", "mixed", "cumulative", "future_commitment", "secondary", "ipo_allocation", "internal_spending", "debt", "grant"].includes(
-      kind,
-    ) &&
+    ![
+      "combined",
+      "mixed",
+      "cumulative",
+      "future_commitment",
+      "secondary",
+      "ipo_allocation",
+      "internal_spending",
+      "project_cost",
+      "debt",
+      "grant",
+    ].includes(kind) &&
     !(isExtension && !newMoney && !together && amountIsRoundTotal(round.evidence_quote)) &&
     amountInEvidence(amountAsWritten, amountQuote);
   const parsed = isRoundAmount
@@ -1697,9 +1716,24 @@ function placeEarlierRounds(
 
 /** Once every reading is in: the website against every source, the surest date among them, one set of firms, then the score. */
 function settleRecord(record: FeedRecord, tiers: Record<string, number>): FeedRecord {
-  const dated = settleDate(scrubWebsite(record));
+  const dated = settleDate(scrubWebsite(withoutProjectCost(record)));
   const reconciled = { ...dated, ...reconcileInvestorLists(dated.lead_investors, dated.other_investors) };
   return { ...reconciled, confidence: scoreConfidence(reconciled, tiers) };
+}
+
+/**
+ * A figure one of the record's sentences calls the cost of a plant or project is not the round's amount,
+ * though another page reports it as the money raised (Zymofix's €6 million plant, financed partly by a
+ * Series A of undisclosed size).
+ */
+function withoutProjectCost(record: FeedRecord): FeedRecord {
+  const figure = record.amount.as_written;
+  if (
+    !figure ||
+    !record.evidence_quotes.some((quote) => amountInEvidence(figure, quote) && moneyKindFromSentence(quote, figure) === "project_cost")
+  )
+    return record;
+  return { ...record, amount: { value: null, currency: null, as_written: null, usd_millions: null, fx_rate: null, fx_date: null } };
 }
 
 /** By stage, then the largest round first: the order the feed shows. */

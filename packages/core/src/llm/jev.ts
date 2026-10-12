@@ -210,6 +210,7 @@ export function jevMoneyClassifier(opts: JevOptions = {}): ((sentence: string, f
                 debt: "Loan, credit facility, or debt financing only",
                 grant: "Grant, subsidy, or award",
                 internal_spending: "Company's own planned spending or internal investment",
+                project_cost: "Cost of a plant, facility, or project the company is building, however it is financed",
                 unknown: "The sentence does not establish what this money represents",
               },
             },

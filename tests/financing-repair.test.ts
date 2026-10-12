@@ -55,6 +55,18 @@ describe("visible financing replay", () => {
     expect(financingChange({ ...stored, currency: "USD" })).toBeNull();
   });
 
+  test("a stored figure every sentence calls a plant's cost goes to review", () => {
+    const stored = {
+      ...row("Zymofix", "€6 million", "The €6 million facility is funded partly through a Series A round led by First Imagine!"),
+      currency: "EUR",
+      quotes: [
+        "The €6 million facility is funded partly through a Series A round led by First Imagine!",
+        "The initial phase represents a €6 million capital investment. Funding comes from customer revenues and a Series A round.",
+      ],
+    };
+    expect(financingChange(stored)).toMatchObject({ review: true, reason: expect.stringContaining("project_cost") });
+  });
+
   test("only an explicitly combined amount becomes a financing total", () => {
     expect(financingChange(row("Ando", "$20 million", "Ando raised $20 million across its pre-seed and seed rounds."))?.amount).toEqual({
       from: "$20 million",
