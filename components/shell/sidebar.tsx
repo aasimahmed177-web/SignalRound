@@ -115,6 +115,9 @@ const footerLink =
 export function SidebarFooter({ signIn = false }: { signIn?: boolean }) {
   return (
     <div className="flex items-center gap-4 border-t border-border-faint px-4 py-3">
+      <Link href="/docs" className={footerLink}>
+        API
+      </Link>
       <a href="https://github.com/firecrawl/fireround" target="_blank" rel="noreferrer" className={footerLink}>
         Open source
         <ArrowUpRight className="size-3.5" strokeWidth={1.75} aria-hidden />

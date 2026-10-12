@@ -131,10 +131,9 @@ const FEATURES: Feature[] = [
   {
     icon: Braces,
     lead: "The API.",
-    body: "JSON, CSV, and JSONL over /api/v1, with cursor pagination and the same filters as the feed. Described in OpenAPI.",
-    href: "/api/v1/openapi.json",
-    cta: "OpenAPI spec",
-    external: true,
+    body: "Rounds, companies, investors, and funding news over /api/v1: JSON, CSV, or JSONL, with the same filters as the feed. Described in OpenAPI.",
+    href: "/docs",
+    cta: "API reference",
   },
   {
     icon: Sparkles,
@@ -352,6 +351,9 @@ function Product() {
             </p>
           </div>
           <div className="flex shrink-0 gap-5">
+            <Link href="/docs" className={cn(textLink, "text-label-small")}>
+              All endpoints <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
             <a href="/api/v1/openapi.json" target="_blank" rel="noreferrer" className={cn(textLink, "text-label-small")}>
               OpenAPI <ArrowUpRight className="size-3.5 opacity-70" aria-hidden />
             </a>

@@ -22,7 +22,7 @@ const FEEDS = [
   { label: "RSS", href: (slug: string) => `/feeds/public/${slug}.rss` },
   { label: "Atom", href: (slug: string) => `/feeds/public/${slug}.atom` },
   { label: "JSON", href: (slug: string) => `/feeds/public/${slug}.json` },
-  { label: "API", href: () => "/api/v1/rounds" },
+  { label: "API", href: () => "/docs" },
   // The endpoint answers only JSON-RPC POSTs; a reader who clicks wants the client config, which the landing page's MCP tab shows.
   { label: "MCP", href: () => `${isLanding() ? "/" : LANDING_PATH}#mcp` },
   { label: "OpenAPI", href: () => "/api/v1/openapi.json" },

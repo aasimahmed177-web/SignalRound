@@ -25,8 +25,8 @@ const columns = (demo: boolean): Array<{ title: string; links: FooterLink[] }> =
   {
     title: "Developers",
     links: [
-      { href: "/api/v1/openapi.json", label: "API reference", external: true },
-      { href: "#api", label: "MCP server" },
+      { href: "/docs", label: "API reference" },
+      { href: "#mcp", label: "MCP server" },
       ...(demo ? [{ href: "/feeds/public/all.rss", label: "RSS feed", external: true }] : []),
       { href: "https://docs.firecrawl.dev", label: "Firecrawl docs", external: true },
     ],
