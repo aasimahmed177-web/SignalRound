@@ -3,7 +3,7 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import { isListPage, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
+import { investorKeyForMerge, isListPage, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
@@ -226,7 +226,7 @@ export async function apiInvestors(
  * named on a published round answers to it.
  */
 async function investorIdFor(handle: Db, raw: string): Promise<string | null> {
-  const keys = [...new Set([investorIdFromParam(raw).toLowerCase(), normalizeInvestorKey(raw)])].filter(Boolean);
+  const keys = [...new Set([investorIdFromParam(raw).toLowerCase(), normalizeInvestorKey(raw), investorKeyForMerge(raw)])].filter(Boolean);
   const site = raw.trim().toLowerCase();
   const seats = sql<number>`count(*)::int`;
   const hits = await handle

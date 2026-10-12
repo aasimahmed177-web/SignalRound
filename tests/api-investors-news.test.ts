@@ -412,3 +412,17 @@ describe("/api/v1/rounds?q=", () => {
     expect(await companies("Fund Three")).not.toContain("Echo");
   });
 });
+
+test("an investor profile reads a firm's short name as the firm (YC is Y Combinator)", async () => {
+  const handle = await db();
+  const [round] = await handle.select({ id: schema.fundingRounds.id }).from(schema.fundingRounds).limit(1);
+  await handle.insert(schema.investors).values({ id: "y combinator", name: "Y Combinator" });
+  await handle.insert(schema.roundInvestors).values({ roundId: round?.id as string, investorId: "y combinator", role: "participant" });
+  for (const id of ["YC", "yc", "Y Combinator"]) {
+    const r = await profileGet(new Request(`http://app.test/api/v1/investors/${id}`), {
+      params: Promise.resolve({ id: encodeURIComponent(id) }),
+    } as never);
+    expect(r.status, id).toBe(200);
+    expect(((await r.json()) as { id: string }).id, id).toBe("y-combinator");
+  }
+});
