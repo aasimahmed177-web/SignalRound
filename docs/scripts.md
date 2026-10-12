@@ -10,6 +10,7 @@ Every `pnpm` script in `package.json`, one line each; the ones under `scripts/` 
 | `pnpm build` | Production build |
 | `pnpm start` | Serve the production build |
 | `pnpm vercel-build` | What Vercel runs: apply migrations, then build |
+| `pnpm demo-data` | Fill an empty store with ten fictional sample rounds (nine published, one in Review) so the dashboard has something to show before a Firecrawl key or a first sweep; no key, no credits. It refuses a store that already has rounds; `pnpm reset-data -- --yes` clears the samples before your first real sweep |
 
 ## Pipeline
 

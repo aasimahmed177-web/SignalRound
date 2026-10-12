@@ -16,6 +16,7 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
     "backup-db": "node --env-file-if-exists=.env scripts/backup-db.ts",
     "feed-token": "node --env-file-if-exists=.env scripts/feed-token.ts",
+    "demo-data": "node --env-file-if-exists=.env scripts/demo-data.ts",
     "vercel-build": "node scripts/migrate.ts && next build",
     "merge-duplicates": "node --env-file-if-exists=.env scripts/maintenance/merge-duplicates.ts",
     "merge-duplicate-rounds": "node --env-file-if-exists=.env scripts/maintenance/merge-duplicate-rounds.ts",

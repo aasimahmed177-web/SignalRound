@@ -60,7 +60,7 @@ export function FirstRun({
               <a href="https://www.firecrawl.dev/app/api-keys" className="underline" target="_blank" rel="noreferrer">
                 firecrawl.dev/app/api-keys
               </a>
-              .
+              . No key yet? <code className="text-mono-small">pnpm demo-data</code> fills the dashboard with fictional sample rounds.
             </p>
           )}
         </div>
