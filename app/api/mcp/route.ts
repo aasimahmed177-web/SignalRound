@@ -4,6 +4,7 @@
 
 import type { Stage } from "@fireround/core";
 import { ROUND_CERTAINTIES, STAGES } from "@fireround/core";
+import type { Db } from "@fireround/core/db";
 import type { ServerContext } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
@@ -11,7 +12,7 @@ import { isPublicDemo, mcpTrusted } from "@/lib/access";
 import { parseQuery, parseSector, parseSince, parseStages } from "@/lib/api-params";
 import { companyPath, companyRequestStatus, limitMessage, requestPath, submitCompanyRequest } from "@/lib/company-requests";
 import { dashboardPassword } from "@/lib/dashboard-auth";
-import { db } from "@/lib/db";
+import { db, visitorRead } from "@/lib/db";
 import { COMPANY_SORTS } from "@/lib/directory";
 import type { RoundRow } from "@/lib/persist";
 import { feedHistory, listRounds, publicRoundQuery, setStatus } from "@/lib/persist";
@@ -56,6 +57,11 @@ function safe<A>(tool: string, run: (args: A, ctx: ServerContext) => Promise<Ret
       return refusal("The tool failed on an internal error. Try again shortly.");
     }
   };
+}
+
+/** A read tool: safe, and read on the visitor's terms, so the server cancels a statement past the read deadline (lib/db.ts visitorRead). */
+function reader<A>(tool: string, run: (args: A, handle: Db) => Promise<ReturnType<typeof text> | ReturnType<typeof refusal>>) {
+  return safe(tool, (args: A) => visitorRead((handle) => run(args, handle)));
 }
 
 /** Links an agent can open as they are; the HTTP API answers with paths because its caller is on this origin already. */
@@ -148,10 +154,9 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("list_rounds", async (args) => {
+      reader("list_rounds", async (args, handle) => {
         const sector = parseSector(args.sector ?? null);
         if (!sector.ok) return refusal(sector.error);
-        const handle = await db();
         const { rows, nextCursor } = await listRounds(
           handle,
           publicRoundQuery({
@@ -183,8 +188,7 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("search_rounds", async ({ query, certainty, limit }) => {
-        const handle = await db();
+      reader("search_rounds", async ({ query, certainty, limit }, handle) => {
         const { rows } = await listRounds(handle, { q: query, certainty, limit: limit ?? 20 });
         return text({ rounds: rows.map(compactRound) });
       }),
@@ -198,8 +202,7 @@ const handler = createMcpHandler(
         inputSchema: z.object({ company: z.string().min(1).max(200).describe("Domain (acme.com) or name") }),
         annotations: { readOnlyHint: true },
       },
-      safe("get_company", async ({ company }) => {
-        const handle = await db();
+      reader("get_company", async ({ company }, handle) => {
         const { rows } = await listRounds(handle, { company, limit: 50, includeReview: trusted });
         return text({ company, rounds: rows.map(compactRound) });
       }),
@@ -213,8 +216,7 @@ const handler = createMcpHandler(
         inputSchema: z.object({ certainty: z.enum(ROUND_CERTAINTIES).optional(), limit: z.number().int().min(1).max(50).optional() }),
         annotations: { readOnlyHint: true },
       },
-      safe("list_trending", async ({ certainty, limit }) => {
-        const handle = await db();
+      reader("list_trending", async ({ certainty, limit }, handle) => {
         const { rows } = await listTrending(handle, { certainty }, { offset: 0, limit: limit ?? 10 });
         const marks = await trendingMarks(
           handle,
@@ -254,7 +256,7 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("list_companies", async (args) => {
+      reader("list_companies", async (args, handle) => {
         const q = parseQuery(args.q ?? null);
         if (!q.ok) return refusal(q.error);
         const sector = parseSector(args.sector ?? null);
@@ -264,7 +266,7 @@ const handler = createMcpHandler(
         const since = parseSince(args.since ?? null);
         if (!since.ok) return refusal(since.error);
         return text(
-          await apiCompanies(await db(), {
+          await apiCompanies(handle, {
             q: q.value,
             sector: sector.value,
             stages: stages.value,
@@ -292,8 +294,7 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("get_company_profile", async ({ id }) => {
-        const handle = await db();
+      reader("get_company_profile", async ({ id }, handle) => {
         const wanted = id.trim().toLowerCase();
         const found = await apiCompanyProfile(handle, wanted);
         if (found) return text(found);
@@ -318,12 +319,10 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("list_investors", async (args) => {
+      reader("list_investors", async (args, handle) => {
         const q = parseQuery(args.q ?? null);
         if (!q.ok) return refusal(q.error);
-        return text(
-          await apiInvestors(await db(), { q: q.value, sort: args.sort ?? "led", page: args.page ?? 1, limit: args.limit ?? 20 }),
-        );
+        return text(await apiInvestors(handle, { q: q.value, sort: args.sort ?? "led", page: args.page ?? 1, limit: args.limit ?? 20 }));
       }),
     );
 
@@ -342,8 +341,7 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("get_investor", async ({ id }) => {
-        const handle = await db();
+      reader("get_investor", async ({ id }, handle) => {
         const found = await apiInvestorProfile(handle, id);
         if (found) return text(found);
         return {
@@ -370,13 +368,13 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("top_investors", async (args) => {
+      reader("top_investors", async (args, handle) => {
         const sector = parseSector(args.sector ?? null);
         if (!sector.ok) return refusal(sector.error);
         const stages = parseStages(args.stage?.length ? args.stage.join(",") : null);
         if (!stages.ok) return refusal(stages.error);
         return text(
-          await apiTopLeads(await db(), {
+          await apiTopLeads(handle, {
             window: args.window ?? "30d",
             sector: sector.value,
             stages: stages.value,
@@ -401,7 +399,7 @@ const handler = createMcpHandler(
         }),
         annotations: { readOnlyHint: true },
       },
-      safe("list_news", async (args) => {
+      reader("list_news", async (args, handle) => {
         const since = parseSince(args.since ?? null);
         if (!since.ok) return refusal(since.error);
         const sector = parseSector(args.sector ?? null);
@@ -410,7 +408,7 @@ const handler = createMcpHandler(
         if (!q.ok) return refusal(q.error);
         const cursor = args.cursor ? parseNewsCursor(args.cursor) : undefined;
         if (cursor === null) return refusal('cursor must be the next_cursor of the previous page ("YYYY-MM-DD|url")');
-        return text(await apiNews(await db(), { since: since.value, sector: sector.value, q: q.value, cursor, limit: args.limit ?? 20 }));
+        return text(await apiNews(handle, { since: since.value, sector: sector.value, q: q.value, cursor, limit: args.limit ?? 20 }));
       }),
     );
 

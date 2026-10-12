@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";
 import { preflight, readHeaders } from "@/lib/api-params";
-import { db, withinDeadline } from "@/lib/db";
+import { visitorRead, withinDeadline } from "@/lib/db";
 import { decodeParam } from "@/lib/links";
 import { apiInvestorProfile, didYouMean, notFound } from "@/lib/public-api";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
@@ -19,7 +19,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/v1/investors
   if (limited) return limited;
   const wanted = decodeParam(id);
   const found = await withinDeadline(
-    db().then(
+    visitorRead(
       async (h) =>
         (await apiInvestorProfile(h, wanted)) ??
         notFound("No investor with that id is named on a published round", await didYouMean(h, "investors", wanted)),

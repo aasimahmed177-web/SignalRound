@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";
 import { badRequest, parseChoice, parseLimit, parseSector, parseStages, preflight, readHeaders } from "@/lib/api-params";
-import { db, withinDeadline } from "@/lib/db";
+import { visitorRead, withinDeadline } from "@/lib/db";
 import { apiTopLeads, TOP_WINDOWS, type TopWindow } from "@/lib/public-api";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const limited = await limitRequest(request, LIMITS.api, seesReview(viewerFrom(request.headers.get("authorization"))));
   if (limited) return limited;
   const body = await withinDeadline(
-    db().then((h) =>
+    visitorRead((h) =>
       apiTopLeads(h, { window: window.value, sector: sector.value, stages: stages.value, limit: Math.min(limit.value, 50) }),
     ),
   );

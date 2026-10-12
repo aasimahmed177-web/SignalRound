@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";
 import { preflight, readHeaders } from "@/lib/api-params";
-import { db, withinDeadline } from "@/lib/db";
+import { visitorRead, withinDeadline } from "@/lib/db";
 import { decodeParam } from "@/lib/links";
 import { apiCompanyProfile, didYouMean, notFound } from "@/lib/public-api";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
@@ -20,7 +20,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/v1/companies
   if (limited) return limited;
   const wanted = decodeParam(id).trim().toLowerCase();
   const found = await withinDeadline(
-    db().then(
+    visitorRead(
       async (h) =>
         (await apiCompanyProfile(h, wanted)) ??
         notFound("No company with that id has a published round", await didYouMean(h, "companies", wanted)),

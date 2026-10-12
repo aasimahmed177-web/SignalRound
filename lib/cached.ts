@@ -20,7 +20,7 @@ import type { Preset } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { cacheLife, cacheTag } from "next/cache";
 import { type CompanyView, readCompanyView } from "@/lib/company";
-import { db, withinDeadline } from "@/lib/db";
+import { visitorRead, withinDeadline } from "@/lib/db";
 import { type CompanySort, type InvestorSort, listCompanies, listInvestors } from "@/lib/directory";
 import { companyTag, investorTag, TAG_ENTITY_DETAILS } from "@/lib/entity-tags";
 import { type FeedPage, type FeedPageQuery, readFeedPage } from "@/lib/feed-page";
@@ -67,7 +67,7 @@ const DETAIL = { stale: 60, revalidate: 600, expire: 3600 };
  * its error state.
  */
 async function read<T>(query: (handle: Db) => Promise<T>): Promise<T> {
-  return withinDeadline(db().then(query));
+  return withinDeadline(visitorRead(query));
 }
 
 /** The landing page's counters (lib/landing.ts). */

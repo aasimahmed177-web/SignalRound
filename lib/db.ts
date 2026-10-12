@@ -5,8 +5,9 @@
 
 import path from "node:path";
 import type { Db, DbOptions } from "@fireround/core/db";
-import { getDb, StoreLockedError } from "@fireround/core/db";
+import { driverFor, getDb, StoreLockedError } from "@fireround/core/db";
 import { attachDatabasePool } from "@vercel/functions";
+import { sql } from "drizzle-orm";
 import { concurrencyLimited, retryingFetch } from "./db-retry.ts";
 import { migrateSlackTargets } from "./slack-credentials.ts";
 
@@ -20,10 +21,9 @@ const globalScope = globalThis as typeof globalThis & { __fundingFeedReady?: Pro
 const NEON_MAX_IN_FLIGHT = 16;
 
 /**
- * The longest a visitor's read waits on the database. A server-side statement_timeout cannot be set
- * per connection here: a transaction-mode PgBouncer refuses it as a startup parameter, and a SET would
- * outlive the request on a shared server connection. So the page or API read gives up on its own
- * clock instead; the pipeline's lanes, which share the pool and run longer reads, are not held to it.
+ * The longest a visitor's read waits on the database: withinDeadline gives up on the request's own
+ * clock, and visitorRead has the server cancel any one statement that runs past it. The pipeline's
+ * lanes, crons, and scripts share the pool but read through db() directly, so they are held to neither.
  */
 export const READ_DEADLINE_MS = 15_000;
 
@@ -38,6 +38,25 @@ export async function withinDeadline<T>(read: Promise<T>, ms = READ_DEADLINE_MS)
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * A visitor's read (a page's cached read, the public API, the MCP tools), with the server cancelling
+ * any statement that runs past READ_DEADLINE_MS, so a runaway query stops using the database instead of
+ * running on after the request gave up. The pooler is PgBouncer in transaction mode, which refuses
+ * statement_timeout as a startup parameter and would hand a plain SET on to whoever gets the server
+ * connection next, so the limit is a SET LOCAL inside a transaction of the read's own, gone at its end.
+ * Neon's HTTP driver has no transaction to scope it to, so a Neon store reads as before.
+ */
+export async function visitorRead<T>(read: (handle: Db) => Promise<T>): Promise<T> {
+  const handle = await db();
+  const url = process.env.DATABASE_URL;
+  if (url && driverFor(url) === "neon") return read(handle);
+  return handle.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('statement_timeout', ${String(READ_DEADLINE_MS)}, true)`);
+    // SAFETY: a transaction has the same query-builder surface as the handle every read takes.
+    return read(tx as unknown as Db);
+  });
 }
 
 export function db(): Promise<Db> {

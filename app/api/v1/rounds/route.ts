@@ -22,7 +22,7 @@ import {
   preflight,
   readHeaders,
 } from "@/lib/api-params";
-import { db } from "@/lib/db";
+import { visitorRead } from "@/lib/db";
 import type { RoundRow } from "@/lib/persist";
 import { feedHistory, listRounds, publicRoundQuery } from "@/lib/persist";
 import { didYouMean } from "@/lib/public-api";
@@ -132,73 +132,74 @@ export async function GET(request: Request) {
   const limited = await limitRequest(request, exportSort !== null ? LIMITS.export : LIMITS.api, insider);
   if (limited) return limited;
 
-  const handle = await db();
-  const filters = publicRoundQuery({
-    since: since.value,
-    stages: stages.value,
-    status: status.value,
-    certainty: certainty.value,
-    preset: p.get("preset") ?? undefined,
-    sector: sector.value,
-    q: q.value,
-    company: p.get("company") ?? undefined,
-    minUsdMillions: minUsd.value,
-    includeReview,
-    // History rows (earlier rounds promoted from dossiers) list only when the caller asks for dates or a company.
-    history: feedHistory({ since: since.value, company: p.get("company") ?? undefined }),
-  });
-  let rows: RoundRow[];
-  let nextCursor: string | null;
-  // An export is the whole filtered set, not the first page: a CSV asked for without a limit follows
-  // the cursor to the end (it once stopped at 200 rows without a word) and says so when it hits the cap.
-  if (exportSort !== null) {
-    rows = [];
-    nextCursor = cursor.value ?? null;
-    do {
-      const page = await listRounds(handle, { ...filters, sort: exportSort, cursor: nextCursor ?? undefined, limit: 200 });
-      rows.push(...page.rows);
-      nextCursor = page.nextCursor;
-    } while (nextCursor && rows.length < CSV_MAX_ROWS);
-  } else if (sort.value === "trending") {
-    // The trending list is short and ranked, so it pages by position: `trend:N` is the row after the last.
-    const offset = cursor.value ? (parseTrendingCursor(cursor.value) ?? 0) : 0;
-    const page = await listTrending(handle, filters, { offset, limit: limit.value });
-    rows = page.rows;
-    nextCursor = offset + rows.length < page.total ? trendingCursorAfter(offset + rows.length) : null;
-  } else {
-    ({ rows, nextCursor } = await listRounds(handle, { ...filters, sort: sort.value, cursor: cursor.value, limit: limit.value }));
-  }
+  return visitorRead(async (handle) => {
+    const filters = publicRoundQuery({
+      since: since.value,
+      stages: stages.value,
+      status: status.value,
+      certainty: certainty.value,
+      preset: p.get("preset") ?? undefined,
+      sector: sector.value,
+      q: q.value,
+      company: p.get("company") ?? undefined,
+      minUsdMillions: minUsd.value,
+      includeReview,
+      // History rows (earlier rounds promoted from dossiers) list only when the caller asks for dates or a company.
+      history: feedHistory({ since: since.value, company: p.get("company") ?? undefined }),
+    });
+    let rows: RoundRow[];
+    let nextCursor: string | null;
+    // An export is the whole filtered set, not the first page: a CSV asked for without a limit follows
+    // the cursor to the end (it once stopped at 200 rows without a word) and says so when it hits the cap.
+    if (exportSort !== null) {
+      rows = [];
+      nextCursor = cursor.value ?? null;
+      do {
+        const page = await listRounds(handle, { ...filters, sort: exportSort, cursor: nextCursor ?? undefined, limit: 200 });
+        rows.push(...page.rows);
+        nextCursor = page.nextCursor;
+      } while (nextCursor && rows.length < CSV_MAX_ROWS);
+    } else if (sort.value === "trending") {
+      // The trending list is short and ranked, so it pages by position: `trend:N` is the row after the last.
+      const offset = cursor.value ? (parseTrendingCursor(cursor.value) ?? 0) : 0;
+      const page = await listTrending(handle, filters, { offset, limit: limit.value });
+      rows = page.rows;
+      nextCursor = offset + rows.length < page.total ? trendingCursorAfter(offset + rows.length) : null;
+    } else {
+      ({ rows, nextCursor } = await listRounds(handle, { ...filters, sort: sort.value, cursor: cursor.value, limit: limit.value }));
+    }
 
-  if (format.value === "csv") {
-    return new Response(toCsv(rows), {
-      headers: {
-        ...readHeaders(insider),
-        "content-type": "text/csv; charset=utf-8",
-        "content-disposition": 'attachment; filename="rounds.csv"',
-        // More rows than the file holds: the cursor picks up where it stopped.
-        ...(nextCursor ? { "x-next-cursor": nextCursor, "access-control-expose-headers": "x-next-cursor" } : {}),
-      },
-    });
-  }
-  const marks = await trendingMarks(
-    handle,
-    rows.map((r) => r.id),
-  );
-  const withTrending = rows.map((r) => ({ ...(insider ? r : publicRound(r)), trending: marks.get(r.id) ?? null }));
-  if (format.value === "jsonl") {
-    return new Response(`${withTrending.map((r) => JSON.stringify(r)).join("\n")}\n`, {
-      headers: { ...readHeaders(insider), "content-type": "application/x-ndjson" },
-    });
-  }
-  const named = p.get("company") ?? p.get("q");
-  const candidates =
-    rows.length === 0 && !cursor.value && named
-      ? [...(await didYouMean(handle, "companies", named)), ...(p.get("company") ? [] : await didYouMean(handle, "investors", named))]
-      : [];
-  // A name is one suggestion for q, whether a company, an investor, or both carry it (Anthropic is both).
-  const near = candidates.filter((n, i) => candidates.findIndex((m) => m.name.toLowerCase() === n.name.toLowerCase()) === i).slice(0, 3);
-  return NextResponse.json(
-    { data: withTrending, next_cursor: nextCursor, ...(near.length ? { did_you_mean: near } : {}) },
-    { headers: readHeaders(insider) },
-  );
+    if (format.value === "csv") {
+      return new Response(toCsv(rows), {
+        headers: {
+          ...readHeaders(insider),
+          "content-type": "text/csv; charset=utf-8",
+          "content-disposition": 'attachment; filename="rounds.csv"',
+          // More rows than the file holds: the cursor picks up where it stopped.
+          ...(nextCursor ? { "x-next-cursor": nextCursor, "access-control-expose-headers": "x-next-cursor" } : {}),
+        },
+      });
+    }
+    const marks = await trendingMarks(
+      handle,
+      rows.map((r) => r.id),
+    );
+    const withTrending = rows.map((r) => ({ ...(insider ? r : publicRound(r)), trending: marks.get(r.id) ?? null }));
+    if (format.value === "jsonl") {
+      return new Response(`${withTrending.map((r) => JSON.stringify(r)).join("\n")}\n`, {
+        headers: { ...readHeaders(insider), "content-type": "application/x-ndjson" },
+      });
+    }
+    const named = p.get("company") ?? p.get("q");
+    const candidates =
+      rows.length === 0 && !cursor.value && named
+        ? [...(await didYouMean(handle, "companies", named)), ...(p.get("company") ? [] : await didYouMean(handle, "investors", named))]
+        : [];
+    // A name is one suggestion for q, whether a company, an investor, or both carry it (Anthropic is both).
+    const near = candidates.filter((n, i) => candidates.findIndex((m) => m.name.toLowerCase() === n.name.toLowerCase()) === i).slice(0, 3);
+    return NextResponse.json(
+      { data: withTrending, next_cursor: nextCursor, ...(near.length ? { did_you_mean: near } : {}) },
+      { headers: readHeaders(insider) },
+    );
+  });
 }

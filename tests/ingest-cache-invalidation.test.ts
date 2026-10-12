@@ -9,7 +9,11 @@ const { revalidateTag, cacheTag, scenario } = vi.hoisted(() => ({
   scenario: { records: [] as FeedRecord[] },
 }));
 let handle: Db;
-vi.mock("@/lib/db", () => ({ db: async () => handle, withinDeadline: <T>(read: Promise<T>) => read }));
+vi.mock("@/lib/db", () => ({
+  db: async () => handle,
+  withinDeadline: <T>(read: Promise<T>) => read,
+  visitorRead: <T>(read: (h: typeof handle) => Promise<T>) => read(handle),
+}));
 vi.mock("next/cache", () => ({ revalidateTag, cacheTag, cacheLife: vi.fn() }));
 vi.mock("@fireround/core", async (original) => ({
   ...(await original<object>()),
