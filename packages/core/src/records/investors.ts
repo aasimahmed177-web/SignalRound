@@ -874,14 +874,17 @@ const ALIASES: Record<string, string> = {
   lsvp: "lightspeed venture partners",
 };
 
+/** Misspellings of a firm that sources have printed, keyed as the firm ("Sequioa Capital" on a Chai Discovery listing). */
+const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
+
 /** One program under two names: a16z's crypto accelerator (CSX) became speedrun. */
 const RENAMED: Record<string, string> = { "andreessen horowitz csx": "andreessen horowitz speedrun" };
 
-/** `normalizeInvestorKey` with known short forms expanded: "a16z crypto" keys as "andreessen horowitz crypto". */
+/** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
 export function investorKeyForMerge(name: string): string {
   const key = normalizeInvestorKey(name)
     .split(" ")
-    .map((t) => ALIASES[t] ?? t)
+    .map((t) => ALIASES[t] ?? MISSPELLED[t] ?? t)
     .join(" ")
     .trim();
   return RENAMED[key] ?? key;

@@ -563,6 +563,11 @@ describe("rule 4: one firm, one entry", () => {
     expect(investorKeyForMerge("Andreessen Horowitz (a16z)")).toBe("andreessen horowitz");
   });
 
+  test("a misspelling a source printed keys as the firm: Sequioa Capital is Sequoia", () => {
+    expect(investorKeyForMerge("Sequioa Capital")).toBe("sequoia");
+    expect(investorKeyForMerge("Sequioa Capital India")).toBe(investorKeyForMerge("Sequoia Capital India"));
+  });
+
   test("lyte: 'Key 1 Capital' and 'Key1 Capital' are one firm, Fidelity is listed once", () => {
     const out = clean(
       ["Maverick Silicon"],
