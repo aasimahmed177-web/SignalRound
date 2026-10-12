@@ -4,7 +4,7 @@
 // name or alias for an id, a date phrase passed through as written, and questions whose honest
 // answer is "none".
 
-import { sectorMembers } from "@fireround/core";
+import { isListPage, sectorMembers } from "@fireround/core";
 import { type SQL, sql } from "drizzle-orm";
 import type { Expect, Fact } from "./judge.ts";
 
@@ -223,18 +223,23 @@ function trending(where: Array<SQL | undefined>, n: number) {
 /** An article's day: its own published day, else the day it was read. */
 const ARTICLE_DAY = sql`coalesce(nullif(left(s.published_at, 10), ''), to_char(s.fetched_at at time zone 'UTC', 'YYYY-MM-DD'))`;
 
-/** The articles (never filings) that report a listed round matching `round`, from `from` on. */
+/** The articles (never filings, roundups or newsletters, as /api/v1/news leaves them out) that report a listed round matching `round`, from `from` on. */
 function news(round: Array<SQL | undefined>, from?: string) {
   return async (q: Query): Promise<Expect> => {
-    const rows = await q<{ url: string }>(
-      sql`select s.url from sources s where ${all([
-        sql`s.host not in ('sec.gov', 'www.sec.gov')`,
-        from ? sql`${ARTICLE_DAY} >= ${from}` : undefined,
-        sql`exists (select 1 from round_sources rs join funding_rounds r on r.id = rs.round_id join companies c on c.id = r.company_id
+    const rows = await q<{ url: string; title: string | null; rounds: number }>(
+      sql`select s.url, s.title, (select count(*) from round_sources rs where rs.source_id = s.id)::int as rounds from sources s where ${all(
+        [
+          sql`s.host not in ('sec.gov', 'www.sec.gov')`,
+          from ? sql`${ARTICLE_DAY} >= ${from}` : undefined,
+          sql`exists (select 1 from round_sources rs join funding_rounds r on r.id = rs.round_id join companies c on c.id = r.company_id
                     where ${all([sql`rs.source_id = s.id`, VISIBLE, sql`r.history = false`, ...round])})`,
-      ])}`,
+        ],
+      )}`,
     );
-    return { kind: "rows", keys: rows.map((r) => r.url) };
+    return {
+      kind: "rows",
+      keys: rows.filter((r) => !isListPage({ url: r.url, title: r.title }, null, r.rounds)).map((r) => r.url),
+    };
   };
 }
 
@@ -253,6 +258,8 @@ const stageIn = (...stages: string[]) =>
 const since = (day: string) => sql`r.announced_on >= ${day}`;
 const investorNamed = (term: string) =>
   sql`exists (select 1 from round_investors ri join investors i on i.id = ri.investor_id where ri.round_id = r.id and i.name ilike ${`%${term}%`})`;
+/** What /api/v1/news's q matches: the company's name or the article's headline. */
+const mentions = (term: string) => sql`(c.name ilike ${`%${term}%`} or s.title ilike ${`%${term}%`})`;
 const named = (nameOrDomain: string) => sql`(lower(c.name) = lower(${nameOrDomain}) or c.domain = lower(${nameOrDomain}))`;
 
 /** A misspelled name: the rows are the right company's, and a did-you-mean naming it earns partial credit. */
@@ -796,7 +803,7 @@ export function questions(d: Days): Question[] {
       ask: "News coverage of Anthropic's raises",
       capability: "news/latest",
       params: { q: "Anthropic", limit: 20 },
-      truth: news([named("anthropic.com")]),
+      truth: news([mentions("Anthropic")]),
     },
     {
       id: "news-since-today-word",
