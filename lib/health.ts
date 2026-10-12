@@ -265,6 +265,14 @@ export const ERROR_WINDOW_RUNS = 8;
 export const ERROR_MIN_RUNS = 4;
 export const ERROR_RATE_THRESHOLD = 0.5;
 
+/**
+ * A scheduled lane's run with no end this long after it started never will: the longest finished run
+ * of any scheduled lane in the two weeks to October 11, 2026 took 29 minutes. The check closes it as failed
+ * with STALLED_RUN_ERROR, and it counts toward the lane's error rate like any failed run.
+ */
+export const RUN_STALL_MS = 2 * HOUR;
+export const STALLED_RUN_ERROR = "never finished: no end two hours after it started";
+
 export interface RunOutcome {
   lane: string;
   startedAt: Date;

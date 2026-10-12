@@ -6,7 +6,7 @@
 
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { isPublicDemo } from "./access.ts";
 import { dashboardPassword } from "./dashboard-auth.ts";
 import { db } from "./db.ts";
@@ -33,9 +33,11 @@ import {
   type PageProbe,
   pagesFinding,
   parseHealthState,
+  RUN_STALL_MS,
   redact,
   SCHEDULED_LANES,
   SPEND_HISTORY_DAYS,
+  STALLED_RUN_ERROR,
   spendFinding,
   undelivered,
 } from "./health.ts";
@@ -219,20 +221,41 @@ async function lanes(handle: Db, now: Date): Promise<Finding[]> {
   return laneFindings(expectations, await lastRuns(handle, new Date(now.getTime() - 9 * DAY)), now);
 }
 
+/** A scheduled lane's run with no end RUN_STALL_MS after it started: the open rows `closeStalledRuns` writes failed. */
+function stalled(now: Date) {
+  return and(
+    inArray(runs.lane, [...SCHEDULED_LANES]),
+    isNull(runs.finishedAt),
+    isNull(runs.error),
+    lt(runs.startedAt, new Date(now.getTime() - RUN_STALL_MS)),
+  );
+}
+
+/** Closes stalled runs as failed, so Runs stops showing them as running; returns how many. */
+export async function closeStalledRuns(handle: Db, now: Date): Promise<number> {
+  const closed = await handle
+    .update(runs)
+    .set({ finishedAt: now, error: STALLED_RUN_ERROR })
+    .where(stalled(now))
+    .returning({ id: runs.id });
+  return closed.length;
+}
+
 async function errors(handle: Db, now: Date): Promise<Finding[]> {
   const rows = await handle
-    .select({ lane: runs.lane, startedAt: runs.startedAt, error: runs.error })
+    .select({ lane: runs.lane, startedAt: runs.startedAt, error: runs.error, finishedAt: runs.finishedAt })
     .from(runs)
     .where(
       and(
         inArray(runs.lane, [...SCHEDULED_LANES]),
         gte(runs.startedAt, new Date(now.getTime() - DAY)),
-        or(isNotNull(runs.finishedAt), isNotNull(runs.error)),
+        or(isNotNull(runs.finishedAt), isNotNull(runs.error), lt(runs.startedAt, new Date(now.getTime() - RUN_STALL_MS))),
       ),
     )
     .orderBy(desc(runs.startedAt))
     .limit(1000);
-  return errorRateFindings(rows);
+  // A dry check writes nothing, so a run it would close counts as failed here all the same.
+  return errorRateFindings(rows.map((r) => ({ ...r, error: r.error ?? (r.finishedAt ? null : STALLED_RUN_ERROR) })));
 }
 
 /**
@@ -388,6 +411,10 @@ export async function runHealthCheck(opts: HealthOptions): Promise<HealthReport>
   let complete = probe.ok;
   if (probe.ok && handle) {
     const h = handle;
+    if (!opts.dry) {
+      const closed = await closeStalledRuns(h, now).catch(() => 0);
+      if (closed > 0) log(`closed ${closed} run${closed === 1 ? "" : "s"} with no end two hours after starting`);
+    }
     const groups: Array<[string, () => Promise<Finding | Finding[]>]> = [
       ["pages", async () => pagesFinding(await probePages(opts.origin, fetchImpl))],
       ["lanes", () => lanes(h, now)],

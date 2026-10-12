@@ -254,6 +254,41 @@ describe("runHealthCheck", () => {
   });
 });
 
+describe("stalled runs", () => {
+  test("a scheduled run with no end two hours on is closed as failed and counts toward its lane's error rate", async () => {
+    const handle = await testDb();
+    const base = new Date();
+    await maxPlan(handle);
+    await lanesRanAt(handle, base, 5);
+    const ago = (minutes: number) => new Date(base.getTime() - minutes * MIN);
+    await handle
+      .insert(schema.runs)
+      .values([
+        ...[150, 210, 270].map((m) => ({ id: `stalled-${m}`, lane: "sweep", presetSlug: "seed", startedAt: ago(m) })),
+        { id: "running", lane: "sweep", presetSlug: "growth", startedAt: ago(30) },
+        { id: "backfill", lane: "history", presetSlug: "history-backfill", startedAt: ago(300) },
+      ]);
+    const h = harness(handle, base);
+
+    const dry = await h.run({ dry: true });
+    expect(dry.failing.map((f) => f.key)).toEqual(["errors:sweep"]);
+    const open = await handle.select().from(schema.runs).where(sql`${schema.runs.finishedAt} is null`);
+    expect(open.map((r) => r.id).sort()).toEqual(["backfill", "running", "stalled-150", "stalled-210", "stalled-270"]);
+
+    const report = await h.run();
+    expect(report.failing).toEqual([
+      expect.objectContaining({ key: "errors:sweep", title: "Sweep runs are failing: 3 of the last 6 errored" }),
+    ]);
+    expect(h.logs).toContain("closed 3 runs with no end two hours after starting");
+    const rows = await handle.select().from(schema.runs).where(sql`${schema.runs.id} in ('stalled-150', 'running', 'backfill')`);
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(byId["stalled-150"]).toMatchObject({ error: "never finished: no end two hours after it started" });
+    expect(byId["stalled-150"].finishedAt).not.toBeNull();
+    expect(byId.running).toMatchObject({ finishedAt: null, error: null });
+    expect(byId.backfill).toMatchObject({ finishedAt: null, error: null });
+  });
+});
+
 describe("failingTargets", () => {
   test("counts sends that keep failing and dead letters from exhausted retries, never policy dead letters or recovered targets", async () => {
     const handle = await testDb();
