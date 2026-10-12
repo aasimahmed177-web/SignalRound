@@ -1442,3 +1442,96 @@ describe("statedRole: a lead only where a sentence says so", () => {
     expect(role("Index Ventures", "Lovable raised $200 million from Accel, with participation from Index Ventures.")).toBe("participant");
   });
 });
+
+describe("a lead list ends where it names its firms", () => {
+  test("harvey: 'co-led by A and B and includes C, D' names C and D no leads", () => {
+    const evidence =
+      "The round is co-led by Kleiner Perkins and Coatue and includes Sequoia, GV, DST Global, Conviction, Elad Gil, and SV Angel.";
+    const out = clean(["Coatue", "Kleiner Perkins"], ["Sequoia Capital", "GV", "Elad Gil", "SV Angel"], evidence);
+    expect(out.lead_investors).toEqual(["Coatue", "Kleiner Perkins"]);
+    expect(out.other_investors).toEqual(["Sequoia Capital", "GV", "Elad Gil", "SV Angel"]);
+    expect(statedRole("GV", [evidence])).toBe("participant");
+    const seriesD =
+      "Today, we are thrilled to announce our Series D financing led by Sequoia and including Coatue, Kleiner Perkins, GV, and Elad Gil.";
+    expect(clean(["Sequoia Capital"], ["Coatue", "Kleiner Perkins"], seriesD).lead_investors).toEqual(["Sequoia Capital"]);
+  });
+
+  test("tenstorrent and modulate: 'led by A and including C', 'led by A and includes C'", () => {
+    const tenstorrent = clean(
+      ["Fidelity Management"],
+      ["Eclipse Ventures", "Epic CG", "Moore Capital"],
+      "Tenstorrent raised $200 million from a group of investors led by Fidelity Management and including Eclipse Ventures, Epic CG, and Moore Capital.",
+    );
+    expect(tenstorrent.lead_investors).toEqual(["Fidelity Management"]);
+    expect(tenstorrent.other_investors).toEqual(["Eclipse Ventures", "Epic CG", "Moore Capital"]);
+    const modulate = clean(
+      ["Lakestar"],
+      ["Everblue Esports", "Hyperplane"],
+      "Modulate raised a $30M Series A funding round led by Lakestar and includes existing investors Everblue Esports, Hyperplane Management, and others.",
+    );
+    expect(modulate.lead_investors).toEqual(["Lakestar"]);
+  });
+
+  test("marble: a syndicate that includes firms beside the lead investor is not the lead", () => {
+    const out = clean(
+      ["Smartfin"],
+      ["ADNEXUS", "Passion Capital", "42Capital"],
+      "Marble announced a US$7.0 million Series A financing, with Smartfin as lead investor and a syndicate that includes ADNEXUS, Passion Capital, 42Capital and Hexa.",
+    );
+    expect(out.lead_investors).toEqual(["Smartfin"]);
+    expect(out.other_investors).toEqual(["ADNEXUS", "Passion Capital", "42Capital"]);
+  });
+
+  test("supabase and rivercell: an acronym ends its sentence, so the next sentence's investors are not its leads", () => {
+    const supabase = clean(
+      ["GIC"],
+      ["Accel", "Y Combinator", "Felicis", "Coatue"],
+      "The round was led by GIC. Participating investors included existing backers Accel, Y Combinator, Felicis, and Coatue.",
+    );
+    expect(supabase.lead_investors).toEqual(["GIC"]);
+    expect(supabase.other_investors).toEqual(["Accel", "Y Combinator", "Felicis", "Coatue"]);
+    const rivercell = clean(
+      ["HV Capital"],
+      ["HCVC", "Alven"],
+      "Rivercell today announced a $25 million seed round led by HV. HCVC and Alven also participated in the round.",
+    );
+    expect(rivercell.lead_investors).toEqual(["HV Capital"]);
+    expect(rivercell.other_investors).toEqual(["HCVC", "Alven"]);
+  });
+
+  test("a single-letter abbreviation still ends no sentence", () => {
+    const out = clean([], ["J.P. Morgan", "Accel"], "The round was led by J.P. Morgan and Accel.");
+    expect(out.lead_investors).toEqual(["J.P. Morgan", "Accel"]);
+  });
+
+  test.each([
+    [
+      "fortem: investors a lead marker names, described",
+      "Fortem closed a funding round of $17.8 million led by new key industry investors including Lockheed Martin Ventures, Hanwha Aerospace, and AIM13.",
+      ["Lockheed Martin Ventures", "Hanwha Aerospace", "AIM13"],
+    ],
+    [
+      "f2: investors a lead marker names, described by whose they are",
+      "Backed by an oversubscribed funding round led by Arc's existing investors including NFX, Left Lane Capital, and Y Combinator, the spin-out launches today.",
+      ["NFX", "Left Lane Capital", "Y Combinator"],
+    ],
+    [
+      "yardstik: from co-leads",
+      "We just secured $4 million in capital as part of seed financing from co-leads Rally Ventures and Crosslink Capital.",
+      ["Rally Ventures", "Crosslink Capital"],
+    ],
+    ["gardens: a co-lead alongside", "We’re proud to co-lead Gardens’ $31.3M Series A alongside Krafton", ["Krafton"]],
+    [
+      "minerva: with co-leading",
+      "Minerva Humanoids raised $10 million in pre-seed funding led by General Catalyst, with Long Journey Ventures and Credo Ventures co-leading.",
+      ["General Catalyst", "Long Journey Ventures", "Credo Ventures"],
+    ],
+    [
+      "bci-sonics: as co-leads",
+      "BCI-Sonics completed a RMB 100 million angel round led by Matrix Partners China, with Delian Capital and Dao Yuan Capital as co-leads.",
+      ["Matrix Partners China", "Delian Capital", "Dao Yuan Capital"],
+    ],
+  ])("%s keeps its leads", (_case, evidence, leads) => {
+    expect(clean([], leads, evidence).lead_investors).toEqual(leads);
+  });
+});

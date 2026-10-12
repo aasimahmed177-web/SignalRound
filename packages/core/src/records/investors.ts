@@ -85,10 +85,13 @@ function head(name: string): string {
   return (name.split(/\s+[\u2013\u2014-]\s+|\s*[:(]\s*/)[0] ?? name).trim();
 }
 
-/** Sentence spans of the evidence as [start, end) indexes; a single-letter abbreviation ("J.P.") does not end one, a blank line does. */
+/**
+ * Sentence spans of the evidence as [start, end) indexes; a single-letter abbreviation ("J.P.") does
+ * not end one, an acronym ("led by GIC.") and a blank line do.
+ */
 function sentenceSpans(evidence: string): Array<[number, number]> {
   const spans: Array<[number, number]> = [];
-  const re = /(?<=[a-z\d)\]"”][.!?])(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St)\.)\s+(?=["“(]?[A-Z0-9])|\n\s*\n\s*/g;
+  const re = /(?<=(?:[a-z\d)\]"”]|[A-Z]{2})[.!?])(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St)\.)\s+(?=["“(]?[A-Z0-9])|\n\s*\n\s*/g;
   let start = 0;
   for (const m of evidence.matchAll(re)) {
     spans.push([start, m.index]);
@@ -1224,6 +1227,9 @@ const VERB_GAP = /^-?[\s,]*(?:and\s+|&\s+)?(?:(?:[A-Z0-9][\w'’.&-]*|\([^)]*\))
 /** An appositive after a name: ", the Boston firm," or " – known for its portfolio – ". */
 const APPOSITIVE = /^\s*(?:,\s+(?:a|an|the|its|which|who)\s[^,;]{0,100},|\s[-\u2013\u2014]\s[^-\u2013\u2014;]{0,140}\s[-\u2013\u2014])\s*/i;
 
+/** Words that describe the investors a lead marker names: "new key industry", "Arc's existing", "a group of investors,". */
+const LEAD_DESCRIBED = /^\s*(?:(?!(?:and|or|that|which|who)\b)(?:[a-z][\w-]*|[A-Z][\w.&-]*['’]s)\s+)*(?:[a-z][\w-]*,\s*)?$/;
+
 /**
  * The marker that speaks for a name at `index`: the nearest marker before it inside its sentence
  * and within reach; failing that, a verb shortly after it; failing both, none. Where the sentence's
@@ -1310,11 +1316,15 @@ function nearestMarker(
     return leadVerb ?? { ...nearest, kind: "lead" };
   }
   const prior = markers.before.filter((m) => m.index >= sStart && m.end <= nearest.index).at(-1);
-  // "led by new industry investors including Acme": the investors the lead marker named.
+  // "led by new industry investors including Acme", "led by Arc's existing investors including Acme":
+  // the investors the lead marker named, when only words describing them stand between. A lead list
+  // that names its firms, or a clause that goes on, ends before it: "co-led by A and B and includes
+  // C", "with A as lead investor and a syndicate that includes C" name C no lead.
   if (
     /^(?:investors?\s+)?(?:including|includes|included|include|such as)$/i.test(marker) &&
     prior?.kind === "lead" &&
-    nearest.index - prior.end <= 100
+    nearest.index - prior.end <= 100 &&
+    LEAD_DESCRIBED.test(evidence.slice(prior.end, nearest.index))
   ) {
     return prior;
   }
