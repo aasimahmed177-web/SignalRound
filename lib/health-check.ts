@@ -35,6 +35,8 @@ import {
   parseHealthState,
   redact,
   SCHEDULED_LANES,
+  SPEND_HISTORY_DAYS,
+  spendFinding,
   undelivered,
 } from "./health.ts";
 import { BACKOFF_MINUTES } from "./outbox.ts";
@@ -296,6 +298,24 @@ async function freshness(handle: Db, now: Date): Promise<Finding> {
   return freshnessFinding(row?.latest ? asDate(row.latest) : null, plan, now);
 }
 
+/** Each 24-hour span's recorded credits, newest first: what every run measured, else what it estimated. */
+async function spend(handle: Db, now: Date): Promise<Finding> {
+  const day = sql<number>`floor(extract(epoch from (${now.toISOString()}::timestamptz - ${runs.startedAt})) / 86400)::int`;
+  const rows = await handle
+    .select({ day, credits: sql<number>`coalesce(sum(coalesce(${runs.creditsMeasured}, ${runs.creditsEstimated})), 0)::int` })
+    .from(runs)
+    .where(
+      and(
+        gte(runs.startedAt, new Date(now.getTime() - (SPEND_HISTORY_DAYS + 1) * DAY)),
+        sql`${runs.startedAt} <= ${now.toISOString()}::timestamptz`,
+      ),
+    )
+    .groupBy(sql`1`);
+  const days = Array.from({ length: SPEND_HISTORY_DAYS + 1 }, (_, i) => Number(rows.find((r) => Number(r.day) === i)?.credits ?? 0));
+  const ceiling = Number(process.env.CREDIT_ALERT_PER_DAY);
+  return spendFinding(days, Number.isInteger(ceiling) && ceiling > 0 ? ceiling : null);
+}
+
 async function postToSlack(url: string, text: string, fetchImpl: typeof fetch): Promise<boolean> {
   try {
     const res = await fetchImpl(url, {
@@ -374,6 +394,7 @@ export async function runHealthCheck(opts: HealthOptions): Promise<HealthReport>
       ["errors", () => errors(h, now)],
       ["deliveries", async () => deliveriesFinding(await failingTargets(h, now), deliveriesLink())],
       ["freshness", () => freshness(h, now)],
+      ["spend", () => spend(h, now)],
     ];
     for (const [name, run] of groups) {
       const key = `check:${name}`;

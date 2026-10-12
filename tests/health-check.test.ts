@@ -215,6 +215,43 @@ describe("runHealthCheck", () => {
     expect(retried.opened).toEqual(["pages"]);
     expect(retried.sent).toBe("slack");
   });
+
+  test("a day that spends past twice the week's busiest alerts on the second check, and CREDIT_ALERT_PER_DAY overrides the ceiling", async () => {
+    const handle = await testDb();
+    const base = new Date();
+    await maxPlan(handle);
+    await lanesRanAt(handle, base, 5);
+    const day = 24 * 60 * MIN;
+    await handle.insert(schema.runs).values([
+      ...[1, 2, 3, 4].map((d) => ({
+        id: `spend-${d}`,
+        lane: "history",
+        presetSlug: "history",
+        startedAt: new Date(base.getTime() - d * day - 30 * MIN),
+        creditsMeasured: 100_000,
+      })),
+      {
+        id: "spend-today",
+        lane: "history",
+        presetSlug: "history",
+        startedAt: new Date(base.getTime() - 60 * MIN),
+        creditsEstimated: 250_000,
+      },
+    ]);
+    const h = harness(handle, base);
+    expect((await h.run()).failing.map((f) => f.key)).toEqual(["spend"]);
+    h.state.minutes = 10;
+    const second = await h.run();
+    expect(second.opened).toEqual(["spend"]);
+    expect(h.posts[0]).toContain("*Fireround alert: Credits are past the daily ceiling: 250,000 in the last 24 hours*");
+
+    process.env.CREDIT_ALERT_PER_DAY = "300000";
+    try {
+      expect((await h.run({ dry: true })).failing).toEqual([]);
+    } finally {
+      delete process.env.CREDIT_ALERT_PER_DAY;
+    }
+  });
 });
 
 describe("failingTargets", () => {

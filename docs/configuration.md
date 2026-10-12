@@ -13,6 +13,7 @@ Every environment variable, in one table. Only `FIRECRAWL_API_KEY` is required; 
 | `PGLITE_DIR` | optional | Where the embedded database lives; default `./data/fireround` |
 | `CRON_SECRET` | recommended on any public deployment | Bearer for the cron routes; you set it (any random string of 16+ characters) and Vercel sends it on every cron call |
 | `ALERT_SLACK_WEBHOOK_URL` | optional | A Slack incoming webhook for a private channel that receives production alerts from `/api/cron/health`; unset logs them instead ([deploy.md](deploy.md#production-alerts)) |
+| `CREDIT_ALERT_PER_DAY` | optional | Firecrawl credits the runs may record in 24 hours before `/api/cron/health` alerts; unset, the ceiling is twice the busiest day of the week before ([deploy.md](deploy.md#production-alerts)) |
 | `DASHBOARD_PASSWORD` | optional | Basic auth on the dashboard and `/api/v1`; unset means open (or, with `PUBLIC_DEMO`, no admin tier) |
 | `PUBLIC_DEMO` | optional | `1` hosts a read-only public instance: reads are open; admin paths and operator writes are not. Company requests are a separate opt-in public write |
 | `LANDING` | optional | `1` serves the landing page at `/` and keeps the dashboard at `/feed`; the page always answers at `/home` |

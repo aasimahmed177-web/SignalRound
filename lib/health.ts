@@ -353,6 +353,39 @@ export function freshnessFinding(latestVisible: Date | null, plan: CoveragePlan,
   };
 }
 
+// Credits.
+
+/** The 24-hour spans before the last 24 hours that the spend check compares against, and how many must have spent anything. */
+export const SPEND_HISTORY_DAYS = 8;
+export const SPEND_MIN_HISTORY_DAYS = 3;
+/** The last 24 hours fail at this many times the busiest span before them. */
+export const SPEND_SPIKE_MULTIPLE = 2;
+
+/**
+ * The Firecrawl credits the runs recorded in the last 24 hours (`days[0]`; `days[1]` is the 24 hours
+ * before, and so on) against a ceiling: `ceiling` when the operator set one (CREDIT_ALERT_PER_DAY),
+ * else twice the busiest of the eight spans before. Busiest rather than average, so a rung that sweeps
+ * once a week compares its sweep day with last week's. A store with under three spans of history owes nothing.
+ */
+export function spendFinding(days: number[], ceiling: number | null): Finding {
+  const title = "Credits are past the daily ceiling";
+  const spent = days[0] ?? 0;
+  const before = days.slice(1, SPEND_HISTORY_DAYS + 1);
+  const busiest = Math.max(0, ...before);
+  const limit = ceiling ?? (before.filter((n) => n > 0).length >= SPEND_MIN_HISTORY_DAYS ? SPEND_SPIKE_MULTIPLE * busiest : null);
+  if (limit === null || spent <= limit) return pass("spend", title, "/runs");
+  return {
+    key: "spend",
+    ok: false,
+    title: `Credits are past the daily ceiling: ${spent.toLocaleString("en-US")} in the last 24 hours`,
+    detail: ceiling
+      ? `CREDIT_ALERT_PER_DAY is ${ceiling.toLocaleString("en-US")}.`
+      : `Twice the busiest day of the week before (${busiest.toLocaleString("en-US")}).`,
+    cause: "A lane is looping, a backfill is running, or the coverage rung went up. Runs lists each run's credits.",
+    link: "/runs",
+  };
+}
+
 // The incident state machine.
 
 /** Consecutive checks a condition must fail before it alerts, and pass before it is called recovered. */

@@ -25,6 +25,7 @@ import {
   pagesFinding,
   parseHealthState,
   redact,
+  spendFinding,
   undelivered,
 } from "../lib/health";
 
@@ -419,5 +420,29 @@ describe("the freshness check", () => {
     expect(freshnessFinding(new Date(T0.getTime() - 6 * 24 * HOUR), coverageFor("lite"), T0).ok).toBe(true);
     expect(freshnessFinding(new Date(T0.getTime() - 8 * 24 * HOUR), coverageFor("lite"), T0).ok).toBe(false);
     expect(freshnessFinding(null, max, T0).ok).toBe(true);
+  });
+});
+
+describe("the spend check", () => {
+  const week = [90_000, 140_000, 120_000, 100_000, 150_000, 110_000, 95_000, 130_000];
+
+  test("a day past twice the busiest of the eight before it fails; up to twice passes", () => {
+    expect(spendFinding([300_000, ...week], null).ok).toBe(true);
+    const f = spendFinding([300_001, ...week], null);
+    expect(f.ok).toBe(false);
+    expect(f.title).toBe("Credits are past the daily ceiling: 300,001 in the last 24 hours");
+    expect(f.detail).toBe("Twice the busiest day of the week before (150,000).");
+    expect(f.link).toBe("/runs");
+  });
+
+  test("a weekly rung's sweep day compares with last week's sweep day, not the quiet days between", () => {
+    expect(spendFinding([2_400, 30, 20, 25, 30, 20, 25, 2_300, 30], null).ok).toBe(true);
+  });
+
+  test("under three days of history owes nothing; a ceiling the operator set applies from the first day", () => {
+    expect(spendFinding([50_000, 100, 200, 0, 0, 0, 0, 0, 0], null).ok).toBe(true);
+    expect(spendFinding([50_000], 40_000).ok).toBe(false);
+    expect(spendFinding([50_000], 40_000).detail).toBe("CREDIT_ALERT_PER_DAY is 40,000.");
+    expect(spendFinding([500_000, ...week], 600_000).ok).toBe(true);
   });
 });
