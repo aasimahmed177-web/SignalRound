@@ -319,17 +319,17 @@ export async function overview(handle: Db, windowDays = 30, presetSlug?: string)
 export interface DemoStats {
   rounds_7d: number;
   usd_7d: number;
-  /** Runs that started in the last 24 hours, every lane. */
-  runs_24h: number;
+  /** When the newest run started, any lane: how fresh the feed is. Null on a store that has never run. */
+  last_run_at: string | null;
 }
 
 /**
- * The three numbers on the public demo's front door: a week of the store, a day of runs. The week
+ * The public demo's front door: a week of the store, and when the feed last looked for rounds. The week
  * is overview(7)'s totals row (the same filter, the same rounding) read on its own, so the front
  * door does not pay for the eight panels of the overview it never shows.
  */
 export async function demoStats(handle: Db): Promise<DemoStats> {
-  const [[week], [r]] = await Promise.all([
+  const [[week], [last]] = await Promise.all([
     handle
       .select({
         rounds: sql<number>`count(*)::int`,
@@ -337,12 +337,13 @@ export async function demoStats(handle: Db): Promise<DemoStats> {
       })
       .from(fundingRounds)
       .where(and(caught, gte(fundingRounds.announcedOn, isoDaysAgo(7)))),
-    handle
-      .select({ n: sql<number>`count(*)::int` })
-      .from(runs)
-      .where(gte(runs.startedAt, new Date(Date.now() - 86_400_000))),
+    handle.select({ at: runs.startedAt }).from(runs).orderBy(desc(runs.startedAt)).limit(1),
   ]);
-  return { rounds_7d: week?.rounds ?? 0, usd_7d: Math.round(week?.total_usd ?? 0), runs_24h: r?.n ?? 0 };
+  return {
+    rounds_7d: week?.rounds ?? 0,
+    usd_7d: Math.round(week?.total_usd ?? 0),
+    last_run_at: last?.at ? last.at.toISOString() : null,
+  };
 }
 
 /** A span of announced days, inclusive; `until` null means open-ended, up to today and past it. */

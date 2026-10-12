@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { Fragment, type ReactNode } from "react";
 import { SlackCopy } from "@/components/feed/slack-copy";
 import { SlackSubscribePopover } from "@/components/feed/slack-subscribe-popover";
+import { RelativeCheck } from "@/components/relative-day";
 import { isLanding, LANDING_PATH } from "@/lib/access";
 import { cachedPresets } from "@/lib/cached";
 import { grouped, usd } from "@/lib/format";
@@ -30,7 +31,7 @@ const FEEDS = [
 
 /**
  * The public demo's front door (PUBLIC_DEMO=1 rewrites `/` to the feed), one strip high on desktop:
- * the week and the day as two short phrases on the left, the ways to subscribe on the right. On a
+ * the week and how fresh the feed is as two short phrases on the left, the ways to subscribe on the right. On a
  * phone each phrase keeps its words together and the strip wraps between them, never off the edge.
  * The pitch and the Deploy button live on the page header, so the rounds start near the fold.
  * `house` is the featured house round, carried as the card's first row so the demo shows one card.
@@ -55,12 +56,19 @@ export async function DemoHero({ stats, preset, house }: { stats: DemoStats; pre
             <Figure>{grouped(stats.rounds_7d)}</Figure> {plural(stats.rounds_7d, "round", "rounds")},{" "}
             <Figure>{usd(stats.usd_7d) || "$0"}</Figure> in the last 7 days
           </span>
-          <span className="text-black-alpha-16 dark:text-white/20" aria-hidden>
-            |
-          </span>
-          <span className="whitespace-nowrap">
-            <Figure>{grouped(stats.runs_24h)}</Figure> {plural(stats.runs_24h, "run", "runs")} today
-          </span>
+          {stats.last_run_at && (
+            <>
+              <span className="text-black-alpha-16 dark:text-white/20" aria-hidden>
+                |
+              </span>
+              <span className="whitespace-nowrap">
+                last checked{" "}
+                <Figure>
+                  <RelativeCheck iso={stats.last_run_at} />
+                </Figure>
+              </span>
+            </>
+          )}
         </p>
         <div className="flex flex-col lg:items-end lg:gap-0.5">
           {/* Separators sit outside the links so a narrow line breaks between feeds, never inside one. */}
