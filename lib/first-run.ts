@@ -3,6 +3,7 @@ import { schema } from "@fireround/core/db";
 import { sql } from "drizzle-orm";
 import { estimateSweep } from "@/lib/coverage";
 import { db } from "@/lib/db";
+import { firecrawlKey } from "@/lib/firecrawl";
 import { listPresets } from "@/lib/presets";
 import { getCoverage } from "@/lib/settings";
 
@@ -28,9 +29,8 @@ export async function firstRunProps(): Promise<FirstRunProps> {
     .then(getCoverage)
     .then((plan) => (preset ? estimateSweep(preset, plan) : null))
     .catch(() => null);
-  const key = process.env.FIRECRAWL_API_KEY;
   return {
-    hasKey: Boolean(key && key !== "fc-YOUR-API-KEY"),
+    hasKey: firecrawlKey() !== null,
     presetSlug: slug,
     presetName: preset?.name ?? "Series A and B",
     estimate: est ? `${est.creditsLow} to ${est.creditsHigh} credits` : "a few hundred credits",

@@ -50,7 +50,9 @@ This example covers the three hourly lanes only. Schedule the other paths at the
 
 ## Anywhere else
 
-`pnpm build && pnpm start` with `DATABASE_URL` on any Postgres 15+, and `pnpm db:migrate` once. `pnpm start` ticks the schedule itself every hour (`SCHEDULE=0` turns it off, `SCHEDULE=1` turns it on under `pnpm dev`). The in-process schedule is hourly and leaves out `/api/cron/health`; point any scheduler at it every 10 minutes with the cron bearer to get [production alerts](#production-alerts).
+Set `DATABASE_URL` to any Postgres 15+ and `CRON_SECRET` to any random string of 16+ characters (`openssl rand -hex 24`), then `pnpm db:migrate && pnpm build && pnpm start`. A local Postgres without TLS takes a plain URL such as `postgres://postgres:postgres@localhost:5432/postgres`; adding `?sslmode=require` to it makes the migration fail with "The server does not support SSL connections". The README has a copy-paste version on a throwaway Docker Postgres.
+
+`pnpm start` ticks the schedule itself every hour, and `/api/cron/verify-rounds` and `/api/cron/announcements` every quarter hour, by calling its own cron routes with `CRON_SECRET` as the bearer (`SCHEDULE=0` turns it off, `SCHEDULE=1` turns it on under `pnpm dev`). Without the secret the routes refuse every tick in production, and the server says so when it starts. The tick is a clock: on the default Lite rung the sweep itself runs on Mondays at 06:00 UTC, so press Run the first sweep (or call `/api/cron/sweep?force=1` with the bearer) to fill a new store. The in-process schedule leaves out `/api/cron/health`; point any scheduler at it every 10 minutes with the cron bearer to get [production alerts](#production-alerts).
 
 ## Production settings
 

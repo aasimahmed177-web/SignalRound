@@ -1,24 +1,25 @@
 # Configuration
 
-Every environment variable, in one table. Only `FIRECRAWL_API_KEY` is required; the rest have working defaults. Where to set them and why: [deploy.md](deploy.md). Back to the [README](../README.md).
+Every environment variable, in one table; [`.env.example`](../.env.example) has the same list with comments. Only `FIRECRAWL_API_KEY` is required to run sweeps (`pnpm demo-data` shows the dashboard with none), and a production deployment also needs `CRON_SECRET` for anything to run on a schedule; the rest have working defaults. Where to set them and why: [deploy.md](deploy.md). Back to the [README](../README.md).
 
 ## Variables
 
 | Variable | | Purpose |
 |---|---|---|
 | `FIRECRAWL_API_KEY` | required | Your Firecrawl key |
-| `DATABASE_URL` | optional | Any Postgres 15+; unset uses embedded PGlite. A pooled URL (Neon's `-pooler` host, PlanetScale's PgBouncer on port 6432) is right for the app; scripts, migrations, and backups switch to the direct endpoint themselves |
+| `DATABASE_URL` | optional | Any Postgres 15+; unset uses embedded PGlite. Run `pnpm db:migrate` once after setting it. A local Postgres without TLS takes a plain URL (`postgres://postgres:postgres@localhost:5432/postgres`); `?sslmode=require` fails against it. A pooled URL (Neon's `-pooler` host, PlanetScale's PgBouncer on port 6432) is right for the app; scripts, migrations, and backups switch to the direct endpoint themselves |
 | `DATABASE_DRIVER` | optional | `neon` or `pg`, overriding the choice from the URL |
 | `DATABASE_POOL_MAX` | optional | Connections one process holds in its pg pool (default 3). Hosts can raise this; behind a PgBouncer, keep instances times this under its client-connection ceiling |
 | `PGLITE_DIR` | optional | Where the embedded database lives; default `./data/fireround` |
-| `CRON_SECRET` | recommended on any public deployment | Bearer for the cron routes; you set it (any random string of 16+ characters) and Vercel sends it on every cron call |
+| `CRON_SECRET` | required in production for scheduled runs | Bearer for the cron routes; you set it (any random string of 16+ characters) and Vercel Cron, or a production `pnpm start`, sends it on every call. In production the routes refuse every call without it, so nothing sweeps |
 | `ALERT_SLACK_WEBHOOK_URL` | optional | A Slack incoming webhook for a private channel that receives production alerts from `/api/cron/health`; unset logs them instead ([deploy.md](deploy.md#production-alerts)) |
 | `CREDIT_ALERT_PER_DAY` | optional | Firecrawl credits the runs may record in 24 hours before `/api/cron/health` alerts; unset, the ceiling is twice the busiest day of the week before ([deploy.md](deploy.md#production-alerts)) |
-| `DASHBOARD_PASSWORD` | optional | Basic auth on the dashboard and `/api/v1`; unset means open (or, with `PUBLIC_DEMO`, no admin tier) |
+| `DASHBOARD_PASSWORD` | recommended on any public deployment | Basic auth on the dashboard and `/api/v1`; unset means open (or, with `PUBLIC_DEMO`, no admin tier) |
 | `PUBLIC_DEMO` | optional | `1` hosts a read-only public instance: reads are open; admin paths and operator writes are not. Company requests are a separate opt-in public write |
 | `LANDING` | optional | `1` serves the landing page at `/` and keeps the dashboard at `/feed`; the page always answers at `/home` |
 | `COMPANY_REQUESTS` | optional | `1` accepts public company website requests and runs verified research in a durable workflow; needs Firecrawl and a configured dossier verification model. Unset hides the entry points and returns 404 from the request API |
 | `COMPANY_REQUESTS_DAILY_MAX` | optional | Maximum new company research jobs per UTC day across the instance; default 50. Each address may start at most three per day. Rate counting fails closed for requests |
+| `ALEXANDRIA_API_KEY` | optional, public demos | The bearer Firecrawl's Alexandria sends to `/api/v1`; its calls skip the per-address budgets and read the same public rows ([deploy.md](deploy.md#alexandria)) |
 | `MCP_API_KEY` | required for MCP on password-protected private deployments | Bearer for `/api/mcp`; without it, a private instance with `DASHBOARD_PASSWORD` refuses MCP. A keyless public demo exposes read tools, not `mark_seen`; a private instance without a password remains open |
 | `APP_ORIGIN` | optional | Public HTTPS origin for webhooks, Slack links, and share cards; company newsroom monitors use it for section-change webhooks |
 | `FIRECRAWL_WEBHOOK_SECRET` | required in production for monitors | Verifies the signature on monitor webhooks (Firecrawl dashboard, Advanced settings) |

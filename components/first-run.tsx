@@ -50,8 +50,8 @@ export function FirstRun({
           <p className="mt-2 text-body-medium text-muted-foreground">
             One sweep searches the web for the last week of {presetName} rounds, reads every article Firecrawl finds, extracts each round
             with its evidence, checks it against its sources, and lands it here with a logo and a description. About ten minutes, {estimate}
-            . After that the schedule keeps it fresh (on Vercel the cron does; elsewhere SCHEDULE=1), and Presets lets you widen or narrow
-            the net.
+            . After that the schedule keeps it fresh (Vercel Cron on Vercel; elsewhere <code className="text-mono-small">pnpm start</code>{" "}
+            with <code className="text-mono-small">CRON_SECRET</code> set), and Presets lets you widen or narrow the net.
           </p>
           {!hasKey && (
             <p className="mt-3 text-body-small text-crimson-ink">

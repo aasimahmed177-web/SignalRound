@@ -13,7 +13,7 @@ import { TAG_PRESETS } from "@/lib/cached";
 import { estimateSweep as estimate, type SweepEstimate } from "@/lib/coverage";
 import { requireDashboard } from "@/lib/dashboard-auth.server";
 import { db } from "@/lib/db";
-import { getFirecrawl } from "@/lib/firecrawl";
+import { firecrawlKey, getFirecrawl, MISSING_FIRECRAWL_KEY } from "@/lib/firecrawl";
 import { bumpRunCount } from "@/lib/persist";
 import { deleteCustomPreset, isCustomPreset, listPresets, loadPreset, saveCustomPreset } from "@/lib/presets";
 import { getCoverage } from "@/lib/settings";
@@ -43,6 +43,7 @@ export async function estimateSweep(presetSlug: string): Promise<SweepEstimate> 
 export async function startSweep(presetSlug: string, window: "day" | "week"): Promise<ActionResult<{ value: { runId: string } }>> {
   return attempt(async () => {
     await requireDashboard();
+    if (!firecrawlKey()) throw new Error(MISSING_FIRECRAWL_KEY);
     const runId = randomUUID();
     await start(sweepWorkflow, [[{ presetSlug, window, runId }], await origin()]);
     revalidatePath("/runs");
@@ -53,6 +54,7 @@ export async function startSweep(presetSlug: string, window: "day" | "week"): Pr
 export async function startEnrich(presetSlug: string, limit = 50): Promise<ActionResult<{ value: { runId: string } }>> {
   return attempt(async () => {
     await requireDashboard();
+    if (!firecrawlKey()) throw new Error(MISSING_FIRECRAWL_KEY);
     const runId = randomUUID();
     await start(enrichWorkflow, [presetSlug, runId, limit]);
     revalidatePath("/runs");

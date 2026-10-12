@@ -15,6 +15,7 @@ import { Panel } from "@/components/ui/stat";
 import { isPublicDemo } from "@/lib/access";
 import { db } from "@/lib/db";
 import { deliveryCounts } from "@/lib/delivery";
+import { firecrawlKey } from "@/lib/firecrawl";
 import { isLoopbackOrigin, publicOrigin } from "@/lib/origin";
 import { listPresets } from "@/lib/presets";
 import { listFeedTokens, listMonitors, listTargets, type TargetRow } from "@/lib/settings";
@@ -96,7 +97,7 @@ async function SettingsBody({ searchParams }: { searchParams: Promise<Search> })
   };
   // The forms and lists show names; the slug is what they send and store.
   const presetNames = presets.map((p) => ({ slug: p.slug, name: p.name }));
-  const hasKey = Boolean(process.env.FIRECRAWL_API_KEY && process.env.FIRECRAWL_API_KEY !== "fc-YOUR-API-KEY");
+  const hasKey = firecrawlKey() !== null;
   const reconciler = reconcileProviderFor();
   const dossierChecker = dossierVerifyProviderFor();
   return (

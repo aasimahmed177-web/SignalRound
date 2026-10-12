@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
+import { DEPLOY_URL } from "../lib/landing";
 
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const deploy = readFileSync(new URL("../docs/deploy.md", import.meta.url), "utf8");
 
-test("the one-click deployment provisions separate cron and MCP credentials", () => {
+test("the one-click deployment asks only for what a first deploy needs, and the landing page's button is the README's", () => {
   const link = readme.match(/https:\/\/vercel\.com\/new\/clone\?[^)]+/)?.[0] ?? "";
   expect(link).not.toBe("");
-  expect(new URL(link).searchParams.get("env")?.split(",")).toEqual(
-    expect.arrayContaining(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET", "MCP_API_KEY"]),
-  );
+  // MCP_API_KEY is added later: a password-protected deployment refuses MCP until it is set, and nothing else needs it.
+  expect(new URL(link).searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET"]);
+  expect(DEPLOY_URL).toBe(link);
 });
 
 test("sub-daily Vercel crons have a Pro warning next to Deploy and an authenticated Hobby alternative", () => {

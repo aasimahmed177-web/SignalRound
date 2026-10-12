@@ -4,7 +4,7 @@ The open-source funding feed built on [Firecrawl](https://www.firecrawl.dev). Fi
 
 **Live at [fireround.dev](https://fireround.dev).**
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffirecrawl%2Ffireround&env=FIRECRAWL_API_KEY%2CDASHBOARD_PASSWORD%2CCRON_SECRET%2CMCP_API_KEY&envDescription=Your%20Firecrawl%20API%20key%2C%20a%20dashboard%20password%2C%20and%20separate%20random%20secrets%20for%20cron%20and%20MCP&envLink=https%3A%2F%2Fwww.firecrawl.dev%2Fapp%2Fapi-keys&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffirecrawl%2Ffireround&env=FIRECRAWL_API_KEY%2CDASHBOARD_PASSWORD%2CCRON_SECRET&envDescription=Your%20Firecrawl%20API%20key%2C%20a%20password%20that%20puts%20the%20dashboard%20behind%20Basic%20auth%2C%20and%20a%20random%20string%20the%20cron%20routes%20require&envLink=https%3A%2F%2Fwww.firecrawl.dev%2Fapp%2Fapi-keys&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D)
 
 The supplied sub-daily cron schedules require **Vercel Pro**. On Hobby, replace them with a daily cron and use an external scheduler or GitHub Actions to call the other routes with `CRON_SECRET`; see [the deployment guide](docs/deploy.md#vercel-hobby).
 
@@ -57,24 +57,37 @@ pnpm dev               # http://localhost:3000
 
 No database to set up: without `DATABASE_URL` the app runs on embedded Postgres ([PGlite](https://pglite.dev)) under `./data`. An empty store opens on one panel that explains the first sweep, prices it, and runs it: last week of Series A and B, about ten minutes and about 630 to 690 credits, which fits in [Firecrawl's free plan](https://www.firecrawl.dev/pricing).
 
+**No key yet?** Run `pnpm demo-data` before `pnpm dev` and the dashboard opens on ten fictional sample rounds, with no key and no credits. `pnpm reset-data -- --yes` clears them before your first real sweep. The embedded database is single-process, so stop `pnpm dev` before running either script.
+
+Everything else is optional. Without a model key the read-back uses Firecrawl alone and Deep dive stays off; without Slack, Resend, or X keys those deliveries stay off. Settings lists what each key turns on. Posting to X is off unless you set `X_POSTING`.
+
 ## Deploy
 
-**Vercel.** Press **Deploy with Vercel** above. It asks for your Firecrawl key, a dashboard password, a cron secret, and an MCP API key, and provisions a Neon database. Migrations apply at build. The supplied Vercel Cron schedules require Pro; Hobby hosts can use the external-scheduler setup linked above. Add `AI_GATEWAY_API_KEY` afterwards to turn on the cross-source read-back and Deep dive.
+**Vercel.** Press **Deploy with Vercel** above. It asks for your Firecrawl key, a dashboard password, and a cron secret (any random string of 16+ characters, such as `openssl rand -hex 24`), and provisions a Neon database (which sets `DATABASE_URL`). Migrations apply at build. The supplied Vercel Cron schedules require Pro, and a Hobby project refuses to deploy them: switch to the daily schedule and external scheduler linked above first. Add `AI_GATEWAY_API_KEY` afterwards to turn on the cross-source read-back and Deep dive, `MCP_API_KEY` to turn on MCP (a password-protected deployment refuses MCP until it is set), and `APP_ORIGIN` once you have a production URL.
 
-**Anywhere else.** Point `DATABASE_URL` at any Postgres 15+, then `pnpm db:migrate && pnpm build && pnpm start`. A production `pnpm start` runs the hourly schedule itself.
+**Anywhere else.** Set `DATABASE_URL` to any Postgres 15+ and `CRON_SECRET` to any random string of 16+ characters, then `pnpm db:migrate && pnpm build && pnpm start`. A production `pnpm start` calls its own cron routes on the hour with that secret; without it every scheduled call is refused and nothing sweeps. With a throwaway local Postgres:
+
+```bash
+docker run -d --name fireround-pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:18
+echo 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres' >> .env   # no sslmode: local Postgres has no TLS
+echo "CRON_SECRET=$(openssl rand -hex 24)" >> .env
+pnpm db:migrate && pnpm build && pnpm start
+```
+
+On the default coverage the scheduled sweep runs on Mondays at 06:00 UTC, so press **Run the first sweep** to fill the store now.
 
 Public instances, Slack, and who can reach what: [docs/deploy.md](docs/deploy.md).
 
 ## Configuration
 
-Only `FIRECRAWL_API_KEY` is required. The ones most deployments set:
+Only `FIRECRAWL_API_KEY` is required to run sweeps, and production also needs `CRON_SECRET` for anything to run on a schedule. [`.env.example`](.env.example) lists every variable with a comment. The ones most deployments set:
 
 | Variable | Purpose |
 |---|---|
 | `FIRECRAWL_API_KEY` | Your Firecrawl key |
 | `DATABASE_URL` | Any Postgres 15+; unset uses embedded PGlite |
 | `DASHBOARD_PASSWORD` | HTTP Basic auth on the dashboard and `/api/v1`; unset means open |
-| `CRON_SECRET` | Bearer for the cron routes; Vercel sends it on every scheduled call |
+| `CRON_SECRET` | Bearer for the cron routes; Vercel Cron and a production `pnpm start` send it on every scheduled call, and without it production runs nothing on a schedule |
 | `MCP_API_KEY` | Bearer for `/api/mcp`; required to enable MCP on a password-protected private deployment |
 | `ALEXANDRIA_API_KEY` | Bearer Firecrawl's Alexandria sends to `/api/v1` on a public demo; its calls skip the per-address budgets and read the same public rows ([docs/deploy.md](docs/deploy.md#alexandria)) |
 | `AI_GATEWAY_API_KEY` | Reads every record against all its sources with a model before it publishes (or set an OpenAI, OpenRouter, or Anthropic key) |

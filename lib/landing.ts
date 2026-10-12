@@ -14,7 +14,7 @@ const { fundingRounds, roundInvestors, roundSources, runs, sources } = schema;
 
 export const REPO_URL = "https://github.com/firecrawl/fireround";
 
-/** The README's Deploy with Vercel button: the repo, the three env vars it asks for, and a Neon database. */
+/** The README's Deploy with Vercel button, character for character: the repo, the three env vars it asks for, and a Neon database. */
 export const DEPLOY_URL =
   "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffirecrawl%2Ffireround&env=FIRECRAWL_API_KEY%2CDASHBOARD_PASSWORD%2CCRON_SECRET&envDescription=Your%20Firecrawl%20API%20key%2C%20a%20password%20that%20puts%20the%20dashboard%20behind%20Basic%20auth%2C%20and%20a%20random%20string%20the%20cron%20routes%20require&envLink=https%3A%2F%2Fwww.firecrawl.dev%2Fapp%2Fapi-keys&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D";
 

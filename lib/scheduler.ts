@@ -57,7 +57,7 @@ export const SCHEDULER_STARTED = Symbol.for("fireround.scheduler");
 export interface SchedulerOpts {
   /** Where the server answers its own cron routes, e.g. http://localhost:3000. */
   origin: string;
-  /** The bearer the cron routes expect (CRON_SECRET); unset means the routes are open, as in dev. */
+  /** The bearer the cron routes expect (CRON_SECRET). Unset, the routes answer only in dev: production refuses every tick. */
   secret?: string;
   fetch?: typeof fetch;
   log?: (msg: string) => void;
@@ -83,6 +83,9 @@ export function startScheduler(opts: SchedulerOpts): void {
 
   const f = opts.fetch ?? fetch;
   const log = opts.log ?? ((msg: string) => console.log(`[scheduler] ${msg}`));
+  if (!opts.secret && process.env.NODE_ENV === "production") {
+    log("CRON_SECRET is not set, so the cron routes will refuse every tick (401) and nothing sweeps. Set it and restart.");
+  }
 
   async function tick(now: Date, paths = tickPaths(now)): Promise<void> {
     for (const path of paths) {

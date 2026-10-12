@@ -3,12 +3,19 @@ import { Firecrawl } from "firecrawl";
 
 let client: Firecrawl | null = null;
 
+export const MISSING_FIRECRAWL_KEY =
+  "FIRECRAWL_API_KEY is not set, or is still the fc-YOUR-API-KEY placeholder from .env.example. Get a key at https://www.firecrawl.dev/app/api-keys, then put it in .env and restart (on Vercel: Settings, Environment Variables, then redeploy).";
+
+/** The Firecrawl key, or null when it is unset or still the .env.example placeholder. */
+export function firecrawlKey(): string | null {
+  const key = process.env.FIRECRAWL_API_KEY?.trim();
+  return key && key !== "fc-YOUR-API-KEY" ? key : null;
+}
+
 export function getFirecrawl(): Firecrawl {
   if (client) return client;
-  const apiKey = process.env.FIRECRAWL_API_KEY;
-  if (!apiKey || apiKey === "fc-YOUR-API-KEY") {
-    throw new Error("FIRECRAWL_API_KEY is not set. Copy .env.example to .env and paste your key (https://www.firecrawl.dev/app/api-keys).");
-  }
+  const apiKey = firecrawlKey();
+  if (!apiKey) throw new Error(MISSING_FIRECRAWL_KEY);
   client = new Firecrawl({ apiKey });
   const scrape = client.scrape.bind(client);
   client.scrape = (async (...args: unknown[]) => {

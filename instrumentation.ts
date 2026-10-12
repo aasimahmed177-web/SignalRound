@@ -14,7 +14,7 @@ export async function register() {
   }
   if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {
     console.warn(
-      "CRON_SECRET is not set: the cron routes refuse every call in production, so nothing sweeps on a schedule. Add it in the Vercel project settings.",
+      "CRON_SECRET is not set: the cron routes refuse every call in production, so nothing sweeps on a schedule. Set it to any random string of 16+ characters in your host's environment (on Vercel, the project's Environment Variables) and restart.",
     );
   }
   // The in-process schedule: Vercel Cron hits the same routes on Vercel, so this arms only off it.

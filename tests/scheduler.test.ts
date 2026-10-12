@@ -133,6 +133,13 @@ describe("startScheduler", () => {
     expect(calls).toHaveLength(5);
   });
 
+  test("a production schedule with no CRON_SECRET says up front that every tick will be refused", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const logs: string[] = [];
+    startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: (m) => logs.push(m) });
+    expect(logs[0]).toMatch(/CRON_SECRET is not set/);
+  });
+
   test("SCHEDULE_TICK_ON_START=1 ticks immediately, off by default", async () => {
     vi.stubEnv("SCHEDULE_TICK_ON_START", "1");
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
