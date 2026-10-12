@@ -704,13 +704,37 @@ describe("urls and domains", () => {
     expect(canonicalUrl("https://a.example/p?ncid=abc&guce_referrer=x&keep=1")).toBe("https://a.example/p?keep=1");
     // Google's result-tracking id: The Times' article arrived as nine sources, one per search.
     expect(canonicalUrl("https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg?srsltid=AU7gw4XBEAeE")).toBe(
-      "https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg",
+      "https://www.thetimes.com/article/matter-machine-v73fc9jlg",
     );
     // A search engine's click id and a publisher's own switches are the same article too.
     expect(canonicalUrl("https://www.wsj.com/tech/ai/story-88ef9f0a?eafs_enabled=false")).toBe(
       "https://www.wsj.com/tech/ai/story-88ef9f0a",
     );
     expect(canonicalUrl("https://a.example/p?srsltid=AfmBOo&feedref=rss&ocid=x&smid=tw&utm=1&id=7")).toBe("https://a.example/p?id=7");
+  });
+
+  test("canonicalUrl names the publisher's main host for an article served under another", () => {
+    const same = (alias: string, main: string) => expect(canonicalUrl(alias), alias).toBe(canonicalUrl(main));
+    same(
+      "https://www.thetimes.co.uk/business/article/matter-machine-v73fc9jlg",
+      "https://www.thetimes.com/business/article/matter-machine-v73fc9jlg",
+    );
+    same(
+      "https://m.economictimes.com/tech/funding/x/articleshow/134545702.cms",
+      "https://economictimes.indiatimes.com/tech/funding/x/articleshow/134545702.cms",
+    );
+    same("https://uk.finance.yahoo.com/news/roblox-ceo-050002563.html", "https://finance.yahoo.com/news/roblox-ceo-050002563.html");
+    same("https://ae.marketscreener.com/news/relay-ce785ad3d98af121", "https://www.marketscreener.com/news/relay-ce785ad3d98af121");
+    same(
+      "https://www.prnewswire.co.uk/news-releases/signsplit-302897779.html",
+      "https://www.prnewswire.com/news-releases/signsplit-302897779.html",
+    );
+    same("https://securitybrief.com.au/story/cyera", "https://securitybrief.asia/story/cyera");
+    expect(canonicalUrl("https://securitybrief.asia/story/cyera")).toBe("https://securitybrief.news/story/cyera");
+    // Another publisher on a lookalike host, and a host that only ends like an alias, stay as they are.
+    expect(canonicalUrl("https://www.thetimes.co.za/news/x")).toBe("https://www.thetimes.co.za/news/x");
+    expect(canonicalUrl("https://notthetimes.co.uk/x")).toBe("https://notthetimes.co.uk/x");
+    expect(canonicalUrl("https://news.yahoo.com/x")).toBe("https://news.yahoo.com/x");
   });
 });
 

@@ -689,7 +689,35 @@ export function isCompanyDescription(value: string): boolean {
   return !USE_OF_FUNDS_START.test(value.trim());
 }
 
-/** Strip tracking parameters and fragments so the same article dedupes across queries. */
+/**
+ * Hosts that serve a publisher's article at the same path as its main host: a redirecting old domain
+ * or mobile host, a regional edition, a country site. Keyed without "www.", valued as the main host.
+ */
+const PUBLISHER_HOSTS: Record<string, string> = {
+  "thetimes.co.uk": "www.thetimes.com",
+  "m.economictimes.com": "economictimes.indiatimes.com",
+  "dynamicbusiness.com.au": "dynamicbusiness.com",
+  "scotlandonsunday.scotsman.com": "www.scotsman.com",
+  "securitybrief.asia": "securitybrief.news",
+  "securitybrief.com.au": "securitybrief.news",
+  "prnewswire.co.uk": "www.prnewswire.com",
+  "startbase.de": "www.startbase.com",
+};
+
+/** A country edition ("uk.finance.yahoo.com", "ae.marketscreener.com") of a site whose main host has the same path. */
+const EDITION_HOST = /^[a-z]{2}\.(finance\.yahoo\.com|marketscreener\.com)$/;
+
+function publisherHost(host: string): string {
+  const bare = host.replace(/^www\./, "");
+  const edition = EDITION_HOST.exec(bare)?.[1];
+  if (edition) return edition === "marketscreener.com" ? "www.marketscreener.com" : edition;
+  return PUBLISHER_HOSTS[bare] ?? host;
+}
+
+/**
+ * Strip tracking parameters and fragments, and name the publisher's main host, so the same article
+ * dedupes across queries and across the hosts that serve it.
+ */
 export function canonicalUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -705,7 +733,7 @@ export function canonicalUrl(url: string): string {
       }
     }
     u.hash = "";
-    u.hostname = u.hostname.toLowerCase();
+    u.hostname = publisherHost(u.hostname.toLowerCase());
     return u.toString().replace(/\/$/, "");
   } catch {
     return url;
