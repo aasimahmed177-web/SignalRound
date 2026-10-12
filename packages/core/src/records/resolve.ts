@@ -750,16 +750,19 @@ export function cleanRound(r: ExtractedRound): ExtractedRound {
  * Leads and participants after investor hygiene: leads need lead language in the evidence, placeholders
  * and lenders drop, one firm is one entry. The round's label counts as evidence: Ando's read "pre-seed
  * round led by Accel and seed round led by Index and Emergence" while its quote named no lead, and all
- * three leads were demoted.
+ * three leads were demoted. The label and amount are also the round the leads are checked against, so
+ * a lead the evidence gives an earlier round beside this one is not this round's.
  */
 function investorsFor(r: ExtractedRound): { lead_investors: string[]; other_investors: string[] } {
   const label = cleanText(r.round_type_as_written);
   const quote = stripFurniture(r.evidence_quote) ?? "";
+  const amount = cleanText(r.amount_as_written);
   const cleaned = cleanInvestors({
     lead_investors: names(r.lead_investors),
     other_investors: names(r.other_investors),
     evidence: [quote, label && hasLeadLanguage(label) ? label : null, ...(r.lead_evidence ?? [])].filter(Boolean).join(". "),
-    amount_as_written: cleanText(r.amount_as_written),
+    amount_as_written: amount,
+    round: { stage: classifyStage(label ?? "").stage, stage_as_written: label, amount_as_written: amount },
   });
   return { lead_investors: cleaned.lead_investors, other_investors: cleaned.other_investors };
 }

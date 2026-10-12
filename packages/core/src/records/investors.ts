@@ -20,9 +20,13 @@
 //   8. Prior backers and partners are not this round's investors: names inside a "previously",
 //      "investor base also includes", or "partners include" clause drop, and so do names in a clause
 //      dated to a month before the round's own date.
+//   9. A lead of another round is not this round's lead: "$5 million in seed funding led by General
+//      Catalyst, and $20 million Series A led by CRV" gives the Series A one lead. The firm stays a
+//      participant only where the evidence puts it in the round ("with participation from").
 
 import { GIVEN_NAMES } from "./given-names.ts";
-import { normalizeInvestorKey } from "./normalize.ts";
+import { classifyStage, normalizeInvestorKey, parseAmount } from "./normalize.ts";
+import type { Stage } from "./stages.ts";
 
 export interface InvestorInput {
   lead_investors: string[];
@@ -30,6 +34,8 @@ export interface InvestorInput {
   /** The round's evidence sentence(s); the only text the rules read. */
   evidence: string;
   amount_as_written: string | null;
+  /** The round the leads are checked against (rule 9); without it no lead is placed on another round. */
+  round?: LeadRound;
 }
 
 export interface InvestorOutput {
@@ -1209,9 +1215,31 @@ function markersOf(evidence: string): { before: Marker[]; after: Marker[] } {
 type Attribution = "lead" | "participant" | "unattributed";
 
 /**
- * What the evidence says about a name at `index`: the nearest marker before it inside its sentence
- * and within reach decides; failing that, a verb shortly after it; failing both, nothing.
+ * The marker that speaks for a name at `index`: the nearest marker before it inside its sentence
+ * and within reach; failing that, a verb shortly after it; failing both, none.
  */
+function markerFor(
+  evidence: string,
+  sentences: Array<[number, number]>,
+  markers: { before: Marker[]; after: Marker[] },
+  index: number,
+  nameLength: number,
+): Marker | undefined {
+  const [sStart, sEnd] = sentenceAt(sentences, index);
+  let nearest: Marker | undefined;
+  for (const m of markers.before) {
+    if (m.end <= index && m.index >= sStart && index - m.end <= MARKER_REACH) nearest = m;
+  }
+  if (nearest) return nearest;
+  const nameEnd = index + nameLength;
+  const following = markers.after.find((m) => m.index >= nameEnd && m.index < sEnd && m.index - nameEnd <= VERB_REACH);
+  if (!following) return undefined;
+  // "A, B and C led the round": nothing but names and commas may stand between the name and the verb.
+  const between = evidence.slice(nameEnd, following.index);
+  return /^[\s,]*(?:and\s+|&\s+)?(?:[A-Z0-9][\w'’.&-]*\s*,?\s*(?:and\s+|&\s+)?)*$/.test(between) ? following : undefined;
+}
+
+/** What the evidence says about a name at `index`: the kind of the marker that speaks for it, or nothing. */
 function attribute(
   evidence: string,
   sentences: Array<[number, number]>,
@@ -1219,20 +1247,145 @@ function attribute(
   index: number,
   nameLength: number,
 ): Attribution {
-  const [sStart, sEnd] = sentenceAt(sentences, index);
-  let nearest: Marker | undefined;
-  for (const m of markers.before) {
-    if (m.end <= index && m.index >= sStart && index - m.end <= MARKER_REACH) nearest = m;
+  return markerFor(evidence, sentences, markers, index, nameLength)?.kind ?? "unattributed";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Rule 9: a lead of another round
+
+/** The round a lead is checked against: its stage, its label as written, and its amount as written. */
+export interface LeadRound {
+  stage: Stage;
+  stage_as_written?: string | null;
+  amount_as_written: string | null;
+}
+
+/**
+ * Stages a lead's round label is compared on. An unlabelled round ("other", "growth"), a bridge, and a
+ * pre-A are printed under a lettered label by some source often enough that no label contradicts them.
+ */
+const LABELLED: ReadonlySet<Stage> = new Set<Stage>(["pre_seed", "seed", "series_a", "series_b", "series_c", "series_d_plus"]);
+
+/** A round label in a sentence. */
+const ROUND_LABEL = /\b(?:pre[\s\u2010-\u2013-]?seed|seed|series\s+[a-k](?:[-\s]?\d)?|s[eé]rie\s+[a-k])\b/gi;
+
+/** A money figure in a sentence, with its currency. */
+const ROUND_FIGURE =
+  /(?:(?:US|CA|AU|NZ|HK|S|A|C|R)?\$|[€£¥₹]|\b(?:USD|EUR|GBP|INR|CNY|RMB|JPY|CHF|Rs\.?)\s?)\d[\d,]*(?:\.\d+)?\s?(?:million|billion|mn|bn|crore|cr|lakh|m|b)\b/gi;
+
+/** A figure that is a valuation, not money raised: "at a $10 billion valuation", "valued at $2 billion". */
+const VALUATION_FIGURE =
+  /^\s*(?:\([^)]*\)\s*)?(?:pre|post)?[\s-]*(?:money\s+)?valuation|(?:valu(?:ed|es|ing)\b[^,;]{0,30}?\bat|valuation\s+(?:of|to|at)|worth)\s+(?:about|around|roughly|over|nearly|some|more than)?\s*$/i;
+
+/** Words that make a figure a total across rounds rather than one round's money. */
+const TOTAL_WORDS = /\b(?:total|to date|in all|altogether|so far|cumulative)\b/i;
+
+/** Words that place a lead at an earlier round: "previously led", "led its last round", "had previously co-led". */
+const EARLIER_LEAD = /\b(?:previously|previous|prior|earlier|last(?!\s+(?:week|month|year|quarter))|predecessor)\b/i;
+
+/** How far before a lead marker an earlier-round word still speaks for it: "previously led by", "had earlier co-led". */
+const EARLIER_REACH = 20;
+
+/** How far from its lead marker a round label or figure still names the round led, in characters. */
+const LEAD_ROUND_REACH = 70;
+
+/**
+ * What one lead marker's round is, read from the label or figure next to it ("$5 million in seed
+ * funding led by", "Storm Ventures led a $6 million seed", "which led its seed round"): this round
+ * (its own figure or label), another round (a different figure or label), an earlier round (an
+ * earlier-round word on the marker: "previously led", "led its last round"), or unnamed.
+ */
+function leadRoundOf(
+  evidence: string,
+  sentences: Array<[number, number]>,
+  marker: Marker,
+  before: boolean,
+  leads: Marker[],
+  round: LeadRound,
+): "this" | "another" | "earlier" | "unnamed" {
+  const [sStart, sEnd] = sentenceAt(sentences, marker.index);
+  let window: string;
+  if (before) {
+    // "$20 million Series A led by X": the round stands before the marker, after any earlier lead clause.
+    const prior = leads.filter((m) => m.end <= marker.index && m.index >= sStart).pop();
+    window = evidence.slice(Math.max(prior?.end ?? sStart, sStart, marker.index - LEAD_ROUND_REACH), marker.index);
+  } else {
+    // "X, which led its seed round in 2024": the round follows the verb, up to the clause's end.
+    window = evidence.slice(marker.end, Math.min(sEnd, marker.end + LEAD_ROUND_REACH)).split(/[;,]|\s+(?:and|while|but)\s+/)[0] ?? "";
   }
-  if (nearest) return nearest.kind;
-  const nameEnd = index + nameLength;
-  const following = markers.after.find((m) => m.index >= nameEnd && m.index < sEnd && m.index - nameEnd <= VERB_REACH);
-  if (following) {
-    // "A, B and C led the round": nothing but names and commas may stand between the name and the verb.
-    const between = evidence.slice(nameEnd, following.index);
-    if (/^[\s,]*(?:and\s+|&\s+)?(?:[A-Z0-9][\w'’.&-]*\s*,?\s*(?:and\s+|&\s+)?)*$/.test(between)) return following.kind;
+  // The label or figure nearest the marker: the last one before it, the first one after it.
+  const nearest = <T>(list: T[]) => (before ? list.at(-1) : list[0]);
+  const target = parseAmount(round.amount_as_written);
+  const figure = TOTAL_WORDS.test(window)
+    ? undefined
+    : nearest(
+        [...window.matchAll(ROUND_FIGURE)]
+          .filter((m) => !VALUATION_FIGURE.test(window.slice(m.index + m[0].length)) && !VALUATION_FIGURE.test(window.slice(0, m.index)))
+          .map((m) => parseAmount(m[0])),
+      );
+  const gap =
+    target.value !== null && figure?.value != null && figure.currency === target.currency
+      ? Math.abs(figure.value - target.value) / Math.max(figure.value, target.value)
+      : null;
+  // "$1.1 million pre-seed round led by" on a round stored as seed: this round's own figure makes it this round.
+  if (gap !== null && gap <= 0.05) return "this";
+  // "a pre-seed and seed round led by": a window that names this round's own label is about this round.
+  const labels = [...window.matchAll(ROUND_LABEL)].map((m) => classifyStage(m[0].replace(/[\u2010-\u2013]/g, "-")).stage);
+  const labelled = labels.length > 0 && LABELLED.has(round.stage);
+  if (labelled && labels.includes(round.stage)) return "this";
+  const onMarker = evidence.slice(Math.max(sStart, marker.index - EARLIER_REACH), marker.index);
+  if (EARLIER_LEAD.test(onMarker) || (!before && EARLIER_LEAD.test(window))) return "earlier";
+  return labelled || gap !== null ? "another" : "unnamed";
+}
+
+/**
+ * Whether the evidence calls `name` a lead only of another round than `round`. Every lead marker that
+ * speaks for it must sit on another round, and the evidence must say so: an earlier-round word on the
+ * marker ("previously led", "which led its last round"), or two rounds side by side with this one's
+ * own lead ("$5 million in seed funding led by General Catalyst, and $20 million Series A led by CRV"
+ * for the Series A). A figure or label that differs with nothing beside it is a source disagreeing
+ * about this round, and its lead stands. A round labelled with two stages ("seed and Series A") is
+ * not judged: either could be the one the lead's sentence means.
+ */
+export function leadOfAnotherRound(evidence: string, name: string, round: LeadRound): boolean {
+  const written = [...(round.stage_as_written ?? "").matchAll(ROUND_LABEL)].map((m) => classifyStage(m[0]).stage);
+  if (new Set(written).size > 1) return false;
+  const folded = fold(evidence);
+  const sentences = sentenceSpans(evidence);
+  const markers = markersOf(evidence);
+  const leadBefore = markers.before.filter((m) => m.kind === "lead");
+  const leads = [...leadBefore, ...markers.after.filter((m) => m.kind === "lead")].sort((a, b) => a.index - b.index);
+  const roundOf = (m: Marker) => leadRoundOf(evidence, sentences, m, leadBefore.includes(m), leads, round);
+  const parts = tokens(head(name));
+  const kinds: string[] = [];
+  for (let at = findTokens(folded, parts); at >= 0; at = findTokens(folded, parts, at + 1)) {
+    const marker = markerFor(evidence, sentences, markers, at, head(name).length);
+    if (marker?.kind === "lead") kinds.push(roundOf(marker));
   }
-  return "unattributed";
+  if (kinds.length === 0 || kinds.some((k) => k === "this" || k === "unnamed")) return false;
+  return kinds.includes("earlier") || leads.some((m) => roundOf(m) === "this");
+}
+
+/**
+ * Whether the evidence names `name` as a participant anywhere: a participant marker speaks for it
+ * ("joined by", "also invested"), or one stands right before the lead words that describe it ("with
+ * participation from previous lead investor Acme").
+ */
+export function investedInRound(evidence: string, name: string): boolean {
+  const folded = fold(evidence);
+  const sentences = sentenceSpans(evidence);
+  const markers = markersOf(evidence);
+  const parts = tokens(head(name));
+  for (let at = findTokens(folded, parts); at >= 0; at = findTokens(folded, parts, at + 1)) {
+    const marker = markerFor(evidence, sentences, markers, at, head(name).length);
+    if (marker?.kind === "participant") return true;
+    if (marker?.kind !== "lead" || marker.end > at) continue;
+    const described = markers.before.some(
+      (m) => m.kind === "participant" && m.end <= marker.index && /^\s+(?:[a-z]+\s+){0,2}$/.test(evidence.slice(m.end, marker.index)),
+    );
+    if (described) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1507,10 +1660,12 @@ export function cleanInvestors(input: InvestorInput): InvestorOutput {
     attribution: Attribution;
     /** Whether the evidence sentence mentions the firm at all. */
     inEvidence: boolean;
+    /** The input spelling the name came from. */
+    original: string;
   }
   // A name written out ("Andreessen Horowitz") outranks its short form ("a16z"), whichever the evidence used.
   const canonical = (e: Entry) => (Object.values(ALIASES).some((full) => normalizeInvestorKey(e.name).includes(full)) ? 1 : 0);
-  const merged: Merged[] = groups.map((members) => {
+  let merged: Merged[] = groups.map((members) => {
     // The canonical form, then the spelling in the evidence, then the longer one (the fuller form of a
     // firm), then the entry that arrived as-is over one rewritten from a person ("Acme" over "Jane Doe of Acme").
     const asIs = (e: Entry) => (e.name === tidy(e.original) ? 1 : 0);
@@ -1532,9 +1687,24 @@ export function cleanInvestors(input: InvestorInput): InvestorOutput {
       extractorLead: members.some((m) => m.role === "lead"),
       attribution,
       inEvidence: members.some((m) => m.found.index >= 0),
+      original: best.original,
     };
   });
   merged.sort((a, b) => a.order - b.order);
+
+  // Rule 9: a lead of another round, a participant only where the evidence puts it in this one.
+  const round = input.round;
+  if (round) {
+    merged = merged.filter((m) => {
+      if (m.attribution !== "lead" || !leadOfAnotherRound(evidence, m.name, round)) return true;
+      if (investedInRound(evidence, m.name)) {
+        m.attribution = "participant";
+        return true;
+      }
+      dropped.push(m.original);
+      return false;
+    });
+  }
 
   // Rule 1, second pass: leads.
   const leads = new Set<Merged>();

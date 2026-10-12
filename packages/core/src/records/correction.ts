@@ -6,7 +6,7 @@
 // live once. Not exported from the package: the verdict schemas are the public surface.
 
 import { convertToUsd, type RateTable } from "./fx.ts";
-import { dedupeInvestorNames, normalizeInvestorName } from "./investors.ts";
+import { dedupeInvestorNames, investedInRound, leadOfAnotherRound, normalizeInvestorName } from "./investors.ts";
 import { canonicalUrl, classifyStage, dateFromUrl, hostOf, parseAmount, parseStatedDate, stageForAmount } from "./normalize.ts";
 import { MONTHLY_LIST, reconcileInvestorLists, scoreConfidence, WEEKLY_LIST } from "./resolve.ts";
 import type { FeedRecord } from "./schema.ts";
@@ -302,15 +302,28 @@ export function applyCorrection(record: FeedRecord, c: Correction, opts: Correct
     const keptOthers = recordNames.filter(
       (n) => !inList(n, leadNames) && (inList(n, others) || (unknown.includes(n) && r.other_investors.includes(n))),
     );
-    const set = reconcileInvestorLists([...leadNames, ...keptLeads], [...keptOthers, ...others.filter((n) => !inList(n, leadNames))]);
+    const placed = reconcileInvestorLists([...leadNames, ...keptLeads], [...keptOthers, ...others.filter((n) => !inList(n, leadNames))]);
+    // A lead the record's own sentences give only another round ("$5 million in seed funding led by
+    // General Catalyst, and $20 million Series A led by CRV" on the Series A) is not this round's lead:
+    // a participant where a sentence puts it in the round, otherwise not in it at all.
+    const evidence = r.evidence_quotes.map((q) => q.trim().replace(/[.!?…]*$/, ".")).join(" ");
+    const round = { stage: r.stage, stage_as_written: r.stage_as_written, amount_as_written: r.amount.as_written };
+    const elsewhere = placed.lead_investors.filter((n) => leadOfAnotherRound(evidence, n, round));
+    const elsewhereOthers = elsewhere.filter((n) => investedInRound(evidence, n));
+    const set = {
+      lead_investors: placed.lead_investors.filter((n) => !elsewhere.includes(n)),
+      other_investors: [...placed.other_investors, ...elsewhereOthers],
+    };
     const changedLeads =
       set.lead_investors.length !== r.lead_investors.length || set.lead_investors.some((n) => !r.lead_investors.includes(n));
     const changedOthers =
       set.other_investors.length !== r.other_investors.length || set.other_investors.some((n) => !r.other_investors.includes(n));
     if (changedLeads || changedOthers) {
-      if (dropped.length) notes.push(`not investors in this round: ${dropped.join(", ")}`);
+      const elsewhereDropped = elsewhere.filter((n) => !elsewhereOthers.includes(n));
+      if (dropped.length + elsewhereDropped.length)
+        notes.push(`not investors in this round: ${[...dropped, ...elsewhereDropped].join(", ")}`);
       if (unsupported.length) notes.push(`not supported for this round: ${unsupported.join(", ")}`);
-      const demoted = r.lead_investors.filter((n) => keptOthers.includes(n));
+      const demoted = r.lead_investors.filter((n) => keptOthers.includes(n) || elsewhereOthers.includes(n));
       if (demoted.length) notes.push(`not leads: ${demoted.join(", ")}`);
       const newLeads = set.lead_investors.filter((n) => !r.lead_investors.includes(n));
       if (newLeads.length)

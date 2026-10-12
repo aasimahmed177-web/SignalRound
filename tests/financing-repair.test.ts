@@ -177,6 +177,14 @@ describe("visible financing replay", () => {
     expect(change?.amount).toBeUndefined();
   });
 
+  test("Aron's release sentence names both rounds' leads; only the seed's lead is the seed row's", () => {
+    const stored = { ...row("Aron", "$6.0M", "Aron raised a $6 million seed round."), stage: "seed", leadNames: [] };
+    const source = reading("Aron", "$8 million", "Aron also announced $8 million in funding.", "seed");
+    source.round.lead_investors = ["Storm Ventures", "Menlo Ventures"];
+    source.round.lead_evidence = ["Storm Ventures led a $6 million seed, and Menlo Ventures led a $2 million pre-seed."];
+    expect(regroundedChange(stored, source)?.leads?.to).toEqual(["Storm Ventures"]);
+  });
+
   test("Notey's 2015 seed article cannot change a 2026 seed row", () => {
     const stored = { ...row("Notey", "$3M", "Notey has closed a $3M seed round."), announced: "2026-09-22", stage: "seed" };
     const old = reading("Notey", "$1 million", "Notey raised $1 million in seed funding.", "seed");

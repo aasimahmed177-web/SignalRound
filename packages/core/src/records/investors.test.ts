@@ -4,9 +4,12 @@ import {
   dedupeInvestorNames,
   firmOfPerson,
   hasLeadLanguage,
+  investedInRound,
   investorKeyForMerge,
   investorMentions,
   isPlaceholderInvestor,
+  type LeadRound,
+  leadOfAnotherRound,
   levenshtein,
   MAX_UNATTRIBUTED_LEADS,
   normalizeInvestorName,
@@ -911,6 +914,154 @@ describe("rule 8: prior backers and partners are not this round's investors", ()
       "Acme raised $5M led by Sequoia Capital, with participation from early backers Accel.",
     );
     expect(participating.other_investors).toEqual(["Accel"]);
+  });
+});
+
+describe("rule 9: a lead of another round is not this round's lead", () => {
+  const MELIUS =
+    "Melius today announced $25 million in total funding. The funding includes $5 million in seed funding led by General Catalyst, and $20 million Series A led by CRV.";
+  const SERIES_A: LeadRound = { stage: "series_a", stage_as_written: "Series A", amount_as_written: "$20 million" };
+
+  /** Shorthand: leads, others, evidence, and the round they are checked against. */
+  function cleanFor(leads: string[], others: string[], evidence: string, round: LeadRound) {
+    return cleanInvestors({ lead_investors: leads, other_investors: others, evidence, amount_as_written: round.amount_as_written, round });
+  }
+
+  test("melius: the seed's lead beside the Series A's is no lead of the Series A, and nothing puts it in the round", () => {
+    const out = cleanFor(["General Catalyst", "CRV"], [], MELIUS, SERIES_A);
+    expect(out.lead_investors).toEqual(["CRV"]);
+    expect(out.other_investors).toEqual([]);
+    expect(out.dropped).toEqual(["General Catalyst"]);
+    expect(leadOfAnotherRound(MELIUS, "General Catalyst", SERIES_A)).toBe(true);
+    expect(leadOfAnotherRound(MELIUS, "CRV", SERIES_A)).toBe(false);
+  });
+
+  test("melius: a sentence that puts the seed's lead in the Series A keeps it as a participant", () => {
+    const evidence = `${MELIUS} Melius has raised $20M in Series A funding led by CRV with participation from General Catalyst and Vine Ventures.`;
+    const out = cleanFor(["General Catalyst", "CRV"], ["Vine Ventures"], evidence, SERIES_A);
+    expect(out.lead_investors).toEqual(["CRV"]);
+    expect(out.other_investors).toEqual(["General Catalyst", "Vine Ventures"]);
+    expect(investedInRound(evidence, "General Catalyst")).toBe(true);
+  });
+
+  test("aron: the pre-seed's lead beside the seed's, whichever list the extractor used", () => {
+    const evidence =
+      "Aron also announced $8 million in funding. Storm Ventures led a $6 million seed, and Menlo Ventures led a $2 million pre-seed.";
+    const out = cleanFor([], ["Storm Ventures", "Menlo Ventures"], evidence, {
+      stage: "seed",
+      stage_as_written: "seed",
+      amount_as_written: "$6 million",
+    });
+    expect(out.lead_investors).toEqual(["Storm Ventures"]);
+    expect(out.dropped).toEqual(["Menlo Ventures"]);
+  });
+
+  test("heidi: the lead of a separate growth investment beside the Series C is not the Series C's lead", () => {
+    const evidence =
+      "Heidi today announced the close of a US$100 million Series C funding round led by Blackbird, with participation from Headline. Alongside the equity round, Heidi has also secured a US$240 million growth investment led by General Catalyst's Customer Value Fund.";
+    const out = cleanFor(["Blackbird", "Customer Value Fund"], ["Headline"], evidence, {
+      stage: "series_c",
+      stage_as_written: "Series C",
+      amount_as_written: "US$100 million",
+    });
+    expect(out.lead_investors).toEqual(["Blackbird"]);
+    expect(out.other_investors).toEqual(["Headline"]);
+  });
+
+  test("a lead of the company's previous round, named beside this round's lead", () => {
+    const evidence = "Acme raised a $12 million Series A led by Beta Capital. Gamma Ventures led its previous round.";
+    const out = cleanFor(["Beta Capital", "Gamma Ventures"], [], evidence, {
+      stage: "series_a",
+      stage_as_written: "Series A",
+      amount_as_written: "$12 million",
+    });
+    expect(out.lead_investors).toEqual(["Beta Capital"]);
+    expect(out.dropped).toEqual(["Gamma Ventures"]);
+  });
+
+  test("yazen: a previous lead investor the round's participation clause names is a participant", () => {
+    const evidence =
+      "Yazen has secured new funding in a partnership led by European growth investor Verdane, with participation from previous lead investor Evli Growth Partners (EGP). Yazen raises $50M led by Verdane.";
+    const out = cleanFor(["Verdane"], ["Evli Growth Partners"], evidence, {
+      stage: "series_a",
+      stage_as_written: "Series A+",
+      amount_as_written: "€50M",
+    });
+    expect(out.lead_investors).toEqual(["Verdane"]);
+    expect(out.other_investors).toEqual(["Evli Growth Partners"]);
+    expect(out.dropped).toEqual([]);
+  });
+
+  test("quanfluence: the seed's lead returning as a co-investor stays a participant and the round's lead stands", () => {
+    const evidence =
+      "Quanfluence has raised USD 10 million in a funding round led by Chiratae Ventures. Pi Ventures, which led Quanfluence's seed round in 2024, returned as co-investor. Rainmatter by Zerodha also invested in this round.";
+    const out = cleanFor(["Chiratae Ventures"], ["Pi Ventures", "Rainmatter by Zerodha"], evidence, {
+      stage: "other",
+      stage_as_written: "funding round",
+      amount_as_written: "USD 10 million",
+    });
+    expect(out.lead_investors).toEqual(["Chiratae Ventures"]);
+    expect(out.other_investors).toEqual(["Pi Ventures", "Rainmatter by Zerodha"]);
+  });
+
+  test("a figure or label another source prints for this round, with no other round beside it, keeps the lead", () => {
+    // Ultrahuman: outlets printed $60 million and $70 million for a $65 million round.
+    const amount = cleanFor(["Qualcomm Ventures"], [], "Ultrahuman raises $60 million led by Qualcomm Ventures.", {
+      stage: "series_c",
+      stage_as_written: "Series C",
+      amount_as_written: "$65 million",
+    });
+    expect(amount.lead_investors).toEqual(["Qualcomm Ventures"]);
+    // Nara Health: one outlet's seed is the company's pre-seed.
+    const label = cleanFor(["Khosla Ventures"], [], "Nara Health raised an approximately $10 million seed round led by Khosla Ventures.", {
+      stage: "pre_seed",
+      stage_as_written: "pre-seed",
+      amount_as_written: null,
+    });
+    expect(label.lead_investors).toEqual(["Khosla Ventures"]);
+    // A dossier naming only a later round's leads says nothing about this round's on its own.
+    const later = cleanFor(
+      ["8VC", "Lux Capital"],
+      [],
+      "Its latest funding event was a Series D of more than $1B led by Lux Capital, General Catalyst, and 8VC.",
+      { stage: "series_b", stage_as_written: "Series B", amount_as_written: null },
+    );
+    expect(later.lead_investors).toEqual(["8VC", "Lux Capital"]);
+  });
+
+  test("a valuation, a founding year, or an earlier raise before the marker is not another round", () => {
+    const round: LeadRound = { stage: "series_a", stage_as_written: "Series A", amount_as_written: "$400 million" };
+    const valued = cleanFor(
+      ["General Catalyst"],
+      [],
+      "Atlas Atomics has raised about $400 million at a $1.9 billion valuation in a round led by General Catalyst.",
+      round,
+    );
+    expect(valued.lead_investors).toEqual(["General Catalyst"]);
+    const founded = cleanFor(
+      ["Lightspeed Venture Partners"],
+      [],
+      "Nuance, which was founded last year, has now raised a $50 million Series A round led by Lightspeed Venture Partners.",
+      { ...round, amount_as_written: "$50 million" },
+    );
+    expect(founded.lead_investors).toEqual(["Lightspeed Venture Partners"]);
+    const raised = cleanFor(
+      ["Beta Capital"],
+      [],
+      "Acme, which previously raised a $5 million seed, closed a $20 million Series A led by Beta Capital.",
+      { ...round, amount_as_written: "$20 million" },
+    );
+    expect(raised.lead_investors).toEqual(["Beta Capital"]);
+  });
+
+  test("a round labelled with two stages is not judged, and no round leaves the leads as they were", () => {
+    const combined = cleanFor(["General Catalyst", "CRV"], [], MELIUS, {
+      stage: "seed",
+      stage_as_written: "seed and Series A",
+      amount_as_written: "$25 million",
+    });
+    expect(combined.lead_investors).toEqual(["General Catalyst", "CRV"]);
+    expect(clean(["General Catalyst", "CRV"], [], MELIUS, "$20 million").lead_investors).toEqual(["General Catalyst", "CRV"]);
   });
 });
 

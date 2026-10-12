@@ -449,6 +449,44 @@ describe("the investor rule: only investors a source places in this round stay",
     expect(cleared.other_investors).toEqual(["Lip-Bu Tan"]);
   });
 
+  test("Melius: a lead the record's sentences give only the earlier seed is not the Series A's lead, whatever the verdict says", () => {
+    const melius = record({
+      id: "melius:series_a:2026-10-06",
+      company_name: "Melius",
+      stage: "series_a",
+      stage_as_written: "Series A",
+      amount: { value: 20, currency: "USD", as_written: "$20 million", usd_millions: 20, fx_rate: 1, fx_date: "2026-10-06" },
+      lead_investors: ["CRV", "General Catalyst"],
+      other_investors: ["Vine Ventures"],
+      evidence_quotes: [
+        "Melius today announced $25 million in total funding.",
+        "The funding includes $5 million in seed funding led by General Catalyst, and $20 million Series A led by CRV.",
+      ],
+    });
+    const verdict: Reconciliation = {
+      ...AGREES,
+      stage: { stated: true, value: "Series A", source: null, quote: null },
+      amount: { stated: true, value: "$20 million", source: null, quote: null },
+      lead_investors: [
+        { name: "CRV", source: "https://www.globenewswire.com/melius" },
+        { name: "General Catalyst", source: "https://www.globenewswire.com/melius" },
+      ],
+      other_investors: [{ name: "Vine Ventures", source: "https://www.globenewswire.com/melius" }],
+    };
+    const gone = applyReconciliation(melius, verdict, OPTS);
+    expect(gone.lead_investors).toEqual(["CRV"]);
+    expect(gone.other_investors).toEqual(["Vine Ventures"]);
+    expect(gone.verification?.notes).toContain("not investors in this round: General Catalyst");
+    // A sentence that puts General Catalyst in the Series A keeps it there as a participant.
+    const joined = melius.evidence_quotes.concat(
+      "Melius has raised $20M in Series A funding led by CRV with participation from General Catalyst.",
+    );
+    const kept = applyReconciliation({ ...melius, evidence_quotes: joined }, verdict, OPTS);
+    expect(kept.lead_investors).toEqual(["CRV"]);
+    expect(kept.other_investors).toEqual(["Vine Ventures", "General Catalyst"]);
+    expect(kept.verification?.notes).toContain("not leads: General Catalyst");
+  });
+
   test("with every page read and no investor named in this round, the record's names are unsupported and a lead's absence lowers the score", () => {
     const silent: Reconciliation = { ...VERDICT, lead_investors: [], other_investors: [] };
     const record = ultraviolette();

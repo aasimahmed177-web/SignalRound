@@ -165,8 +165,13 @@ export function regroundedChange(row: VisibleMoney, reading: SourceMoneyReading)
       round.other_investors.includes(name),
   );
   const leads = leadEvidence
-    ? cleanInvestors({ lead_investors: [], other_investors: namedCandidates, evidence: leadEvidence, amount_as_written: figure })
-        .lead_investors
+    ? cleanInvestors({
+        lead_investors: [],
+        other_investors: namedCandidates,
+        evidence: leadEvidence,
+        amount_as_written: figure,
+        round: { stage, stage_as_written: round.round_type_as_written, amount_as_written: figure },
+      }).lead_investors
     : [];
   const keyset = (names: string[]) => names.map(investorKeyForMerge).sort().join("|");
   const changedLeads =
