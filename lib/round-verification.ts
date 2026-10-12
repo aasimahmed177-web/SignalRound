@@ -38,6 +38,28 @@ const WIRES = new Set([
   "einpresswire.com",
   "webwire.com",
 ]);
+export function isWireUrl(url: string): boolean {
+  return WIRES.has(registrableDomain(url) ?? "");
+}
+
+/**
+ * Whether a round's pages settle a same-name doubt: a page on one of the company's own sites, or a
+ * wire release that names the company's verified domain (its homepage passed the identity check).
+ * The wire carries the issuer's own release; the domain in it says which company of that name issued
+ * it. A release from a namesake ("Hone Health" beside hone.com) names its own site, not this one.
+ */
+export function identitySettled(
+  pages: readonly { url: string; text?: string | null }[],
+  ownDomains: readonly string[],
+  verifiedDomain: string | null,
+): boolean {
+  const names = verifiedDomain ? new RegExp(`(?<![a-z0-9.-])(?:www\\.)?${verifiedDomain.replace(/\./g, "\\.")}(?![a-z0-9-])`, "i") : null;
+  return pages.some(({ url, text }) => {
+    if (ownDomains.includes(registrableDomain(url) ?? "")) return true;
+    return Boolean(names && text && isWireUrl(url) && names.test(text));
+  });
+}
+
 const FILINGS = new Set(["sec.gov", "hkexnews.hk", "londonstockexchange.com", "asx.com.au", "sedarplus.ca"]);
 
 /** The read-back establishes fidelity to a page, not the independence or authority of that page. */

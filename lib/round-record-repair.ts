@@ -10,18 +10,19 @@
 // description (siteOneLiner).
 
 import type { Enrichment } from "@fireround/core";
-import { acceptableSiteLine, siteOneLiner, thinDescription, titleNamesCompany } from "@fireround/core";
+import { acceptableSiteLine, registrableDomain, siteOneLiner, thinDescription, titleNamesCompany } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { fullerNameIn } from "./investor-names.ts";
-import { listRounds, type PreviousRound, type RoundRow } from "./persist.ts";
+import { type EnrichmentData, listRounds, type PreviousRound, type RoundRow, toEnrichment } from "./persist.ts";
 import { findPrimarySource, needsPrimarySource, type PrimarySourceOutcome } from "./primary-source.ts";
+import { identitySettled, isWireUrl } from "./round-verification.ts";
 import { orderSources, primarySourceOf, sourceKind } from "./source-order.ts";
 import { undisclosedSentence } from "./valuation-disclosure.ts";
 
-const { fundingRounds, roundSources, investors, roundInvestors, companies, enrichments } = schema;
+const { fundingRounds, roundSources, investors, roundInvestors, companies, enrichments, pageSnapshotReads, pageSnapshots } = schema;
 
 export const IDENTITY_HOLD = "held for review: same-name company identity is unverified";
 
@@ -106,33 +107,59 @@ async function roundTexts(handle: Db, roundIds: string[]): Promise<Map<string, R
   return out;
 }
 
-/** Namesake holds a page on the company's own site (its domain or one it is known by) has settled. */
+/**
+ * Namesake holds the round's own pages have settled: a page on the company's own site (its domain or
+ * one it is known by), or a wire release that names the company's verified domain. A row
+ * held only as reported later is still taken; any other hold keeps it for a person.
+ */
 export async function planHoldLifts(handle: Db): Promise<HoldLift[]> {
   const res = await handle.execute<{
     id: string;
     company: string;
-    url: string;
+    domain: string | null;
+    aliases: string[] | null;
+    profile: EnrichmentData | null;
+    urls: string[];
     status: string | null;
     notes: string[] | null;
     confidence: string;
     amount: string | null;
   }>(sql`
-    select distinct on (r.id) r.id, c.name as company, s.url, r.verification->>'status' as status,
+    select r.id, c.name as company, c.domain,
+      (select array_agg(a.alias_key) from company_aliases a where a.company_id = c.id and a.kind = 'domain') as aliases,
+      (select e.data from enrichments e where e.company_id = c.id and e.kind = 'profile') as profile,
+      (select array_agg(s.url order by s.url) from round_sources rs join sources s on s.id = rs.source_id where rs.round_id = r.id) as urls,
+      r.verification->>'status' as status,
       (select array_agg(n) from jsonb_array_elements_text(coalesce(r.verification->'notes', '[]'::jsonb)) n) as notes,
       r.confidence, r.amount_as_written as amount
     from funding_rounds r
     join companies c on c.id = r.company_id
-    join round_sources rs on rs.round_id = r.id
-    join sources s on s.id = rs.source_id
-    where r.disposition = 'review' and r.hold is null
+    where r.disposition = 'review' and (r.hold is null or r.hold like 'reported later:%')
       and r.verification->'notes' ? ${IDENTITY_HOLD}
-      and (s.host = c.domain or s.host like '%.' || c.domain
-        or exists (select 1 from company_aliases a where a.company_id = c.id and a.kind = 'domain' and (s.host = a.alias_key or s.host like '%.' || a.alias_key)))
-    order by r.id, s.url`);
-  return res.rows.map((r) => {
+    order by r.id`);
+  const rows = res.rows.map((r) => {
+    const verifiedDomain =
+      r.domain && toEnrichment(r.profile ?? undefined)?.verified && registrableDomain(r.profile?.company_website ?? null) === r.domain
+        ? r.domain
+        : null;
+    return { ...r, own: [r.domain, ...(r.aliases ?? [])].filter((d): d is string => Boolean(d)), verifiedDomain };
+  });
+  const wires = rows.flatMap((r) => (r.verifiedDomain ? (r.urls ?? []).filter(isWireUrl) : []));
+  const releases = wires.length
+    ? await handle
+        .select({ url: pageSnapshotReads.sourceUrl, text: pageSnapshots.markdown })
+        .from(pageSnapshotReads)
+        .innerJoin(pageSnapshots, eq(pageSnapshots.hash, pageSnapshotReads.snapshotHash))
+        .where(inArray(pageSnapshotReads.sourceUrl, wires))
+    : [];
+  return rows.flatMap((r) => {
+    const ownPage = (r.urls ?? []).find((url) =>
+      identitySettled([{ url }, ...releases.filter((p) => p.url === url)], r.own, r.verifiedDomain),
+    );
+    if (!ownPage) return [];
     const others = (r.notes ?? []).filter((n) => n.startsWith("held for review:") && n !== IDENTITY_HOLD);
     const passed = (r.status === "confirmed" || r.status === "corrected") && Number(r.confidence) >= 0.75 && Boolean(r.amount);
-    return { roundId: r.id, company: r.company, ownPage: r.url, to: others.length === 0 && passed ? "publish" : "review" };
+    return [{ roundId: r.id, company: r.company, ownPage, to: others.length === 0 && passed ? "publish" : "review" }];
   });
 }
 

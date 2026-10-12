@@ -11,6 +11,7 @@ import { fullerInvestorName, fullerNameIn } from "../lib/investor-names";
 import { listRounds, persistRecords, renameCompany } from "../lib/persist";
 import { confirmsRound, needsPrimarySource } from "../lib/primary-source";
 import { applyRepair, planRepair, repairRows } from "../lib/round-record-repair";
+import { identitySettled } from "../lib/round-verification";
 import { orderSources, primarySourceOf, sourceKind } from "../lib/source-order";
 import { statesValuationUndisclosed, undisclosedSentence, valuationDisclosed } from "../lib/valuation-disclosure";
 import { record, testDb } from "./helpers";
@@ -302,6 +303,102 @@ describe("in the store", () => {
     expect(after?.disposition).toBe("publish");
     expect((after?.verification as { notes: string[] } | undefined)?.notes).toEqual(["The release states $14.5 million."]);
     expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([]);
+  });
+
+  test("a wire release settles a namesake hold when it names the company's verified domain", async () => {
+    const { db, seriesA } = await firecrawl();
+    const hold = "held for review: same-name company identity is unverified";
+    const wire = "https://www.prnewswire.com/news-releases/firecrawl-raises-14-5m-series-a-302000001.html";
+    await db.delete(schema.roundSources).where(eq(schema.roundSources.roundId, seriesA.id));
+    await db.insert(schema.sources).values({ id: wire, url: wire, host: "www.prnewswire.com", title: "Firecrawl raises $14.5M Series A" });
+    await db.insert(schema.roundSources).values({ roundId: seriesA.id, sourceId: wire });
+    const release = (markdown: string) =>
+      db
+        .insert(schema.pageSnapshots)
+        .values({ hash: markdown, markdown })
+        .then(() => db.insert(schema.pageSnapshotReads).values({ sourceUrl: wire, snapshotHash: markdown }));
+    await db
+      .update(schema.fundingRounds)
+      .set({
+        disposition: "review",
+        history: true,
+        confidence: "0.9",
+        verification: { status: "corrected", notes: [hold], url: null },
+      })
+      .where(eq(schema.fundingRounds.id, seriesA.id));
+    const [round] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, seriesA.id));
+    const profile = (website: string, source: string) =>
+      db
+        .insert(schema.enrichments)
+        .values({
+          companyId: round!.companyId,
+          kind: "profile",
+          data: { company_key: round!.companyId, company_website: website, website_source: source },
+        })
+        .onConflictDoUpdate({
+          target: [schema.enrichments.companyId, schema.enrichments.kind],
+          set: { data: { company_key: round!.companyId, company_website: website, website_source: source } },
+        });
+    // No homepage read: the wire names a Firecrawl, not which one.
+    expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([]);
+    // A homepage the identity check refused does not settle it either, nor one on another domain.
+    await profile("https://firecrawl.dev", "unverified");
+    expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([]);
+    await profile("https://firecrawl.io", "search");
+    expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([]);
+    await profile("https://www.firecrawl.dev", "search");
+    // Verified, but the release on file does not name firecrawl.dev: it may be a namesake's.
+    await release("Firecrawl Inc., the maker of fire-safety drones (firecrawl.io), raises $14.5M.");
+    expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([]);
+    await release("Firecrawl raises $14.5M Series A. About Firecrawl: learn more at https://www.firecrawl.dev.");
+    expect((await planRepair(db, await repairRows(db, {}))).holds).toEqual([
+      { roundId: seriesA.id, company: "Firecrawl", ownPage: wire, to: "publish" },
+    ]);
+  });
+
+  test("a new reading from a wire keeps the namesake hold until the domain verifies and the release names it", async () => {
+    const { db, seriesA } = await firecrawl();
+    const hold = "held for review: same-name company identity is unverified";
+    const wire = "https://www.businesswire.com/news/home/20250819000001/en/Firecrawl-Raises-14.5M";
+    await db.delete(schema.roundSources).where(eq(schema.roundSources.roundId, seriesA.id));
+    await db
+      .update(schema.fundingRounds)
+      .set({ disposition: "review", verification: { status: "corrected", notes: [hold], url: null } })
+      .where(eq(schema.fundingRounds.id, seriesA.id));
+    const reading = { ...seriesA, sources: [{ url: wire, host: "www.businesswire.com", title: "Firecrawl Raises $14.5M" }] };
+    const notes = async () => {
+      const [row] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, seriesA.id));
+      return (row?.verification as { notes: string[] } | null)?.notes ?? [];
+    };
+    await persistRecords(db, [reading], "series-a-b", "run-2");
+    expect(await notes()).toContain(hold);
+    const [round] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, seriesA.id));
+    await db.insert(schema.enrichments).values({
+      companyId: round!.companyId,
+      kind: "profile",
+      data: { company_key: round!.companyId, company_website: "https://www.firecrawl.dev", website_source: "search" },
+    });
+    await persistRecords(db, [reading], "series-a-b", "run-3");
+    expect(await notes()).toContain(hold);
+    const markdown = "Firecrawl Raises $14.5M. For more, visit firecrawl.dev.";
+    await db.insert(schema.pageSnapshots).values({ hash: "release", markdown });
+    await db.insert(schema.pageSnapshotReads).values({ sourceUrl: wire, snapshotHash: "release" });
+    await persistRecords(db, [reading], "series-a-b", "run-4");
+    expect(await notes()).not.toContain(hold);
+  });
+
+  test("identitySettled: the company's own site always; a wire release only when it names the verified domain", () => {
+    const own = ["hone.com"];
+    const wire = "https://www.businesswire.com/news/home/20250122943998/en/Hone-Closes-33M-Series-A";
+    expect(identitySettled([{ url: "https://www.hone.com/blog/series-a" }], own, null)).toBe(true);
+    expect(identitySettled([{ url: wire, text: "Learn more at www.hone.com." }], own, null)).toBe(false);
+    expect(identitySettled([{ url: wire, text: "Learn more at www.hone.com." }], own, "hone.com")).toBe(true);
+    expect(identitySettled([{ url: wire, text: "About Hone: visit https://hone.com/about" }], own, "hone.com")).toBe(true);
+    // A namesake's release names its own site: Hone Health is honehealth.com, and phone.com is not hone.com.
+    expect(identitySettled([{ url: wire, text: "Hone Health (honehealth.com) closes $33M" }], own, "hone.com")).toBe(false);
+    expect(identitySettled([{ url: wire, text: "Call us via phone.com" }], own, "hone.com")).toBe(false);
+    expect(identitySettled([{ url: wire }], own, "hone.com")).toBe(false);
+    expect(identitySettled([{ url: "https://techcrunch.com/2025/01/28/hone", text: "hone.com" }], own, "hone.com")).toBe(false);
   });
 
   test("a rename keeps a passed audit's fingerprint, so the publication gate lets the round stand", async () => {

@@ -42,12 +42,24 @@ import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
 import { publicLane, publicNotes, publicVerifier } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
-import { companyAccounts, visibilityEvidence } from "./round-verification.ts";
+import { companyAccounts, identitySettled, isWireUrl, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
 import { dedupeSources, orderSources, type PrimarySource, primarySourceOf } from "./source-order.ts";
 import { valuationDisclosed } from "./valuation-disclosure.ts";
 
-const { companies, fundingRounds, investors, pageVerdicts, roundInvestors, sources, roundSources, enrichments, roundMerges } = schema;
+const {
+  companies,
+  fundingRounds,
+  investors,
+  pageSnapshotReads,
+  pageSnapshots,
+  pageVerdicts,
+  roundInvestors,
+  sources,
+  roundSources,
+  enrichments,
+  roundMerges,
+} = schema;
 
 /** The precision column as its rank, for comparisons in SQL. */
 function rankSql(column: typeof fundingRounds.datePrecision) {
@@ -1200,13 +1212,33 @@ export async function persistRecords(
       options.history ? { name: r.company_name, sites: ownDomains } : undefined,
       await companyAccounts(handle, companyId),
     );
-    // A namesake doubt from an earlier pass lifts once the company's own site states the round: that page settles whose round it is.
-    const ownSite = [...r.sources.map((s) => s.url), ...(prev?.sourceIds ?? [])].some((url) =>
-      ownDomains.includes(registrableDomain(url) ?? ""),
-    );
+    // A namesake doubt from an earlier pass lifts once the company's own site states the round, or a wire
+    // carries its release and the company's domain verified as its homepage: that settles whose round it is.
+    const [profile] = storedCompany?.domain
+      ? await handle
+          .select({ data: enrichments.data })
+          .from(enrichments)
+          .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")))
+          .limit(1)
+      : [];
+    const profileData = profile?.data as EnrichmentData | undefined;
+    const verifiedDomain =
+      toEnrichment(profileData)?.verified && registrableDomain(profileData?.company_website ?? null) === storedCompany?.domain
+        ? (storedCompany?.domain ?? null)
+        : null;
+    const urls = [...new Set([...r.sources.map((s) => s.url), ...(prev?.sourceIds ?? [])])];
+    const wires = verifiedDomain ? urls.filter(isWireUrl) : [];
+    const releases = wires.length
+      ? await handle
+          .select({ url: pageSnapshotReads.sourceUrl, text: pageSnapshots.markdown })
+          .from(pageSnapshotReads)
+          .innerJoin(pageSnapshots, eq(pageSnapshots.hash, pageSnapshotReads.snapshotHash))
+          .where(inArray(pageSnapshotReads.sourceUrl, wires))
+      : [];
+    const settled = identitySettled([...urls.map((url) => ({ url })), ...releases], ownDomains, verifiedDomain);
     const namesake =
       identityCollision ||
-      (!ownSite && Boolean(prev?.verificationNotes?.some((note) => note.includes("same-name company identity is unverified"))));
+      (!settled && Boolean(prev?.verificationNotes?.some((note) => note.includes("same-name company identity is unverified"))));
     if (!namesake && r.verification?.notes.includes(IDENTITY_HOLD)) {
       r.verification = { ...r.verification, notes: r.verification.notes.filter((note) => note !== IDENTITY_HOLD) };
     }
