@@ -877,8 +877,15 @@ const ALIASES: Record<string, string> = {
 /** Misspellings of a firm that sources have printed, keyed as the firm ("Sequioa Capital" on a Chai Discovery listing). */
 const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
 
-/** One program under two names: a16z's crypto accelerator (CSX) became speedrun. */
-const RENAMED: Record<string, string> = { "andreessen horowitz csx": "andreessen horowitz speedrun" };
+/**
+ * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
+ * speedrun; "YC" alone is Y Combinator; Sequoia's Indian arm is printed with and without "Capital".
+ */
+const RENAMED: Record<string, string> = {
+  "andreessen horowitz csx": "andreessen horowitz speedrun",
+  yc: "y combinator",
+  "sequoia india": "sequoia capital india",
+};
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
 export function investorKeyForMerge(name: string): string {

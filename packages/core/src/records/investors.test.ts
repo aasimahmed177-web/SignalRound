@@ -563,6 +563,14 @@ describe("rule 4: one firm, one entry", () => {
     expect(investorKeyForMerge("Andreessen Horowitz (a16z)")).toBe("andreessen horowitz");
   });
 
+  test("a firm's other whole name keys as the firm: YC is Y Combinator, Sequoia India is Sequoia Capital India", () => {
+    expect(investorKeyForMerge("YC")).toBe(investorKeyForMerge("Y Combinator"));
+    expect(investorKeyForMerge("Sequoia India")).toBe(investorKeyForMerge("Sequoia Capital India"));
+    // Only the whole name: a fund that starts with the short form keeps its own key.
+    expect(investorKeyForMerge("YC Continuity Fund")).not.toBe(investorKeyForMerge("Y Combinator"));
+    expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));
+  });
+
   test("a misspelling a source printed keys as the firm: Sequioa Capital is Sequoia", () => {
     expect(investorKeyForMerge("Sequioa Capital")).toBe("sequoia");
     expect(investorKeyForMerge("Sequioa Capital India")).toBe(investorKeyForMerge("Sequoia Capital India"));
