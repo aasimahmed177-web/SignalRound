@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ReconcileModel } from "../llm/model.ts";
 import { cleanInvestors, hasLeadLanguage } from "../records/investors.ts";
 import { MONEY_KINDS } from "../records/money-kind.ts";
-import { namesCompany } from "../records/normalize.ts";
+import { classifyStage, namesCompany, stageWritten } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import { AMOUNT_SCOPES, ExtractedRound, FieldQuotes, RoundsPage } from "../records/schema.ts";
 import { groundingCheck, pageSentences } from "./extract.ts";
@@ -40,6 +40,21 @@ function supported(value: string | null | undefined, quote: string | null | unde
   return !value || (!!quote && groundingCheck({ evidence_quote: quote }, markdown));
 }
 
+/**
+ * Whether the round's own words state its label's stage: the stage quote or the round's sentence writes
+ * it (stageWritten). On a page of several rounds a stage quote counts only when it names the company,
+ * since a roundup's next line is another company's Series A. A quote that is on the page but writes no
+ * stage ("today announced $5 million in venture funding" for a "Seed") states none.
+ */
+function stageQuoted(round: z.infer<typeof QuotedPage>["rounds"][number], several: boolean): boolean {
+  const { stage } = classifyStage(round.round_type_as_written);
+  const quote = round.field_quotes.stage;
+  return (
+    stageWritten(stage, round.evidence_quote) ||
+    (!!quote && (!several || namesCompany(quote, round.company_name)) && stageWritten(stage, quote))
+  );
+}
+
 /** An unsupported optional fact abstains; an unsupported round quote drops only that round. */
 export function groundQuotedPage(page: z.infer<typeof QuotedPage>, markdown: string): RoundsPage {
   const rounds: RoundsPage["rounds"] = [];
@@ -53,7 +68,8 @@ export function groundQuotedPage(page: z.infer<typeof QuotedPage>, markdown: str
     )
       continue;
     const { field_quotes: _quotes, ...result } = round;
-    if (!supported(result.round_type_as_written, q.stage, markdown)) result.round_type_as_written = "funding round";
+    if (!supported(result.round_type_as_written, q.stage, markdown) || !stageQuoted(round, page.rounds.length > 1))
+      result.round_type_as_written = "funding round";
     if (!supported(result.company_website, q.website, markdown)) result.company_website = null;
     if (!supported(result.company_description, q.description, markdown)) result.company_description = null;
     if (!supported(result.headquarters, q.headquarters, markdown)) result.headquarters = null;

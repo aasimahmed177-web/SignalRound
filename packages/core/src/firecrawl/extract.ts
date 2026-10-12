@@ -19,6 +19,7 @@ import {
   parseStatedDate,
   registrableDomain,
   slugWords,
+  stageWritten,
   urlSlug,
 } from "../records/normalize.ts";
 import type { ExtractedItem } from "../records/resolve.ts";
@@ -293,36 +294,23 @@ export function equitySplit(
 const PLACEHOLDER_LABEL =
   /^(?:unknown|not specified|unspecified|n\/?a|na|none|not stated|not given|no specific round type given|not disclosed|series unknown)$|\b(?:stage|round type)\s+(?:not\s+(?:disclosed|specified|given|stated)|unknown)\b/i;
 
-/** How a lettered or named stage is written on a page, loosely: "Series A", "Serie A", "A round", "seed". */
-function stageWrittenOn(stage: string, text: string): boolean {
-  const letter = /^series_([a-c])$/.exec(stage)?.[1];
-  if (letter)
-    return new RegExp(
-      `\\bs[e\u00e9]ries?[\\s-]*${letter}(?![a-z])|\\b${letter}[\\s-]*(?:round|runde|ronde)\\b|\\bround[\\s-]*${letter}\\b|${letter}\\+?\\s*\u8f6e|\u30b7\u30ea\u30fc\u30ba\\s*${letter}|\uc2dc\ub9ac\uc988\\s*${letter}`,
-      "i",
-    ).test(text);
-  if (stage === "series_d_plus")
-    return /\bs[e\u00e9]ries?[\s-]*[d-j](?![a-z])|[d-j]\+?\s*\u8f6e|\u30b7\u30ea\u30fc\u30ba\s*[d-j]/i.test(text);
-  if (stage === "seed") return /\bseed\b|\u79cd\u5b50|\u7a2e\u5b50|\u30b7\u30fc\u30c9|\uc2dc\ub4dc/i.test(text);
-  if (stage === "pre_seed") return /\bpre[\s-]*seed\b|\bangel\b|\u5929\u4f7f|\u30a8\u30f3\u30b8\u30a7\u30eb|\uc5d4\uc824/i.test(text);
-  return true;
-}
-
 /** The words a page uses for a round it does not letter, in the order they are tried against the round's sentence. */
 const UNLETTERED_LABEL = /\b(funding round|financing round|fundraise|financing|funding|investment round|investment|round)\b/i;
 
 /**
  * A label the page never writes is the extractor's guess: a Business Wire release that says only "$75
- * million in financing" came back as a "Series A" on one read. A lettered or seed label whose stage
- * appears nowhere on the page becomes what the round's sentence calls the money ("financing"), or
- * "funding round", so the round is placed by its size (routing.ts) and shown as the page wrote it.
+ * million in financing" came back as a "Series A" on one read. A lettered, seed, pre-seed, or growth
+ * label whose stage the page never writes for this round becomes what the round's sentence calls the
+ * money ("financing"), or "funding round", so the round is placed by its size (routing.ts) and shown
+ * as the page wrote it. A link's address is not the page's text (a "-seed" URL slug named Kanu's
+ * unlettered round), a pre-seed is not a seed, and a stage the page places at an earlier round is not
+ * this one's (stageWritten).
  */
 export function labelOnPage(label: string, evidence: string | null | undefined, markdown: string): string {
   // The extractor's word for "the page names no stage" is not a label either: the sentence's word is.
   if (PLACEHOLDER_LABEL.test(label.trim())) return UNLETTERED_LABEL.exec(evidence ?? "")?.[1]?.toLowerCase() ?? "funding round";
-  const { stage } = classifyStage(label);
-  if (!/^(?:series_[a-c]|series_d_plus|seed|pre_seed)$/.test(stage)) return label;
-  if (stageWrittenOn(stage, markdown)) return label;
+  const text = markdown.replace(/\]\([^)]*\)/g, "]").replace(/https?:\/\/\S+/g, "");
+  if (stageWritten(classifyStage(label).stage, text)) return label;
   return UNLETTERED_LABEL.exec(evidence ?? "")?.[1]?.toLowerCase() ?? "funding round";
 }
 

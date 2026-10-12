@@ -75,9 +75,14 @@ export function stageLabel(asWritten: string): string {
   return GENERIC_STAGE_LABEL.test(asWritten.trim()) ? "funding round" : asWritten;
 }
 
+/** A typographic dash as a hyphen: a reader's "pre‑seed" (a non-breaking hyphen) is a pre-seed, not a seed. */
+function plainDashes(text: string): string {
+  return text.replace(/[\u2010-\u2015\u2212]/g, "-");
+}
+
 /** Map a free-text round label onto the stage enum. "Series A extension" is series_a with isExtension. */
 export function classifyStage(label: string): StageClassification {
-  const t = label.toLowerCase().replace(/\s+/g, " ").trim();
+  const t = plainDashes(label).toLowerCase().replace(/\s+/g, " ").trim();
   const isExtension =
     /\b(extension|ext\.?|top[\s-]?up)\b|\b(?:additional|follow[ -]?on)\s+investment\s+(?:in|into|of)\s+(?:the\s+)?(?:seed|series\s+[a-z])\b/.test(
       t,
@@ -114,6 +119,49 @@ export function classifyStage(label: string): StageClassification {
   }
   if (/\b(growth|late[\s-]stage|pre[\s-]ipo|mezzanine)\b/.test(t)) return done("growth");
   return done("other");
+}
+
+/** How a lettered round is written: "Series A", "Serie A", "Series A-1", "A轮", "シリーズA", "시리즈 A"; never "pre-Series A". */
+function letteredWords(letters: string): RegExp[] {
+  return [
+    new RegExp(
+      `(?<!pre[\\s-]?)\\bs[e\u00e9]ries?[\\s-]*[${letters}](?![a-z])|[${letters}]\\+?\\s*\u8f6e|\u30b7\u30ea\u30fc\u30ba\\s*[${letters}]|\uc2dc\ub9ac\uc988\\s*[${letters}]`,
+      "giu",
+    ),
+    new RegExp(
+      `(?<!(?:[Ss][e\u00e9]ries?|[Pp]re)[\\s-]*)\\b[${letters.toUpperCase()}][\\s-]?(?:[Rr]ound|Runde|ronde)\\b|\\b[Rr]ound[\\s-]+[${letters.toUpperCase()}]\\b`,
+      "gu",
+    ),
+  ];
+}
+
+/** The words a page uses for each stage a label can name. A stage missing here has nothing to check. */
+const STAGE_WORDS: Partial<Record<Stage, RegExp[]>> = {
+  pre_seed: [/\bpre[\s-]*seed\b|\bangel\b|\u5929\u4f7f|\u30a8\u30f3\u30b8\u30a7\u30eb|\uc5d4\uc824/giu],
+  seed: [/(?<!pre[\s-]?)\bseed\b|\u79cd\u5b50|\u7a2e\u5b50|\u30b7\u30fc\u30c9|\uc2dc\ub4dc/giu],
+  series_a: letteredWords("a"),
+  series_b: letteredWords("b"),
+  series_c: letteredWords("c"),
+  series_d_plus: letteredWords("d-j"),
+  growth: [/\bgrowth[\s-]+(?:round|equity|financing|funding|capital|investment)\b|\blate[\s-]stage\b|\bpre[\s-]?ipo\b|\bmezzanine\b/giu],
+};
+
+/** A stage named for an earlier round: "exceeds its previously announced Series A", "ahead of its Series A", "follows its seed". */
+const EARLIER_ROUND =
+  /\b(?:previous(?:ly)?(?!\s+un(?:announced|disclosed|reported)\b)|prior|earlier|last|ahead\s+of|follows|followed)\s+(?:[^\s.;:!?]+\s+){0,4}$/i;
+
+/**
+ * Whether a text writes `stage` for the round it describes: the stage's own words ("Series A", "Serie
+ * A", "A round", "seed", "pre-seed", "growth equity"), not a pre-seed for a seed, a pre-Series A for a
+ * Series A, or a stage the text places at an earlier round (Biotia's "exceeds Biotia's previously
+ * announced Series A" names no stage for its new $9 million). A stage with no words of its own (other,
+ * bridge, debt) has nothing to check and is written. Pure.
+ */
+export function stageWritten(stage: Stage, text: string): boolean {
+  const words = STAGE_WORDS[stage];
+  if (!words) return true;
+  const t = plainDashes(text);
+  return words.some((pattern) => [...t.matchAll(pattern)].some((m) => !EARLIER_ROUND.test(t.slice(Math.max(0, m.index - 80), m.index))));
 }
 
 /** An unlabelled round at least this large is a growth round. */
