@@ -13,6 +13,7 @@ import {
   parseFormat,
   parseLimit,
   parseMinUsd,
+  parseQuery,
   parseSector,
   parseSince,
   parseSort,
@@ -101,6 +102,8 @@ export async function GET(request: Request) {
   if (!since.ok) return badRequest(since.error);
   const minUsd = parseMinUsd(p.get("min_usd"));
   if (!minUsd.ok) return badRequest(minUsd.error);
+  const q = parseQuery(p.get("q"));
+  if (!q.ok) return badRequest(q.error);
   const stages = parseStages(p.get("stage"));
   if (!stages.ok) return badRequest(stages.error);
   const sector = parseSector(p.get("sector"));
@@ -137,7 +140,7 @@ export async function GET(request: Request) {
     certainty: certainty.value,
     preset: p.get("preset") ?? undefined,
     sector: sector.value,
-    q: p.get("q") ?? undefined,
+    q: q.value,
     company: p.get("company") ?? undefined,
     minUsdMillions: minUsd.value,
     includeReview,

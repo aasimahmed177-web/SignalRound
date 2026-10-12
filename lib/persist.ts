@@ -1855,6 +1855,13 @@ export function feedHistory(q: Pick<RoundQuery, "since" | "until" | "company">):
   return q.since || q.until || q.company ? undefined : "exclude";
 }
 
+/**
+ * The longest search text a round query matches on, as /api/v1's parseQuery allows. The match is three
+ * ILIKE scans whose cost grows with the pattern, and the feed page passes its `q` straight through, so
+ * a longer text is cut here rather than costing the database seconds per request.
+ */
+export const SEARCH_TEXT_MAX = 200;
+
 /** The WHERE half of a round query, shared by listRounds and countRounds. Cursor stays with the caller. */
 function roundConds(q: RoundQuery) {
   const conds = [];
@@ -1876,7 +1883,7 @@ function roundConds(q: RoundQuery) {
     );
   }
   if (q.q) {
-    const term = `%${q.q.replace(/[%_]/g, "")}%`;
+    const term = `%${q.q.slice(0, SEARCH_TEXT_MAX).replace(/[%_]/g, "")}%`;
     conds.push(
       sql`(${companies.name} ilike ${term} or coalesce(${companies.description}, '') ilike ${term} or exists (
         select 1 from ${roundInvestors} ri join ${investors} i on i.id = ri.investor_id

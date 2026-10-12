@@ -15,7 +15,7 @@ import { GET as feedsGet } from "../app/feeds/[token]/[file]/route";
 import { corroborateRecord } from "../lib/corroborate";
 import { db } from "../lib/db";
 import { signForTests } from "../lib/firecrawl-webhook";
-import { persistRecords } from "../lib/persist";
+import { listRounds, persistRecords, SEARCH_TEXT_MAX } from "../lib/persist";
 import { feedItemId } from "../lib/public-feeds";
 import { mintFeedToken } from "../lib/settings";
 import { record } from "./helpers";
@@ -110,6 +110,11 @@ describe("GET /api/v1/rounds", () => {
       data: Array<{ company: { name: string } }>;
     };
     expect(q.data.map((r) => r.company.name)).toEqual(["Beta"]);
+    // A long search text is three scans that cost the database seconds: the API refuses past 200
+    // characters, and the store reads only the first SEARCH_TEXT_MAX of whatever a page passes it.
+    expect((await roundsGet(new Request(`http://app.test/api/v1/rounds?q=${"a".repeat(201)}`))).status).toBe(400);
+    const padded = `big fund${"_".repeat(SEARCH_TEXT_MAX - 8)}words past the cap`;
+    expect((await listRounds(await db(), { q: padded })).rows.map((r) => r.company.name)).toEqual(["Beta"]);
 
     const byDomain = (await (await roundsGet(new Request("http://app.test/api/v1/rounds?company=https://www.alpha.com/"))).json()) as {
       data: Array<{ company: { name: string } }>;

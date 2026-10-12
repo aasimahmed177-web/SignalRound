@@ -484,7 +484,12 @@ export function GET(request: Request) {
               description: SECTOR_PARAM,
               schema: { type: "string" },
             },
-            { name: "q", in: "query", description: "Free text over company name, description, and investors", schema: { type: "string" } },
+            {
+              name: "q",
+              in: "query",
+              description: "Free text over company name, description, and investors",
+              schema: { type: "string", maxLength: 200 },
+            },
             {
               name: "company",
               in: "query",
