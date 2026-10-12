@@ -1999,6 +1999,15 @@ describe("company names and aliases", () => {
     expect(isGenericCompanyName("Procter & Gamble")).toBe(false);
   });
 
+  test("a capitalised name ending in Company is a company; a described one is not", () => {
+    expect(isGenericCompanyName("Bangalore Watch Company")).toBe(false);
+    expect(isGenericCompanyName("KHOY Company")).toBe(false);
+    expect(isGenericCompanyName("Zari Company")).toBe(false);
+    expect(isGenericCompanyName("The Company")).toBe(true);
+    expect(isGenericCompanyName("a watch company")).toBe(true);
+    expect(isGenericCompanyName("Indian watch company")).toBe(true);
+  });
+
   test("a two-entity subject of one brand is the first; an ampersand brand is one entity", () => {
     expect(firstOfTwoEntities("AusperBio Therapeutics and Ausper Biopharma")).toBe("AusperBio Therapeutics");
     expect(firstOfTwoEntities("Procter & Gamble")).toBe("Procter & Gamble");
