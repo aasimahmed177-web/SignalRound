@@ -488,12 +488,15 @@ export function textWritesDay(markdown: string, day: Date): boolean {
  * A date the page does not write that falls within a day and a half of the scrape is the clock's, not
  * the page's: a CMS that stamps an index or an evergreen page with the time it rendered (antidote.me's
  * 2017 press page, FinancialIT's "Fundraising News" index), or the extractor answering "today" for a page
- * that states no date. It becomes no date, so the round is undated rather than dated to its crawl. Pure.
+ * that states no date. It becomes no date, so the round is undated rather than dated to its crawl. A
+ * date more than a day and a half after the scrape is no page's either: the extractor read BRIDGE's
+ * QibiTech story, scraped on October 1, as published October 4, and the round dropped as out of window. Pure.
  */
 export function offClock(value: string | null | undefined, markdown: string | undefined, now: Date): string | null {
   if (!value) return null;
   if (markdown === undefined) return value;
   const day = parseDate(value, now);
+  if (day && day.getTime() - now.getTime() > CLOCK_SLACK_MS) return null;
   if (!day || Math.abs(now.getTime() - day.getTime()) > CLOCK_SLACK_MS) return value;
   return textWritesDay(markdown, day) ? value : null;
 }

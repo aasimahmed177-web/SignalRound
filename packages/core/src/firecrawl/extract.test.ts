@@ -448,6 +448,12 @@ describe("an undated page is not dated to its crawl", () => {
     expect(offClock(null, "text", now)).toBeNull();
   });
 
+  test("offClock drops a day after the scrape, which no page was published on", () => {
+    expect(offClock("2026-09-28", "On September 24, QibiTech announced it has raised ¥600 million.", now)).toBeNull();
+    // A day ahead of UTC (a Tokyo dateline) is still inside the slack.
+    expect(offClock("2026-09-26", "TOKYO, Sept. 26, 2026 -- Acme raised ¥600 million.", now)).toBe("2026-09-26");
+  });
+
   test("extractRounds takes the clock's day off the metadata, the page date, and a round's date", async () => {
     const client = {
       scrape: async () => ({
@@ -488,6 +494,48 @@ describe("an undated page is not dated to its crawl", () => {
     expect(result.items[0]?.page_date).toBeUndefined();
     expect(result.items[0]?.source.published).toBeUndefined();
   });
+  test("extractRounds leaves a page undated when the extractor dates it days after the scrape", async () => {
+    const markdown =
+      "On September 30, QibiTech, the developer of the software HATS, announced that it has raised a total of approximately ¥600 million through a third-party allotment in its Series B round.";
+    const client = {
+      scrape: async () => ({
+        markdown,
+        json: {
+          page_kind: "article",
+          page_date: "2026-10-04",
+          rounds: [
+            {
+              company_name: "QibiTech",
+              round_type_as_written: "Series B",
+              amount_as_written: "¥600 million",
+              announced_date: null,
+              evidence_quote: markdown,
+              company_website: null,
+              company_description: null,
+              amount_kind: "round",
+              valuation_as_written: null,
+              lead_investors: [],
+              other_investors: [],
+              headquarters: null,
+              sector: null,
+              source_url: null,
+              is_background: false,
+              is_rumor: false,
+            },
+          ],
+        },
+        metadata: {},
+      }),
+    } as unknown as Firecrawl;
+    const result = await extractRounds(
+      client,
+      [{ url: "https://thebridge.jp/en/2026/10/qibitech-raises-approximately-600-million-in-series-b" }],
+      { now: new Date("2026-10-01T20:00:00Z") },
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.page_date).toBeUndefined();
+  });
+
   test("guessedYear drops a year the page never gives, and keeps one it writes or its own day carries", () => {
     const october2 = new Date("2026-10-02T12:00:00Z");
     // The Supabase story: the page writes "October 2, 2026"; the extractor answered 2023.
