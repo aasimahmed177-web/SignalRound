@@ -203,6 +203,34 @@ describe("listStories", () => {
     expect(entries[0].kind).toBe("article");
   });
 
+  test("a weekly roundup that reported one round stays an article, not that company's story", async () => {
+    const db = await testDb();
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "Kapta Space",
+          sources: [
+            { url: "https://kapta.example/news/series-a", host: "kapta.example", title: "Kapta Space raises $15M Series A" },
+            {
+              url: "https://cyclopspacetech.substack.com/p/spacetech-weekly-recap-october-5-11-2026",
+              host: "cyclopspacetech.substack.com",
+              title: "SpaceTech Weekly Recap – October 5–11, 2026",
+            },
+          ],
+        }),
+      ],
+      "series-a-b",
+      "run-1",
+    );
+    const entries = await listStories(db);
+    const story = entries.find((e) => e.kind === "story");
+    expect(story?.kind === "story" && [story.primary.url, ...story.also.map((a) => a.url)]).toEqual([
+      "https://kapta.example/news/series-a",
+    ]);
+    expect(entries.some((e) => e.kind === "article" && e.item.title?.startsWith("SpaceTech Weekly Recap"))).toBe(true);
+  });
+
   test("stories and articles sort by day, then the primary's publish date", async () => {
     const db = await testDb();
     await persistRecords(

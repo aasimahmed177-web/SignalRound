@@ -3,7 +3,7 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import { normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
+import { isListPage, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
@@ -455,7 +455,8 @@ export function parseNewsCursor(raw: string): { day: string; url: string } | nul
  * The latest articles about the rounds the feed lists, newest first: each with its publisher, its
  * day, and the rounds it reports, each round with its certainty (an expected round is news too, and
  * says so). Filings (a Form D) are records, not news, and are left out, as are
- * pages that only recall an earlier round.
+ * pages that only recall an earlier round, and roundups, newsletters, and listicles (isListPage): a
+ * source on each round they list, but not an article about any one company.
  */
 export async function apiNews(handle: Db, q: ApiNewsQuery) {
   const day = sql<string>`coalesce(nullif(left(${sources.publishedAt}, 10), ''), to_char(${sources.fetchedAt} at time zone 'UTC', 'YYYY-MM-DD'))`;
@@ -474,22 +475,38 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
     );
   if (q.q) roundConds.push(sql`(c.name ilike ${likeTerm(q.q)} or ${sources.title} ilike ${likeTerm(q.q)})`);
   const reports = sql`exists (select 1 from round_sources rs join funding_rounds r on r.id = rs.round_id join companies c on c.id = r.company_id where ${sql.join(roundConds, sql` and `)})`;
-  const rows = await handle
-    .select({ id: sources.id, url: sources.url, host: sources.host, title: sources.title, day })
-    .from(sources)
-    .where(
-      and(
-        sql`${sources.host} not in (${sql.join(
-          FILING_HOSTS.map((h) => sql`${h}`),
-          sql`, `,
-        )})`,
-        reports,
-        q.since ? sql`${day} >= ${q.since}` : undefined,
-        q.cursor ? sql`(${day}, ${sources.id}) < (${q.cursor.day}, ${q.cursor.url})` : undefined,
-      ),
-    )
-    .orderBy(desc(day), desc(sources.id))
-    .limit(q.limit + 1);
+  // Read in batches until a page and one more survive the list-page rule, so the cursor stays exact.
+  const rows: Array<{ id: string; url: string; host: string; title: string | null; day: string }> = [];
+  let after = q.cursor;
+  for (;;) {
+    const batch = await handle
+      .select({
+        id: sources.id,
+        url: sources.url,
+        host: sources.host,
+        title: sources.title,
+        day,
+        rounds: sql<number>`(select count(*) from round_sources rs where rs.source_id = ${sources.id})::int`,
+      })
+      .from(sources)
+      .where(
+        and(
+          sql`${sources.host} not in (${sql.join(
+            FILING_HOSTS.map((h) => sql`${h}`),
+            sql`, `,
+          )})`,
+          reports,
+          q.since ? sql`${day} >= ${q.since}` : undefined,
+          after ? sql`(${day}, ${sources.id}) < (${after.day}, ${after.url})` : undefined,
+        ),
+      )
+      .orderBy(desc(day), desc(sources.id))
+      .limit(2 * (q.limit + 1));
+    for (const r of batch) if (!isListPage({ url: r.url, title: r.title }, null, r.rounds)) rows.push(r);
+    const last = batch[batch.length - 1];
+    if (rows.length > q.limit || batch.length < 2 * (q.limit + 1) || !last) break;
+    after = { day: last.day, url: last.id };
+  }
   const page = rows.slice(0, q.limit);
   const ids = page.map((r) => r.id);
   const links = ids.length

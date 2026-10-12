@@ -1,6 +1,6 @@
 // The articles behind the records: every source page, with the rounds it reported.
 
-import { DEFAULT_TIERS } from "@fireround/core";
+import { DEFAULT_TIERS, isListPage } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
@@ -198,7 +198,11 @@ export function orderSources<T extends { host: string; published_at: string | nu
   );
 }
 
-/** The whole News list folded into stories: sources behind one round group by that round. */
+/**
+ * The whole News list folded into stories: sources behind one round group by that round. A roundup,
+ * newsletter, or listicle (isListPage) stays an article with its chips even when it reported one round:
+ * it is not a copy of that company's story.
+ */
 export async function listStories(handle: Db, q: NewsQuery = {}): Promise<NewsEntry[]> {
   const [items, fileTiers] = await Promise.all([listNews(handle, q), loadPublisherTiers()]);
   const tiers = { ...DEFAULT_TIERS, ...fileTiers };
@@ -214,7 +218,7 @@ export async function listStories(handle: Db, q: NewsQuery = {}): Promise<NewsEn
   const byRound = new Map<string, NewsItem[]>();
   const entries: NewsEntry[] = [];
   for (const item of items) {
-    if (item.rounds.length !== 1) {
+    if (item.rounds.length !== 1 || isListPage({ url: item.url, title: item.title })) {
       entries.push({ kind: "article", item });
       continue;
     }

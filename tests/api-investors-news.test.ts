@@ -271,18 +271,17 @@ describe("/api/v1/investors and /api/v1/investors/{id}", () => {
 });
 
 describe("/api/v1/news", () => {
-  test("the newest articles behind the feed's current rounds, each with its rounds; filings and hidden rounds left out", async () => {
+  test("the newest articles behind the feed's current rounds, each with its rounds; filings, roundups, and hidden rounds left out", async () => {
     const { body } = await get(newsGet, "/api/v1/news?limit=10");
     const urls = body.data.map((a) => a.url);
-    expect(urls).toContain(ROUNDUP);
+    // A weekly roundup is a source on Alpha's and Beta's rounds, not an article about either company.
+    expect(urls).not.toContain(ROUNDUP);
+    expect(urls).toEqual(expect.arrayContaining(["https://news.example/alpha", "https://wire.example/beta"]));
     expect(urls).not.toContain("https://www.sec.gov/beta-form-d");
     for (const hidden of ["echo", "hidden"]) expect(urls).not.toContain(`https://news.example/${hidden}`);
     // A round still being raised is news, and says so.
     const delta = body.data.find((a) => a.url === "https://news.example/delta") as { rounds: Array<Record<string, unknown>> };
     expect(delta.rounds[0]).toMatchObject({ company: "Delta", certainty: "expected" });
-    const roundup = body.data.find((a) => a.url === ROUNDUP) as Record<string, unknown> & { rounds: Array<Record<string, unknown>> };
-    expect(roundup.excerpt).toBeNull();
-    expect(roundup.rounds.map((r) => r.company).sort()).toEqual(["Alpha", "Beta"]);
     const alpha = body.data.find((a) => a.url === "https://news.example/alpha");
     expect(alpha).toMatchObject({ publisher: "news.example", excerpt: "Alpha raised $20M led by Fund One and Fund Two." });
   });
