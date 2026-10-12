@@ -15,7 +15,7 @@ import { GET as feedsGet } from "../app/feeds/[token]/[file]/route";
 import { corroborateRecord } from "../lib/corroborate";
 import { db } from "../lib/db";
 import { signForTests } from "../lib/firecrawl-webhook";
-import { listRounds, persistRecords, SEARCH_TEXT_MAX } from "../lib/persist";
+import { listRounds, persistRecords, SEARCH_TEXT_MAX, setDisposition } from "../lib/persist";
 import { feedItemId } from "../lib/public-feeds";
 import { mintFeedToken } from "../lib/settings";
 import { record } from "./helpers";
@@ -464,4 +464,31 @@ describe("POST /api/webhooks/firecrawl", () => {
     expect(ok.status).toBe(200);
     delete process.env.WEBHOOK_BEARER_TOKEN;
   });
+});
+
+test("a name both a company and an investor carry is one suggestion, not two", async () => {
+  const handle = await db();
+  for (const [company, day] of [
+    ["Orbital", "2026-08-20"],
+    ["Lander", "2026-08-21"],
+  ]) {
+    const { persistedIds } = await persistRecords(
+      handle,
+      [
+        record({
+          company_name: company,
+          company_domain: `${company.toLowerCase()}.example`,
+          announced_date: day,
+          lead_investors: ["Orbital"],
+        }),
+      ],
+      "series-a-b",
+      `run-routes-${company}`,
+    );
+    await setDisposition(handle, persistedIds[0] as string, "publish");
+  }
+  const res = (await (await roundsGet(new Request("http://app.test/api/v1/rounds?q=orbitall"))).json()) as {
+    did_you_mean?: Array<{ id: string; name: string }>;
+  };
+  expect(res.did_you_mean).toEqual([{ id: "orbital.example", name: "Orbital" }]);
 });

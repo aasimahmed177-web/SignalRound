@@ -191,13 +191,12 @@ export async function GET(request: Request) {
     });
   }
   const named = p.get("company") ?? p.get("q");
-  const near =
+  const candidates =
     rows.length === 0 && !cursor.value && named
-      ? [
-          ...(await didYouMean(handle, "companies", named)),
-          ...(p.get("company") ? [] : await didYouMean(handle, "investors", named)),
-        ].slice(0, 3)
+      ? [...(await didYouMean(handle, "companies", named)), ...(p.get("company") ? [] : await didYouMean(handle, "investors", named))]
       : [];
+  // A name is one suggestion for q, whether a company, an investor, or both carry it (Anthropic is both).
+  const near = candidates.filter((n, i) => candidates.findIndex((m) => m.name.toLowerCase() === n.name.toLowerCase()) === i).slice(0, 3);
   return NextResponse.json(
     { data: withTrending, next_cursor: nextCursor, ...(near.length ? { did_you_mean: near } : {}) },
     { headers: readHeaders(insider) },
