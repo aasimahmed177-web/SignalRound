@@ -1,5 +1,5 @@
 // GET /api/v1/companies/{id}: one company's funding, by the id /api/v1/companies returns ("ramp.com"),
-// or a domain or earlier id the company is known by.
+// or a domain (a URL of its site works too) or earlier id the company is known by.
 
 import { NextResponse } from "next/server";
 import { seesReview, viewerFrom } from "@/lib/access";

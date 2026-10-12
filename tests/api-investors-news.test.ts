@@ -17,6 +17,7 @@ import { GET as newsGet } from "../app/api/v1/news/route";
 import { GET as openapiGet } from "../app/api/v1/openapi.json/route";
 import { db } from "../lib/db";
 import { persistRecords, setDisposition } from "../lib/persist";
+import { bareSite } from "../lib/public-api";
 import { internalFields } from "../lib/public-view";
 import { record } from "./helpers";
 import { isoDaysAgo } from "./history-fixtures";
@@ -195,6 +196,9 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     ]);
     // A name it is known by reads the same profile, as its page redirects it.
     expect((await company("zeta-health")).body.id).toBe("zeta.example");
+    // A URL of its site reads the same profile, as /api/v1/rounds?company= reads it.
+    for (const url of ["https://www.zeta.example/", "http://zeta.example/blog/seed?ref=x", "www.zeta.example"])
+      expect((await company(encodeURIComponent(url))).body.id, url).toBe("zeta.example");
     expect((await company("nobody.example")).status).toBe(404);
     // A typo is still a 404, naming the company it was probably meant to be, in the message too.
     const typo = await company("zetta");
@@ -264,6 +268,10 @@ describe("/api/v1/investors and /api/v1/investors/{id}", () => {
     };
     // Its name as written finds it too, legal and generic tails and all.
     for (const name of ["Fund One", "FUND ONE", "Fund One Capital"]) expect((await byName(name)).body.id).toBe("fund-one");
+    // So does its site, bare or as a URL.
+    await (await db()).update(schema.investors).set({ domain: "fundone.example" }).where(eq(schema.investors.id, "fund one"));
+    for (const site of ["fundone.example", "https://www.fundone.example/portfolio"])
+      expect((await byName(site)).body.id, site).toBe("fund-one");
     const typo = await byName("Fund Sevenn");
     expect(typo.status).toBe(404);
     expect(typo.body.did_you_mean).toEqual([{ id: "fund-seven", name: "Fund Seven" }]);
@@ -346,4 +354,18 @@ test("each read's fields are the ones the OpenAPI spec documents", async () => {
   ).json();
   expect(undocumented(profile, schemaOf("/api/v1/investors/{id}"), "$")).toEqual([]);
   expect(undocumented((await company("zeta.example")).body, schemaOf("/api/v1/companies/{id}"), "$")).toEqual([]);
+});
+
+test("a site as people paste it reads as its bare host; an id or a name passes through", () => {
+  for (const [raw, host] of [
+    ["https://www.firecrawl.dev/", "firecrawl.dev"],
+    ["http://Ramp.com/careers?x=1", "ramp.com"],
+    ["www.supabase.com", "supabase.com"],
+    ["supabase.com/pricing", "supabase.com"],
+    ["supabase.com", "supabase.com"],
+    ["zeta-health", "zeta-health"],
+    ["Andreessen Horowitz", "Andreessen Horowitz"],
+    ["sequoia", "sequoia"],
+  ])
+    expect(bareSite(raw), raw).toBe(host);
 });

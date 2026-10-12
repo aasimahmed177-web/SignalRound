@@ -269,7 +269,7 @@ export function GET(request: Request) {
   const CompanyId = {
     type: "string",
     description:
-      "The company's id, the segment of its page's URL: its domain when known (\"ramp.com\"), else its name hyphenated. Pass it to /api/v1/companies/{id}, which also takes the company's domain or an earlier id",
+      "The company's id, the segment of its page's URL: its domain when known (\"ramp.com\"), else its name hyphenated. Pass it to /api/v1/companies/{id}, which also takes the company's domain (a URL of its site works too) or an earlier id",
   };
   const CompanyRound = {
     allOf: [
@@ -850,7 +850,7 @@ export function GET(request: Request) {
               name: "id",
               in: "path",
               required: true,
-              description: 'The investor\'s slug, or its name or site as written ("Andreessen Horowitz", "a16z.com")',
+              description: 'The investor\'s slug, or its name or site as written ("Andreessen Horowitz", "a16z.com", "https://a16z.com/")',
               schema: InvestorId,
             },
           ],

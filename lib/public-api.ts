@@ -100,12 +100,25 @@ export async function apiCompanies(
 }
 
 /**
- * A company's funding, by its id, or by a domain, earlier id, or name it is also known by (as its page
+ * A site as people paste it ("https://www.firecrawl.dev/blog", "www.firecrawl.dev") read as its bare
+ * host ("firecrawl.dev"), the way /api/v1/rounds reads `company`. Anything without a scheme, a
+ * leading www. or a path after a host is returned as given, so an id or a name passes through.
+ */
+export function bareSite(raw: string): string {
+  const t = raw.trim();
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?::\d+)?([/?#].*)?$/i.exec(t);
+  if (!m?.[1] || !(/^[a-z][a-z0-9+.-]*:\/\//i.test(t) || /^www\./i.test(t) || m[2])) return t;
+  return m[1].toLowerCase();
+}
+
+/**
+ * A company's funding, by its id, or by a domain (a URL works too), earlier id, or name it is also known by (as its page
  * redirects them): who it is, what it raised (announced and reported rounds only, as its page
  * counts it), every round the feed lists for it, newest first, each with its leads and its official
  * announcement, and the investors on those rounds, leads first.
  */
-export async function apiCompanyProfile(handle: Db, id: string) {
+export async function apiCompanyProfile(handle: Db, wanted: string) {
+  const id = bareSite(wanted);
   let page = await getCompany(handle, id);
   if (!page) {
     const moved = await companyRedirect(handle, id);
@@ -300,8 +313,9 @@ export function notFound(message: string, near: Array<{ id: string; name: string
 /** How many of an investor's rounds its profile lists, newest first. */
 const PROFILE_ROUNDS = 25;
 
-/** An investor's profile: who it is, what it led and joined, its sectors and stages, and who it invests beside. */
-export async function apiInvestorProfile(handle: Db, idOrSlug: string) {
+/** An investor's profile, by its id, name or site (a URL works too): who it is, what it led and joined, its sectors and stages, and who it invests beside. */
+export async function apiInvestorProfile(handle: Db, wanted: string) {
+  const idOrSlug = bareSite(wanted);
   let page = await getInvestor(handle, investorIdFromParam(idOrSlug));
   if (!page) {
     const id = await investorIdFor(handle, idOrSlug);
