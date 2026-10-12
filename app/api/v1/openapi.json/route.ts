@@ -675,6 +675,12 @@ export function GET(request: Request) {
                     type: "object",
                     properties: {
                       id: CompanyId,
+                      matched_from: {
+                        type: "string",
+                        description:
+                          "Present only when the id matched nothing and this profile is the one name a single edit away; the id as asked",
+                      },
+                      note: { type: "string", description: "Present with matched_from: says which name was read instead" },
                       name: { type: "string" },
                       domain: { type: ["string", "null"] },
                       logo_url: { type: ["string", "null"] },
@@ -874,6 +880,12 @@ export function GET(request: Request) {
                   schema: {
                     type: "object",
                     properties: {
+                      matched_from: {
+                        type: "string",
+                        description:
+                          "Present only when the id matched nothing and this profile is the one name a single edit away; the id as asked",
+                      },
+                      note: { type: "string", description: "Present with matched_from: says which name was read instead" },
                       id: InvestorId,
                       name: { type: "string" },
                       domain: { type: ["string", "null"] },

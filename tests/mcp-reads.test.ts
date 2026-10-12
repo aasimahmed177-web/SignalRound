@@ -181,9 +181,8 @@ describe("each tool answers what its route answers", () => {
 describe("misses and bad values", () => {
   test("a missed company or investor is an error with the route's near names", async () => {
     for (const [name, id, handler, near] of [
-      ["get_company_profile", "zetta", companyGet, [{ id: "zeta.example", name: "Zeta" }]],
       ["get_investor", "Fund Sevenn", investorGet, []],
-      ["get_investor", "fund-sixx", investorGet, [{ id: "fund-six", name: "Fund Six" }]],
+      ["get_investor", "fund-sixxx", investorGet, [{ id: "fund-six", name: "Fund Six" }]],
       ["get_company_profile", "hidden.example", companyGet, []],
     ] as const) {
       const { status, body } = await http(handler, `/api/v1/x/${encodeURIComponent(id)}`, encodeURIComponent(id));
@@ -193,8 +192,11 @@ describe("misses and bad values", () => {
       expect(JSON.parse(r.text)).toEqual(body);
       expect(body.did_you_mean).toEqual(near);
     }
-    const typo = JSON.parse((await tool("get_company_profile", { id: "zetta" })).text) as { error: string };
-    expect(typo.error).toMatch(/Did you mean Zeta \(id zeta\.example\)\?$/);
+    const far = JSON.parse((await tool("get_investor", { id: "fund-sixxx" })).text) as { error: string };
+    expect(far.error).toMatch(/Did you mean Fund Six \(id fund-six\)\?$/);
+    const typo = await tool("get_company_profile", { id: "zetta" });
+    expect(typo.isError).toBeFalsy();
+    expect(JSON.parse(typo.text)).toMatchObject({ id: "zeta.example", matched_from: "zetta" });
   });
 
   test("a value the route refuses is an error with the route's sentence", async () => {

@@ -17,7 +17,7 @@ import { GET as newsGet } from "../app/api/v1/news/route";
 import { GET as openapiGet } from "../app/api/v1/openapi.json/route";
 import { db } from "../lib/db";
 import { persistRecords, setDisposition } from "../lib/persist";
-import { bareSite } from "../lib/public-api";
+import { bareSite, oneEditAway } from "../lib/public-api";
 import { internalFields } from "../lib/public-view";
 import { record } from "./helpers";
 import { isoDaysAgo } from "./history-fixtures";
@@ -201,11 +201,11 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     for (const url of ["https://www.zeta.example/", "http://zeta.example/blog/seed?ref=x", "www.zeta.example"])
       expect((await company(encodeURIComponent(url))).body.id, url).toBe("zeta.example");
     expect((await company("nobody.example")).status).toBe(404);
-    // A typo is still a 404, naming the company it was probably meant to be, in the message too.
+    // A typo one edit from a single company reads that company, and says so.
     const typo = await company("zetta");
-    expect(typo.status).toBe(404);
-    expect(typo.body.did_you_mean).toEqual([{ id: "zeta.example", name: "Zeta" }]);
-    expect(typo.body.error).toMatch(/Did you mean Zeta \(id zeta\.example\)\?$/);
+    expect(typo.status).toBe(200);
+    expect(typo.body).toMatchObject({ id: "zeta.example", matched_from: "zetta", note: expect.stringContaining("this is Zeta") });
+    expect((await company("zeta.example")).body).not.toHaveProperty("matched_from");
     expect((await company("nobody.example")).body.did_you_mean).toEqual([]);
     expect((await company("hidden.example")).status).toBe(404);
   });
@@ -281,8 +281,13 @@ describe("/api/v1/investors and /api/v1/investors/{id}", () => {
     for (const site of ["fundone.example", "https://www.fundone.example/portfolio"])
       expect((await byName(site)).body.id, site).toBe("fund-one");
     const typo = await byName("Fund Sevenn");
-    expect(typo.status).toBe(404);
-    expect(typo.body.did_you_mean).toEqual([{ id: "fund-seven", name: "Fund Seven" }]);
+    expect(typo.status).toBe(200);
+    expect(typo.body).toMatchObject({ id: "fund-seven", matched_from: "Fund Sevenn" });
+    // Two edits away is still a 404 that names it, in the message too.
+    const far = await byName("Fund Sevvenn");
+    expect(far.status).toBe(404);
+    expect(far.body.did_you_mean).toEqual([{ id: "fund-seven", name: "Fund Seven" }]);
+    expect(far.body.error).toMatch(/Did you mean Fund Seven \(id fund-seven\)\?$/);
   });
 });
 
@@ -377,4 +382,12 @@ test("a site as people paste it reads as its bare host; an id or a name passes t
     ["sequoia", "sequoia"],
   ])
     expect(bareSite(raw), raw).toBe(host);
+});
+
+test("a miss reads as one name only when that name alone is a single edit away", () => {
+  const near = (...edits: number[]) => edits.map((e, i) => ({ id: `n${i}`, name: `N${i}`, edits: e }));
+  expect(oneEditAway(near(1, 2))?.id).toBe("n0");
+  expect(oneEditAway(near(1, 1))).toBeNull();
+  expect(oneEditAway(near(2))).toBeNull();
+  expect(oneEditAway([])).toBeNull();
 });

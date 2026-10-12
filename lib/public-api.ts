@@ -272,6 +272,15 @@ const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
  * name is exactly right (another filter ruled it out, so a near name would mislead).
  */
 export async function didYouMean(handle: Db, kind: "companies" | "investors", text: string): Promise<Array<{ id: string; name: string }>> {
+  return (await nearNames(handle, kind, text)).map(({ id, name }) => ({ id, name }));
+}
+
+/** didYouMean's matches with how many edits each is away. */
+export async function nearNames(
+  handle: Db,
+  kind: "companies" | "investors",
+  text: string,
+): Promise<Array<{ id: string; name: string; edits: number }>> {
   const want = compact(text.replace(/^https?:\/\/(www\.)?/i, "").replace(/\.[a-z.]+\/?$/i, ""));
   if (want.length < 5) return [];
   const max = want.length < 8 ? 1 : 2;
@@ -301,7 +310,58 @@ export async function didYouMean(handle: Db, kind: "companies" | "investors", te
     .filter(({ d }) => d <= max)
     .sort((a, b) => a.d - b.d || b.r.rounds - a.r.rounds)
     .slice(0, 3)
-    .map(({ r }) => ({ id: kind === "investors" ? investorSlug(r.id) : r.id, name: r.name }));
+    .map(({ r, d }) => ({ id: kind === "investors" ? investorSlug(r.id) : r.id, name: r.name, edits: d }));
+}
+
+/**
+ * The one name a miss plainly meant: the only near match a single edit away ("supabse" for
+ * Supabase). Null when none is, or when two are and picking one would be a guess.
+ */
+export function oneEditAway<T extends { edits: number }>(near: T[]): T | null {
+  const one = near.filter((n) => n.edits === 1);
+  return one.length === 1 ? (one[0] ?? null) : null;
+}
+
+/**
+ * A profile by what was asked; else the one name a single edit away, read under that name and saying so
+ * (matched_from, note); else the 404 body naming the near ones.
+ */
+async function profileOrNear<T extends { name: string }>(
+  handle: Db,
+  kind: "companies" | "investors",
+  wanted: string,
+  read: (id: string) => Promise<T | null>,
+  miss: string,
+) {
+  const found = await read(wanted);
+  if (found) return found;
+  const near = await nearNames(handle, kind, wanted);
+  const meant = oneEditAway(near);
+  const matched = meant ? await read(meant.id) : null;
+  if (matched) {
+    const noun = kind === "companies" ? "company" : "investor";
+    return { ...matched, matched_from: wanted, note: `No ${noun} goes by "${wanted}"; this is ${matched.name}, one edit away.` };
+  }
+  return notFound(
+    miss,
+    near.map(({ id, name }) => ({ id, name })),
+  );
+}
+
+/** A company's profile, or the one company a misspelled id plainly meant, or the 404 body naming the near ones. */
+export function companyProfileOrNear(handle: Db, wanted: string) {
+  return profileOrNear(handle, "companies", wanted, (id) => apiCompanyProfile(handle, id), "No company with that id has a published round");
+}
+
+/** An investor's profile, or the one investor a misspelled id plainly meant, or the 404 body naming the near ones. */
+export function investorProfileOrNear(handle: Db, wanted: string) {
+  return profileOrNear(
+    handle,
+    "investors",
+    wanted,
+    (id) => apiInvestorProfile(handle, id),
+    "No investor with that id is named on a published round",
+  );
 }
 
 /** A 404 body that names the closest matches, in the message too, so a caller that only reads the message sees them. */

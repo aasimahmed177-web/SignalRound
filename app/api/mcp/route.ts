@@ -20,13 +20,11 @@ import { listPresets } from "@/lib/presets";
 import {
   API_INVESTOR_SORTS,
   apiCompanies,
-  apiCompanyProfile,
-  apiInvestorProfile,
   apiInvestors,
   apiNews,
   apiTopLeads,
-  didYouMean,
-  notFound,
+  companyProfileOrNear,
+  investorProfileOrNear,
   parseNewsCursor,
   TOP_WINDOWS,
   type TopWindow,
@@ -294,7 +292,7 @@ const handler = createMcpHandler(
       {
         title: "Get a company profile",
         description:
-          "One company's funding: who it is, what it raised (announced and reported rounds), every round the feed lists for it, newest first, with leads and the official announcement, and its investors, leads first. An id that matches nothing is an error naming the nearest companies.",
+          "One company's funding: who it is, what it raised (announced and reported rounds), every round the feed lists for it, newest first, with leads and the official announcement, and its investors, leads first. An id one edit from a single company reads that company, with matched_from and a note; any other miss is an error naming the nearest companies.",
         inputSchema: z.object({
           id: z
             .string()
@@ -306,12 +304,8 @@ const handler = createMcpHandler(
       },
       reader("get_company_profile", async ({ id }, handle) => {
         const wanted = id.trim().toLowerCase();
-        const found = await apiCompanyProfile(handle, wanted);
-        if (found) return text(found);
-        return {
-          ...text(notFound("No company with that id has a published round", await didYouMean(handle, "companies", wanted))),
-          isError: true,
-        };
+        const found = await companyProfileOrNear(handle, wanted);
+        return "error" in found ? { ...text(found), isError: true } : text(found);
       }),
     );
 
@@ -341,7 +335,7 @@ const handler = createMcpHandler(
       {
         title: "Get an investor",
         description:
-          "One investor's profile: who it is, the rounds it led, co-led, and joined, the money it led, its sectors and stages, the investors it backs companies beside, and its recent rounds. An id that matches nothing is an error naming the nearest investors.",
+          "One investor's profile: who it is, the rounds it led, co-led, and joined, the money it led, its sectors and stages, the investors it backs companies beside, and its recent rounds. An id one edit from a single investor reads that investor, with matched_from and a note; any other miss is an error naming the nearest investors.",
         inputSchema: z.object({
           id: z
             .string()
@@ -352,12 +346,8 @@ const handler = createMcpHandler(
         annotations: { readOnlyHint: true },
       },
       reader("get_investor", async ({ id }, handle) => {
-        const found = await apiInvestorProfile(handle, id);
-        if (found) return text(found);
-        return {
-          ...text(notFound("No investor with that id is named on a published round", await didYouMean(handle, "investors", id))),
-          isError: true,
-        };
+        const found = await investorProfileOrNear(handle, id);
+        return "error" in found ? { ...text(found), isError: true } : text(found);
       }),
     );
 
