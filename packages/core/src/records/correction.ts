@@ -7,7 +7,7 @@
 
 import { convertToUsd, type RateTable } from "./fx.ts";
 import { dedupeInvestorNames, investedInRound, leadOfAnotherRound, normalizeInvestorName } from "./investors.ts";
-import { canonicalUrl, classifyStage, dateFromUrl, hostOf, parseAmount, parseStatedDate, stageForAmount } from "./normalize.ts";
+import { canonicalUrl, classifyStage, dateFromUrl, hostOf, parseAmount, parseStatedDate } from "./normalize.ts";
 import { MONTHLY_LIST, reconcileInvestorLists, scoreConfidence, WEEKLY_LIST } from "./resolve.ts";
 import type { FeedRecord } from "./schema.ts";
 
@@ -266,9 +266,6 @@ export function applyCorrection(record: FeedRecord, c: Correction, opts: Correct
       }
     }
   }
-
-  // A figure the read-back settled can make an unlabelled round a growth round (OpenAI's $40 billion).
-  r.stage = stageForAmount(r.stage, r.stage_as_written, r.amount.usd_millions);
 
   // Investors: the pages' lists are the record's. A record name that folds into a page name keeps the
   // page's role for it; a record name the pages place outside the round leaves; a page lead the record

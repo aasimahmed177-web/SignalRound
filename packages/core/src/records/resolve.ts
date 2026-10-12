@@ -35,7 +35,6 @@ import {
   parseStatedDate,
   registrableDomain,
   SOCIAL_AND_DIRECTORY_HOSTS,
-  stageForAmount,
   stageLabel,
   stripFurniture,
   withinWindow,
@@ -1064,10 +1063,9 @@ function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext)
   if (typeof date === "string") return date;
   const priced = priceRound(round, sourced, { ...classified, announced: date.announcedIso, named: item.valuation_named === true }, ctx);
   if (typeof priced === "string") return priced;
-  const stage = stageForAmount(classified.stage, round.round_type_as_written, priced.amount.usd_millions);
   // A round that names no stage is this preset's when its amount falls in one of the bands it keeps. With
   // no amount there is nothing to place it by, and it goes (see data-quality.md).
-  if (classified.stageless && !ctx.opts.stages.includes(stage)) {
+  if (classified.stageless && !ctx.opts.stages.includes(classified.stage)) {
     const usd = priced.amount.usd_millions;
     if (usd === null || !stagelessBandsFor(ctx.opts).includes(bandForAmount(usd))) return "otherStage";
   }
@@ -1089,7 +1087,6 @@ function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext)
     source,
     companyKey: ctx.aliases[rawKey] ?? rawKey,
     ...classified,
-    stage,
     website,
     // A dateline names where the release was issued, not where the company sits.
     headquarters: scrubHeadquarters(round.headquarters ?? null, round.evidence_quote, item.dateline, {

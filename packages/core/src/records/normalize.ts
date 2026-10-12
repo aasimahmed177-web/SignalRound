@@ -164,22 +164,6 @@ export function stageWritten(stage: Stage, text: string): boolean {
   return words.some((pattern) => [...t.matchAll(pattern)].some((m) => !EARLIER_ROUND.test(t.slice(Math.max(0, m.index - 80), m.index))));
 }
 
-/** An unlabelled round at least this large is a growth round. */
-export const GROWTH_ROUND_USD_MILLIONS = 500;
-
-/**
- * The stage once the amount is known. A page that calls a round only a "funding round" or "new
- * financing" gives the classifier nothing, but a round of half a billion dollars or more with no
- * letter is a late-stage growth round (OpenAI's $6.6 billion and $40 billion, Groq's $750 million),
- * not "Other". A lettered or named stage is never touched, and neither is a Form D, which names a
- * filing, not a round.
- */
-export function stageForAmount(stage: Stage, asWritten: string, usdMillions: number | null): Stage {
-  if (stage !== "other" && stage !== "undisclosed") return stage;
-  if (/\bform d\b/i.test(asWritten)) return stage;
-  return usdMillions !== null && usdMillions >= GROWTH_ROUND_USD_MILLIONS ? "growth" : stage;
-}
-
 /** Parse the many ways a date arrives (ISO, prose, "2 days ago") into a Date, or null. */
 export function parseDate(value: string | null | undefined, now: Date = new Date(), ctx: DateContext = {}): Date | null {
   if (!value) return null;

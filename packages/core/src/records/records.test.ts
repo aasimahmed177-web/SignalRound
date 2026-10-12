@@ -32,7 +32,6 @@ import {
   parseDate,
   parseWindow,
   registrableDomain,
-  stageForAmount,
   stageLabel,
   tbsFor,
   windowEndFor,
@@ -484,14 +483,7 @@ describe("placeholder text", () => {
 });
 
 describe("stages", () => {
-  test("an unlabelled round of half a billion dollars or more is a growth round; a label or a Form D is never touched", () => {
-    expect(stageForAmount("other", "funding round", 40000)).toBe("growth");
-    expect(stageForAmount("other", "new financing", 750)).toBe("growth");
-    expect(stageForAmount("undisclosed", "undisclosed", 500)).toBe("growth");
-    expect(stageForAmount("other", "funding round", 120)).toBe("other");
-    expect(stageForAmount("other", "funding round", null)).toBe("other");
-    expect(stageForAmount("other", "Form D (equity)", 900)).toBe("other");
-    expect(stageForAmount("series_a", "Series A", 1100)).toBe("series_a");
+  test("an unlabelled round of any size names no stage: a $40 billion funding round is not a growth round", () => {
     const { kept } = resolveRounds(
       [
         item(
@@ -507,7 +499,7 @@ describe("stages", () => {
       ],
       { stages: ["other", "growth"], windowStart: WEEK, now: NOW },
     );
-    expect(kept[0]?.stage).toBe("growth");
+    expect(kept[0]?.stage).toBe("other");
     expect(kept[0]?.stage_as_written).toBe("funding round");
   });
 
