@@ -1914,6 +1914,17 @@ export function publicRoundQuery<Q extends RoundQuery>(q: Q): Q {
   return q.preset || q.company || q.companyId || q.ids?.length ? q : { ...q, excludePreset: FORM_D_PRESET };
 }
 
+/** The company a name or a site names exactly: its domain (a URL works too), its name key, or its name. */
+function companyNamed(raw: string): SQL {
+  const needle = raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "");
+  return sql`(${companies.domain} = ${needle} or ${companies.nameKey} = ${normalizeCompanyKey(raw)} or lower(${companies.name}) = ${needle})`;
+}
+
 /** The WHERE half of a round query, shared by listRounds and countRounds. Cursor stays with the caller. */
 function roundConds(q: RoundQuery) {
   const conds = [];
@@ -1937,27 +1948,17 @@ function roundConds(q: RoundQuery) {
   if (q.q) {
     const term = `%${q.q.slice(0, SEARCH_TEXT_MAX).replace(/[%_]/g, "")}%`;
     conds.push(
-      sql`(${companies.name} ilike ${term} or coalesce(${companies.description}, '') ilike ${term} or exists (
+      sql`(${companies.name} ilike ${term} or coalesce(${companies.description}, '') ilike ${term} or ${companyNamed(q.q)} or exists (
         select 1 from ${roundInvestors} ri join ${investors} i on i.id = ri.investor_id
         where ri.round_id = ${fundingRounds.id} and i.name ilike ${term}))`,
     );
   }
-  if (q.company) {
-    const needle = q.company
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/^www\./, "")
-      .replace(/\/.*$/, "");
-    const byCompany = or(
-      eq(companies.domain, needle),
-      eq(companies.nameKey, normalizeCompanyKey(q.company)),
-      sql`lower(${companies.name}) = ${needle}`,
-    );
-    if (byCompany) conds.push(byCompany);
-  }
+  if (q.company) conds.push(companyNamed(q.company));
   if (q.companyId) conds.push(eq(fundingRounds.companyId, q.companyId));
-  if (q.history === "exclude") conds.push(eq(fundingRounds.history, false));
+  // A search that names a company exactly ("Anthropic", "anthropic.com") asks for that company's
+  // rounds, so its earlier ones list beside the recent news the rest of the search keeps to.
+  if (q.history === "exclude")
+    conds.push(q.q ? sql`(${fundingRounds.history} = false or ${companyNamed(q.q)})` : eq(fundingRounds.history, false));
   if (q.history === "only") conds.push(eq(fundingRounds.history, true));
   if (q.reviewOnly) conds.push(eq(fundingRounds.disposition, "review"));
   else if (!q.includeReview) conds.push(inArray(fundingRounds.disposition, ["publish", "flagged"]));

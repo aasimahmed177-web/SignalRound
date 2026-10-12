@@ -15,6 +15,7 @@ import { GET as investorsGet, OPTIONS as investorsOptions } from "../app/api/v1/
 import { GET as topGet } from "../app/api/v1/investors/top/route";
 import { GET as newsGet } from "../app/api/v1/news/route";
 import { GET as openapiGet } from "../app/api/v1/openapi.json/route";
+import { GET as roundsGet } from "../app/api/v1/rounds/route";
 import { db } from "../lib/db";
 import { persistRecords, setDisposition } from "../lib/persist";
 import { bareSite, oneEditAway } from "../lib/public-api";
@@ -390,4 +391,18 @@ test("a miss reads as one name only when that name alone is a single edit away",
   expect(oneEditAway(near(1, 1))).toBeNull();
   expect(oneEditAway(near(2))).toBeNull();
   expect(oneEditAway([])).toBeNull();
+});
+
+describe("/api/v1/rounds?q=", () => {
+  test("a search that names a company exactly lists its earlier rounds too; any other search keeps to recent news", async () => {
+    const companies = async (q: string) =>
+      (
+        (await (await roundsGet(new Request(`http://app.test/api/v1/rounds?q=${encodeURIComponent(q)}`))).json()) as {
+          data: Array<{ company: { name: string } }>;
+        }
+      ).data.map((r) => r.company.name);
+    for (const q of ["Echo", "echo", "echo.example", "https://www.echo.example/"]) expect(await companies(q), q).toEqual(["Echo"]);
+    expect(await companies("Ech")).toEqual([]);
+    expect(await companies("Fund Three")).not.toContain("Echo");
+  });
 });
