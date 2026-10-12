@@ -1,7 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FlameMark } from "@/components/brand/flame-mark";
+import { cn } from "@/lib/utils";
 import NotFound from "./(dashboard)/not-found";
+
+/** The way back into the product: the feed and the API on every screen, the indexes from sm up. */
+const NAV = [
+  { href: "/feed", label: "Feed" },
+  { href: "/companies", label: "Companies", wide: true },
+  { href: "/investors", label: "Investors", wide: true },
+  { href: "/news", label: "News", wide: true },
+  { href: "/docs", label: "API" },
+];
 
 /** The tab names the miss: "Not found · Fireround" (the root layout's title template). */
 export const metadata: Metadata = { title: "Not found" };
@@ -27,6 +37,20 @@ export default function RootNotFound() {
             <FlameMark size="lg" live className="-ml-1 size-8" />
             <span className="text-label-medium">Fireround</span>
           </Link>
+          <nav aria-label="Main" className="ml-auto flex items-center gap-4 sm:gap-5">
+            {NAV.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={cn(
+                  "rounded-4 text-label-small text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
+                  l.wide && "hidden sm:inline",
+                )}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </header>
       <main id="content" tabIndex={-1} className="flex flex-1 flex-col outline-none">

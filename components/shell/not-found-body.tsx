@@ -41,6 +41,9 @@ export function NotFoundBody() {
         <Button asChild variant="outline">
           <Link href="/overview">Overview</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href="/docs">API reference</Link>
+        </Button>
       </div>
     </section>
   );
