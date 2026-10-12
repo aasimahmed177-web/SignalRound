@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { RoundCertainty } from "./certainty.ts";
 import type { PriorRound } from "./history.ts";
 import { ISSUER_TYPES, MONEY_KINDS } from "./money-kind.ts";
-import { SECTORS } from "./sectors.ts";
+import { SECTOR_HINT, SECTORS } from "./sectors.ts";
 import type { Stage } from "./stages.ts";
 import type { ValuationClaim } from "./valuation.ts";
 
@@ -147,7 +147,9 @@ export const ExtractedRound = z.object({
   sector: z
     .enum(SECTORS)
     .nullable()
-    .describe("The closest sector from the list for what the company does; other if none fits; null if the page says nothing about it."),
+    .describe(
+      `The closest sector from the list for what the company does (${SECTOR_HINT}); other if none fits; null if the page says nothing about it.`,
+    ),
   evidence_quote: z
     .string()
     .describe(

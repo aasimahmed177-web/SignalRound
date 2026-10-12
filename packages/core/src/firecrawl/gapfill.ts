@@ -7,7 +7,7 @@
 
 import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
-import { SECTORS } from "../records/sectors.ts";
+import { SECTOR_HINT, SECTORS } from "../records/sectors.ts";
 
 export const GapFill = z.object({
   announced_date: z
@@ -21,7 +21,10 @@ export const GapFill = z.object({
   other_investors: z.array(z.string()).describe("Other participating investors a page names"),
   company_website: z.string().nullable().describe("The company's own website. Never a news site, LinkedIn, Crunchbase, or a directory."),
   headquarters: z.string().nullable(),
-  sector: z.enum(SECTORS).nullable().describe("The closest sector from the list; other if none fits; null if no page says"),
+  sector: z
+    .enum(SECTORS)
+    .nullable()
+    .describe(`The closest sector from the list (${SECTOR_HINT}); other if none fits; null if no page says`),
   evidence_quote: z.string().nullable().describe("The exact sentence that states the round"),
   source_url: z.string().nullable().describe("URL of the page the filled facts came from"),
   is_rumor: z.boolean().describe("true if the round is only reported as rumored or in talks"),

@@ -40,6 +40,14 @@ export const SECTORS = [
 ] as const;
 export type Sector = (typeof SECTORS)[number];
 
+/**
+ * What the extractors are told beside the list. Left alone, a reader files every GPU cloud and AI
+ * chip maker under "ai" (27 of the 203 "ai" companies on visible rounds in October 2026), and a
+ * search for AI infrastructure finds almost none of them.
+ */
+export const SECTOR_HINT =
+  "ai infrastructure, not ai, for GPU and inference clouds, AI chips and interconnects, AI data centers, and platforms that train or serve models";
+
 export const SECTOR_LABEL: Record<Sector, string> = {
   ai: "AI",
   "ai infrastructure": "AI infrastructure",
