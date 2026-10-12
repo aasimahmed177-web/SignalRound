@@ -62,6 +62,20 @@ export function staleBeforeRelease(day: string, basis: string | null | undefined
   return Date.parse(release) - Date.parse(day) > RELEASE_LEAD_DAYS * 86_400_000;
 }
 
+/** How far before every page that carried a round its day may sit when no page writes that day. */
+const AHEAD_OF_SOURCES_DAYS = 2;
+
+/**
+ * Whether a day sits two days or more before every dated page the round has (each page's URL day, else
+ * its published day). A round is not news before anyone carried it: a day like that came from a page that
+ * never wrote it (KONST's Oct 9 wire release stored as Oct 6, Welltory's Oct 8 release as a newsroom
+ * listing's Oct 5), so it does not date the round unless a page states it. False when no page is dated.
+ */
+export function beforeEverySource(day: string, sources: ReadonlyArray<{ url: string; published?: string | null }>): boolean {
+  const first = sources.flatMap((s) => pageDay(s) ?? []).sort()[0];
+  return first !== undefined && Date.parse(first) - Date.parse(day) >= AHEAD_OF_SOURCES_DAYS * 86_400_000;
+}
+
 /** A page's own URL dates it to another day than the one its byline or metadata lent the reading (a month and day read backwards); a wire's upload day a day off is its own. */
 function urlContradicts(r: FeedRecord): boolean {
   if (r.date_basis === "stated") return false;
@@ -71,7 +85,9 @@ function urlContradicts(r: FeedRecord): boolean {
 
 /**
  * The earliest independently dated same-round reading. Never an undated search snippet, a page's day
- * far before the round's own release (staleBeforeRelease), or a page's day its own URL contradicts.
+ * far before the round's own release (staleBeforeRelease), a page's day its own URL contradicts, or a day
+ * no page states that sits two days or more before every page of the round (beforeEverySource; `sources`
+ * are the round's pages, stored and just read).
  */
 export function earliestReport(
   readings: readonly FeedRecord[],
@@ -79,6 +95,7 @@ export function earliestReport(
   investorDomains: readonly string[] = [],
   tiers: Record<string, number> = DEFAULT_TIERS,
   release: string | null = null,
+  sources: ReadonlyArray<{ url: string; published?: string | null }> = [],
 ): string | null {
   const dated = readings.filter(
     (r) =>
@@ -86,7 +103,8 @@ export function earliestReport(
       r.date_precision === "day" &&
       r.date_basis !== "result" &&
       !staleBeforeRelease(r.announced_date, r.date_basis, release) &&
-      !urlContradicts(r),
+      !urlContradicts(r) &&
+      (r.date_basis === "stated" || !beforeEverySource(r.announced_date, sources)),
   );
   const weak = dated.filter((r) => {
     const source = r.sources[0];

@@ -5,7 +5,7 @@ import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord, promoteCheckedRound } from "../lib/corroborate.ts";
 import { staleForNews } from "../lib/deliverable.ts";
-import { earliestReport, releaseDay, repairStaleReportDays } from "../lib/freshness.ts";
+import { beforeEverySource, earliestReport, releaseDay, repairStaleReportDays } from "../lib/freshness.ts";
 import { identityAgrees, listRounds, type MergeRow, persistRecords } from "../lib/persist.ts";
 import { recordFromRow } from "../lib/reconcile.ts";
 import { claimRoundVerification, seedRoundVerification, visibilityEvidence } from "../lib/round-verification.ts";
@@ -478,6 +478,87 @@ describe("a page's day far before the round's own release is not an earlier repo
     expect(earliestReport([wire, { ...blog, date_basis: "stated" }], "stuut.ai", [], {}, release)).toBe("2026-03-11");
     // Coverage a few days ahead of the release is still the earliest report.
     expect(earliestReport([wire, { ...blog, announced_date: "2026-10-05" }], "stuut.ai", [], {}, release)).toBe("2026-10-05");
+  });
+
+  test("beforeEverySource: two days or more before every dated page of the round", () => {
+    const pages = [
+      { url: "https://www.prnewswire.com/news-releases/konst-raises-30m-series-b-302903455.html", published: "2026-10-09" },
+      { url: "https://www.kosmo.com.my/2026/10/09/konst-raises-30m-series-b" },
+    ];
+    expect(beforeEverySource("2026-10-06", pages)).toBe(true);
+    expect(beforeEverySource("2026-10-07", pages)).toBe(true);
+    expect(beforeEverySource("2026-10-08", pages)).toBe(false);
+    expect(beforeEverySource("2026-10-06", [...pages, { url: "https://konst.ai/news/series-b", published: "2026-10-06" }])).toBe(false);
+    expect(beforeEverySource("2026-10-06", [{ url: "https://example.test/undated" }])).toBe(false);
+  });
+
+  test("KONST: a day no page states, three days before every page of the round, is not an earlier report", () => {
+    const wire = record({
+      company_name: "KONST",
+      announced_date: "2026-10-09",
+      date_basis: "page",
+      sources: [
+        {
+          url: "https://www.prnewswire.com/news-releases/konst-raises-30m-series-b-302903455.html",
+          host: "prnewswire.com",
+          published: "2026-10-09",
+        },
+      ],
+    });
+    const republished = record({
+      company_name: "KONST",
+      announced_date: "2026-10-06",
+      date_basis: "page",
+      sources: [
+        { url: "https://www.citybiz.co/article/917050/konst-raises-30-million-series-b", host: "citybiz.co", published: "2026-10-09" },
+      ],
+    });
+    const tiers = { "citybiz.co": 0.7 };
+    const pages = [...wire.sources, ...republished.sources];
+    expect(earliestReport([wire, republished], null, [], tiers, null, pages)).toBe("2026-10-09");
+    // A page that states the day still dates the round, and so does a page published that day.
+    expect(earliestReport([wire, { ...republished, date_basis: "stated" }], null, [], tiers, null, pages)).toBe("2026-10-06");
+    const datedThatDay = [...wire.sources, { ...republished.sources[0], published: "2026-10-06" }];
+    expect(earliestReport([wire, republished], null, [], tiers, null, datedThatDay)).toBe("2026-10-06");
+  });
+
+  test("a later reading's unstated day three days before every page does not move a stored day earlier", async () => {
+    const handle = await testDb();
+    const konst = (partial: Parameters<typeof record>[0]) =>
+      record({
+        company_key: "konst",
+        company_domain: "konst.ai",
+        stage: "series_b",
+        stage_as_written: "Series B",
+        amount: { value: 30, currency: "USD", as_written: "$30 million", usd_millions: 30, fx_rate: null, fx_date: null },
+        lead_investors: ["ADATA Technology"],
+        ...partial,
+      });
+    const wire = konst({
+      company_name: "KONST",
+      announced_date: "2026-10-09",
+      date_basis: "page",
+      sources: [
+        {
+          url: "https://www.prnewswire.com/news-releases/konst-raises-30m-series-b-302903455.html",
+          host: "prnewswire.com",
+          published: "2026-10-09",
+        },
+      ],
+    });
+    await persistRecords(handle, [wire], "series-a-b", "audit:konst");
+    const republished = konst({
+      company_name: "KONST",
+      announced_date: "2026-10-06",
+      date_basis: "page",
+      sources: [
+        { url: "https://www.citybiz.co/article/917050/konst-raises-30-million-series-b", host: "citybiz.co", published: "2026-10-09" },
+      ],
+    });
+    await persistRecords(handle, [republished], "series-a-b", "audit:konst");
+    const rows = await handle.select().from(schema.fundingRounds);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].announcedOn).toBe("2026-10-09");
   });
 
   test("Pro Shop: a page whose URL dates it Oct 5 does not lend the May 10 its metadata read", () => {

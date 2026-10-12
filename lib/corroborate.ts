@@ -178,12 +178,9 @@ export async function corroborateRecord(
   const reviewConflict = contradictions.length > 0 || openVerificationConflict(row);
   if (opts.broad && !row.history) {
     const readings = result.readings ?? [];
-    const release = releaseDay(
-      [...(await storedReleaseSources(handle, row.id)), ...readings.flatMap((r) => r.sources)],
-      row.company.domain,
-      tiers,
-    );
-    const earliest = earliestReport(readings, row.company.domain, investorDomains, tiers, release);
+    const pages = [...(await storedReleaseSources(handle, row.id)), ...readings.flatMap((r) => r.sources)];
+    const release = releaseDay(pages, row.company.domain, tiers);
+    const earliest = earliestReport(readings, row.company.domain, investorDomains, tiers, release, pages);
     const date = !row.pinned?.announced_on && earliest && (!row.announced_on || earliest < row.announced_on) ? earliest : row.announced_on;
     // The day keeps the basis its reading had: a page's byline read as a stated day would outrank later corrections.
     const sameDay = readings.filter((r) => r.announced_date === date);

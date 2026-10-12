@@ -36,7 +36,7 @@ import { and, desc, eq, gte, inArray, isNull, like, lt, lte, or, type SQL, sql }
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
 import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
-import { releaseDay, staleBeforeRelease, storedReleaseSources } from "./freshness.ts";
+import { beforeEverySource, releaseDay, staleBeforeRelease, storedReleaseSources } from "./freshness.ts";
 import { fullerInvestorName } from "./investor-names.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
@@ -1127,17 +1127,18 @@ export async function persistRecords(
       r.undated = false;
     }
     // Nor does a page's own day (a stale byline or metadata) far before the round's own release move a
-    // stored day earlier: the check the earliest-report search makes (staleBeforeRelease), on every reading.
+    // stored day earlier, or a day no page states two days or more before every page of the round: the
+    // checks the earliest-report search makes (staleBeforeRelease, beforeEverySource), on every reading.
+    const pages =
+      prev?.announcedOn && !prev.pinned?.announced_on && r.announced_date && r.announced_date < prev.announcedOn
+        ? [...(await storedReleaseSources(handle, prev.id)), ...r.sources]
+        : null;
     if (
+      pages &&
       prev?.announcedOn &&
-      !prev.pinned?.announced_on &&
       r.announced_date &&
-      r.announced_date < prev.announcedOn &&
-      staleBeforeRelease(
-        r.announced_date,
-        r.date_basis,
-        releaseDay([...(await storedReleaseSources(handle, prev.id)), ...r.sources], r.company_domain ?? prev.domain),
-      )
+      (staleBeforeRelease(r.announced_date, r.date_basis, releaseDay(pages, r.company_domain ?? prev.domain)) ||
+        (r.date_basis !== "stated" && beforeEverySource(r.announced_date, pages)))
     ) {
       r.announced_date = prev.announcedOn;
       r.date_precision = prev.datePrecision as FeedRecord["date_precision"];

@@ -504,6 +504,23 @@ export function offClock(value: string | null | undefined, markdown: string | un
 }
 
 /**
+ * A day the extractor answered is the page's only when the page writes it, or, for the first of a month,
+ * writes that month (a round the page dates only to a month). Otherwise it is the extractor's own: a
+ * byline it invented, a listing's day, a weekday it resolved against the wrong week. KONST's Series B
+ * went out on PR Newswire on Oct 9; a republisher's page that writes no day came back dated Oct 6, and
+ * the round sat three days before every page that carried it. It becomes no date, so the page's own
+ * day, a weekday in the sentence, the URL, or the search result dates the round instead. Pure.
+ */
+export function writtenDay(value: string | null | undefined, markdown: string | undefined, now: Date): string | null {
+  if (!value) return null;
+  if (markdown === undefined) return value;
+  const day = parseDate(value, now);
+  if (!day || textWritesDay(markdown, day)) return value;
+  const [full, abbr] = MONTH_NAMES[day.getUTCMonth()] as [string, string];
+  return day.getUTCDate() === 1 && new RegExp(`\\b(?:${full}|${abbr}\\.?)\\b`, "i").test(markdown) ? value : null;
+}
+
+/**
  * Whether the page writes this day together with its year: ISO, numeric with the year, a month and day
  * with the year after it ("Oct. 9, 2023", "9 October 2023"), or the month and year alone ("October 2023"). Pure.
  */
@@ -620,11 +637,17 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
       const visible = offClock(visibleArticleDate(doc.markdown, pageDates), doc.markdown, now);
       // What the page says of its own day without the extractor: the year a guessed year is held to.
       const ownDay = parseDate(visible ?? metadataPublished, now) ?? dateFromUrl(t.url) ?? parseDate(t.published, now, pageDates);
-      // A day the page does not write, on the scrape's own day, is the clock's (offClock), and a year
-      // the page never gives is the extractor's (guessedYear): no date either way.
+      // A day the page does not write is the extractor's (writtenDay), as is the clock's (offClock), and
+      // a year the page never gives (guessedYear): no date either way.
       const rounds = await mapLimit(parsed.success ? parsed.data.rounds : [], 8, async (r) => ({
         ...r,
-        announced_date: guessedYear(offClock(r.announced_date, doc.markdown, now), doc.markdown, ownDay, now, r.evidence_quote ?? ""),
+        announced_date: guessedYear(
+          writtenDay(offClock(r.announced_date, doc.markdown, now), doc.markdown, now),
+          doc.markdown,
+          ownDay,
+          now,
+          r.evidence_quote ?? "",
+        ),
         money_kind_checked:
           checkMoney && r.amount_as_written && r.money_kind_quote ? await checkMoney(r.money_kind_quote, r.amount_as_written) : null,
         certainty_checked: checkCertainty ? await checkCertainty(r.evidence_quote) : null,
@@ -641,7 +664,12 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
         page_date:
           visible ??
           metadataPublished ??
-          guessedYear(offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now), doc.markdown, ownDay, now),
+          guessedYear(
+            writtenDay(offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now), doc.markdown, now),
+            doc.markdown,
+            ownDay,
+            now,
+          ),
         visible_article_date: Boolean(visible),
       };
       const published = visible ?? metadataPublished ?? t.published;

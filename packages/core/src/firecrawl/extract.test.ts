@@ -21,6 +21,7 @@ import {
   textWritesDay,
   visibleArticleDate,
   websiteOnPage,
+  writtenDay,
 } from "./extract.ts";
 
 const NOW = new Date("2026-09-04T12:00:00Z");
@@ -523,5 +524,66 @@ describe("an undated page is not dated to its crawl", () => {
     );
     expect(result.items[0]?.round.announced_date).toBeNull();
     expect(result.items[0]?.page_date).toBe("2026-10-02");
+  });
+
+  test("writtenDay keeps a day the page writes, a month's first day when it names the month, and nothing else", () => {
+    const now = new Date("2026-10-10T01:00:00Z");
+    expect(writtenDay("2026-10-06", "KONST raised $30 million in Series B funding led by ADATA Technology.", now)).toBeNull();
+    expect(writtenDay("2026-10-06", "TAIPEI, Oct. 6, 2026 /PRNewswire/ -- KONST today announced...", now)).toBe("2026-10-06");
+    expect(writtenDay("2026-10-06", "The round closed on 6 October.", now)).toBe("2026-10-06");
+    expect(writtenDay("2026-09-01", "Acme raised $5M in September.", now)).toBe("2026-09-01");
+    expect(writtenDay("2026-09-02", "Acme raised $5M in September.", now)).toBeNull();
+    expect(writtenDay("2026-10-06", undefined, now)).toBe("2026-10-06");
+    expect(writtenDay(null, "text", now)).toBeNull();
+  });
+
+  test("extractRounds: a day the extractor gave that the page never writes yields to the search result's day", async () => {
+    const markdown =
+      "# KONST Raises $30 Million Series B Led by ADATA\n\nKONST, a Taipei-based AI compute operator, has raised $30 million in Series B funding led by ADATA Technology.";
+    const client = {
+      scrape: async () => ({
+        markdown,
+        json: {
+          page_kind: "article",
+          page_date: "2026-10-06",
+          rounds: [
+            {
+              company_name: "KONST",
+              round_type_as_written: "Series B",
+              amount_as_written: "$30 million",
+              announced_date: "2026-10-06",
+              evidence_quote:
+                "KONST, a Taipei-based AI compute operator, has raised $30 million in Series B funding led by ADATA Technology.",
+              company_website: null,
+              company_description: null,
+              amount_kind: "round",
+              valuation_as_written: null,
+              lead_investors: ["ADATA Technology"],
+              other_investors: [],
+              headquarters: "Taipei",
+              sector: "ai infrastructure",
+              source_url: null,
+              is_background: false,
+              is_rumor: false,
+            },
+          ],
+        },
+        metadata: { title: "KONST Raises $30 Million Series B Led by ADATA" },
+      }),
+    } as unknown as Firecrawl;
+    const result = await extractRounds(
+      client,
+      [
+        {
+          url: "https://www.citybiz.co/article/917050/konst-raises-30-million-series-b",
+          title: "KONST Raises $30 Million",
+          published: "2026-10-09",
+        },
+      ],
+      { now: new Date("2026-10-10T01:00:00Z") },
+    );
+    expect(result.items[0]?.round.announced_date).toBeNull();
+    expect(result.items[0]?.page_date).toBeUndefined();
+    expect(result.items[0]?.source.published).toBe("2026-10-09");
   });
 });
