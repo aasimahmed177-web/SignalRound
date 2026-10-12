@@ -746,8 +746,8 @@ export function RoundsTable({
                   </td>
                   {/* Two lines, stage and check, so the row stays as short as the company cell; the preset is the tooltip and the open row. */}
                   <td className={cell} title={presets.length > 0 ? `${readOnly ? "Watchlist" : "Preset"}: ${preset}` : undefined}>
-                    <div className="flex min-w-0 items-baseline gap-1.5">
-                      <span className="truncate">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+                      <span className="max-w-full truncate">
                         {roundStageLabel(r)}
                         {r.is_extension && <span className={muted}> ext.</span>}
                       </span>
