@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
 import {
   hasNamedCompanyInResults,
+  INVESTOR_SORTS,
   listCompanies,
   listInvestors,
   pageWindow,
@@ -65,6 +66,10 @@ describe("parseDirectoryParams", () => {
   });
   test("reads q trimmed, a known sort, and the first of repeated params", () => {
     expect(parseDirectoryParams({ q: "  acme ", sort: "name", page: ["3", "9"] }, sorts)).toEqual({ q: "acme", sort: "name", page: 3 });
+  });
+  test("the investors index opens on the firms that led the most rounds, and still reads latest", () => {
+    expect(parseDirectoryParams({}, INVESTOR_SORTS).sort).toBe("led");
+    expect(parseDirectoryParams({ sort: "latest" }, INVESTOR_SORTS).sort).toBe("latest");
   });
 });
 

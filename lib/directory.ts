@@ -21,7 +21,8 @@ export const DIRECTORY_PAGE_SIZE = 50;
 export const COMPANY_SORTS = ["latest", "raised", "name"] as const;
 export type CompanySort = (typeof COMPANY_SORTS)[number];
 
-export const INVESTOR_SORTS = ["latest", "rounds", "led", "name"] as const;
+/** The first is the index's default: the firms that led the most rounds, as the API orders them, not the newest angel. */
+export const INVESTOR_SORTS = ["led", "rounds", "latest", "name"] as const;
 export type InvestorSort = (typeof INVESTOR_SORTS)[number];
 
 type Search = Record<string, string | string[] | undefined>;

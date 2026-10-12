@@ -20,9 +20,9 @@ import { cn } from "@/lib/utils";
 type Search = Record<string, string | string[] | undefined>;
 
 const SORTS = [
-  { value: "", label: "Latest activity" },
+  { value: "", label: "Most led" },
   { value: "rounds", label: "Most rounds" },
-  { value: "led", label: "Most led" },
+  { value: "latest", label: "Latest activity" },
   { value: "name", label: "Name" },
 ];
 
