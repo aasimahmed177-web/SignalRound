@@ -124,8 +124,8 @@ export default function ApiReferencePage() {
                 MCP server
               </h2>
               <p className="text-body-medium text-muted-foreground">
-                The same records for an agent: add the server to any MCP client and it can list, search, and read rounds and companies. The
-                tools are listed on the{" "}
+                The same records for an agent: add the server to any MCP client and it can list, search, and read rounds, companies,
+                investors, and news. The tools are listed on the{" "}
                 <Link
                   href={`${isLanding() ? "/" : LANDING_PATH}#mcp`}
                   className="text-foreground underline underline-offset-2 hover:no-underline"
