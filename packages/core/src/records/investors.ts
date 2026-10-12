@@ -1226,7 +1226,10 @@ const APPOSITIVE = /^\s*(?:,\s+(?:a|an|the|its|which|who)\s[^,;]{0,100},|\s[-\u2
 
 /**
  * The marker that speaks for a name at `index`: the nearest marker before it inside its sentence
- * and within reach; failing that, a verb shortly after it; failing both, none.
+ * and within reach; failing that, a verb shortly after it; failing both, none. Where the sentence's
+ * shape puts a lead on the name the nearest marker does not ("with Acme leading", "Acme co-led
+ * alongside Beta", "Co-leading the round with Beta is Acme", "$200M from Acme, with participation
+ * from Beta"), the marker returned is that lead's: its verb, or the marker that opened its list.
  */
 function markerFor(
   evidence: string,
@@ -1235,31 +1238,34 @@ function markerFor(
   index: number,
   nameLength: number,
 ): Marker | undefined {
-  const [sStart, sEnd] = sentenceAt(sentences, index);
-  let nearest: Marker | undefined;
-  for (const m of markers.before) {
-    if (m.end <= index && m.index >= sStart && index - m.end <= MARKER_REACH) nearest = m;
+  const said = nearestMarker(evidence, sentences, markers, index, nameLength);
+  if (said?.kind === "lead") return said;
+  const [sStart] = sentenceAt(sentences, index);
+  const inverted = INVERTED_LEAD.exec(evidence.slice(sStart, index));
+  if (inverted) {
+    const at = sStart + inverted.index;
+    return { index: at, end: at + (/^\S+/.exec(inverted[0])?.[0].length ?? 0), kind: "lead" };
   }
-  if (nearest) return nearest;
-  const nameEnd = index + nameLength;
-  const following = markers.after.find((m) => m.index >= nameEnd && m.index < sEnd && m.index - nameEnd <= VERB_REACH);
-  if (!following) return undefined;
-  // "A, B and C led the round": nothing but names and commas may stand between the name and the verb.
-  const between = evidence.slice(nameEnd, following.index);
-  return /^[\s,]*(?:and\s+|&\s+)?(?:[A-Z0-9][\w'’.&-]*\s*,?\s*(?:and\s+|&\s+)?)*$/.test(between) ? following : undefined;
+  const subject = leadsAsSubject(evidence, sentences, markers, index, nameLength);
+  if (subject) return subject;
+  if (said?.kind !== "participant") return said;
+  const continued = leadListContinued(evidence, sentences, markers, index);
+  if (continued) return continued;
+  const after = evidence.slice(index + nameLength).replace(APPOSITIVE, "");
+  if (/\bfrom\s+(?:\S+\s+){0,3}$/i.test(evidence.slice(Math.max(0, index - 40), index)) && SET_APART.test(after)) {
+    return { ...said, kind: "lead" };
+  }
+  return said;
 }
 
-/**
- * What the evidence says about a name at `index`: the nearest marker before it inside its sentence
- * and within reach decides; failing that, a verb shortly after it; failing both, nothing.
- */
-function attribute(
+/** The marker nearest a name that speaks for it, with the lead a "with", "alongside", "together with", or "including" carries. */
+function nearestMarker(
   evidence: string,
   sentences: Array<[number, number]>,
   markers: { before: Marker[]; after: Marker[] },
   index: number,
   nameLength: number,
-): Attribution {
+): Marker | undefined {
   const [sStart, sEnd] = sentenceAt(sentences, index);
   let nearest: Marker | undefined;
   for (const m of markers.before) {
@@ -1272,61 +1278,79 @@ function attribute(
   const nameEnd = index + nameLength + (APPOSITIVE.exec(evidence.slice(index + nameLength))?.[0].length ?? 0);
   const following = markers.after.find((m) => m.index >= nameEnd && m.index < sEnd && m.index - nameEnd <= VERB_REACH);
   const gap = evidence.slice(nameEnd, following?.index ?? nameEnd);
-  // "Acme, who led this round": a relative clause speaks for the round only when its verb names it.
-  const relative = /,\s*(?:who|which)\s+$/.test(gap);
+  // "Acme, who led this round", "Acme (which led its seed)": a relative clause speaks for the round only when its verb names it.
+  const relative = /[(,]\s*(?:who|which)\s+$/.test(gap);
   const verb =
     following &&
     VERB_GAP.test(gap) &&
     (!relative || /^(?:co-?)?led (?:the|this) (?:round|financing|investment)/i.test(evidence.slice(following.index)))
       ? following
       : undefined;
+  if (nearest?.kind !== "participant") return nearest ?? verb;
   // "with Acme leading the round": a lead verb right after the name outranks the "with" before it,
   // though not the adjective in "from Acme and Beta, leading investors in fintech".
   if (
-    nearest?.kind === "participant" &&
     verb?.kind === "lead" &&
     !/^leading\s+(?!(?:the|this|its|a|an|and|or|with|alongside|as|in|for|while)\b)\w/i.test(evidence.slice(verb.index))
   ) {
-    return "lead";
+    return verb;
   }
-  if (nearest?.kind === "participant") {
-    const opening = evidence.slice(sStart, nearest.index);
-    const marker = evidence.slice(nearest.index, nearest.end);
-    // "Acme co-led the round alongside Beta", "Acme led the round together with Beta": whom a lead
-    // leads together with, or a co-lead alongside, is the other lead.
-    if (/^alongside$/i.test(marker) && /\bco-?(?:lead|leads|leading|led)\b(?!\s+by\b)/i.test(opening)) return "lead";
-    if (/^together with$/i.test(marker) && /\b(?:co-?)?(?:led|leads|leading|headed)\s+(?:the|this|its)\s+\w+\s*$/i.test(opening))
-      return "lead";
-    const prior = markers.before.filter((m) => m.index >= sStart && m.end <= nearest.index).at(-1);
-    // "led by new industry investors including Acme": the investors the lead marker named.
-    if (
-      /^(?:investors?\s+)?(?:including|includes|included|include|such as)$/i.test(marker) &&
-      prior?.kind === "lead" &&
-      nearest.index - prior.end <= 100
-    ) {
-      return "lead";
-    }
+  const opening = evidence.slice(sStart, nearest.index);
+  const marker = evidence.slice(nearest.index, nearest.end);
+  // "Acme co-led the round alongside Beta", "Acme led the round together with Beta": whom a lead
+  // leads together with, or a co-lead alongside, is the other lead, under the same lead verb.
+  if (
+    (/^alongside$/i.test(marker) && /\bco-?(?:lead|leads|leading|led)\b(?!\s+by\b)/i.test(opening)) ||
+    (/^together with$/i.test(marker) && /\b(?:co-?)?(?:led|leads|leading|headed)\s+(?:the|this|its)\s+\w+\s*$/i.test(opening))
+  ) {
+    const leadVerb = [...markers.before, ...markers.after]
+      .filter((m) => m.kind === "lead" && m.index >= sStart && m.end <= nearest.index)
+      .sort((a, b) => a.end - b.end)
+      .at(-1);
+    return leadVerb ?? { ...nearest, kind: "lead" };
   }
-  if (nearest) return nearest.kind;
-  return verb?.kind ?? "unattributed";
+  const prior = markers.before.filter((m) => m.index >= sStart && m.end <= nearest.index).at(-1);
+  // "led by new industry investors including Acme": the investors the lead marker named.
+  if (
+    /^(?:investors?\s+)?(?:including|includes|included|include|such as)$/i.test(marker) &&
+    prior?.kind === "lead" &&
+    nearest.index - prior.end <= 100
+  ) {
+    return prior;
+  }
+  return nearest;
 }
 
 /**
- * Whether the name follows "together with" that continues a list a lead marker opened: "co-led by A,
- * B, together with C, and D", "led by long-term shareholder A, together with B".
+ * What the evidence says about a name at `index` for investor hygiene: the kind of the nearest marker
+ * that speaks for it, or nothing. The leads markerFor reads from a sentence's shape are not read here.
  */
-function continuesLeadList(
+function attribute(
+  evidence: string,
+  sentences: Array<[number, number]>,
+  markers: { before: Marker[]; after: Marker[] },
+  index: number,
+  nameLength: number,
+): Attribution {
+  return nearestMarker(evidence, sentences, markers, index, nameLength)?.kind ?? "unattributed";
+}
+
+/**
+ * The lead list a "together with" continues: "co-led by A, B, together with C, and D", "led by
+ * long-term shareholder A, together with B". The lead marker that opened the list, or none.
+ */
+function leadListContinued(
   text: string,
   sentences: Array<[number, number]>,
   markers: { before: Marker[]; after: Marker[] },
   index: number,
-): boolean {
+): Marker | undefined {
   const [sStart] = sentenceAt(sentences, index);
   const before = markers.before.filter((m) => m.index >= sStart && m.end <= index);
   const joint = before.at(-1);
   const opened = before.at(-2);
-  if (!joint || !opened || opened.kind !== "lead" || !/^together with$/i.test(text.slice(joint.index, joint.end))) return false;
-  return VERB_GAP.test(text.slice(opened.end, joint.index).replace(/^[a-z\s-]+(?=[A-Z])/, " "));
+  if (!joint || !opened || opened.kind !== "lead" || !/^together with$/i.test(text.slice(joint.index, joint.end))) return undefined;
+  return VERB_GAP.test(text.slice(opened.end, joint.index).replace(/^[a-z\s-]+(?=[A-Z])/, " ")) ? opened : undefined;
 }
 
 /** Participation set against the firm just named: ", with participation from", "with continued participation by". */
@@ -1340,9 +1364,9 @@ const INVERTED_LEAD =
 const SUBJECT_LEAD = new RegExp(`${LEAD_LANGUAGE.source}|\\bleading (?:a|an)\\b|\\bto be (?:co-?)?leading\\b`, "i");
 
 /**
- * Whether the name opens its sentence and the sentence's own verb is lead language: "The IFC has
- * announced plans to lead an equity round", "Aspirity acquires majority stake in Onomondo, leads
- * €100M investment". No investor marker may stand between the name and the verb.
+ * The lead verb of a sentence the name opens: "The IFC has announced plans to lead an equity round",
+ * "Aspirity acquires majority stake in Onomondo, leads €100M investment". No investor marker may
+ * stand between the name and the verb.
  */
 function leadsAsSubject(
   text: string,
@@ -1350,18 +1374,19 @@ function leadsAsSubject(
   markers: { before: Marker[]; after: Marker[] },
   index: number,
   nameLength: number,
-): boolean {
+): Marker | undefined {
   const [sentenceStart, sEnd] = sentenceAt(sentences, index);
   // Quoted speech opens a clause of its own: 'Jane Doe, partner at Acme, said: "Acme is delighted to be leading'.
   const quoteMark = Math.max(text.lastIndexOf("“", index), text.lastIndexOf('"', index));
   const sStart = quoteMark >= sentenceStart ? quoteMark + 1 : sentenceStart;
   const opening = text.slice(sStart, index);
-  if (opening.length > 60 || /[,;:]/.test(opening) || markers.before.some((m) => m.index >= sStart && m.end <= index)) return false;
+  if (opening.length > 60 || /[,;:]/.test(opening) || markers.before.some((m) => m.index >= sStart && m.end <= index)) return undefined;
   const rest = text.slice(index + nameLength, Math.min(sEnd, text.length));
   const verb = SUBJECT_LEAD.exec(rest);
-  if (!verb) return false;
+  if (!verb) return undefined;
   const verbAt = index + nameLength + verb.index;
-  return !markers.before.some((m) => m.index > index && m.index < verbAt);
+  if (markers.before.some((m) => m.index > index && m.index < verbAt)) return undefined;
+  return { index: verbAt, end: verbAt + verb[0].length, kind: "lead" };
 }
 
 /**
@@ -1393,18 +1418,11 @@ export function statedRole(name: string, evidence: string[]): Attribution {
     for (const [form, leadOnly] of forms) {
       if (form.length === 0) continue;
       for (let i = findTokens(folded, form); i >= 0; i = findTokens(folded, form, i + 1)) {
-        const said = attribute(text, sentences, markers, i, form.join(" ").length);
-        const [sStart, sEnd] = sentenceAt(sentences, i);
-        if (INVERTED_LEAD.test(text.slice(sStart, i))) return "lead";
-        if (said === "lead" || leadsAsSubject(text, sentences, markers, i, form.join(" ").length)) return "lead";
-        // "led by A, B, together with C": the list a lead marker opened, continued.
-        if (said === "participant" && continuesLeadList(text, sentences, markers, i)) return "lead";
-        // "$200M from Acme, with participation from Beta": the one firm set apart from the participants.
-        const after = text.slice(i + form.join(" ").length).replace(APPOSITIVE, "");
-        if (said === "participant" && /\bfrom\s+(?:\S+\s+){0,3}$/i.test(text.slice(Math.max(0, i - 40), i)) && SET_APART.test(after))
-          return "lead";
+        const said = markerFor(text, sentences, markers, i, form.join(" ").length)?.kind ?? "unattributed";
+        if (said === "lead") return "lead";
         // Lead language the sentence places on no one may be this name's: "Jane Doe of Acme, who is
         // one of the lead investors in this round".
+        const [sStart, sEnd] = sentenceAt(sentences, i);
         if (said === "unattributed" && hasLeadLanguage(text.slice(sStart, sEnd))) return "lead";
         if (said === "participant" && !leadOnly) role = "participant";
       }
@@ -1501,6 +1519,11 @@ function leadRoundOf(
   return labelled || gap !== null ? "another" : "unnamed";
 }
 
+/** Whether the names a marker speaks for follow it ("led by Acme") rather than precede it ("Acme led"). */
+function namesFollow(markers: { before: Marker[]; after: Marker[] }, marker: Marker): boolean {
+  return markers.before.some((m) => m.index === marker.index && m.end === marker.end);
+}
+
 /**
  * Whether the evidence calls `name` a lead only of another round than `round`. Every lead marker that
  * speaks for it must sit on another round, and the evidence must say so: an earlier-round word on the
@@ -1518,7 +1541,7 @@ export function leadOfAnotherRound(evidence: string, name: string, round: LeadRo
   const markers = markersOf(evidence);
   const leadBefore = markers.before.filter((m) => m.kind === "lead");
   const leads = [...leadBefore, ...markers.after.filter((m) => m.kind === "lead")].sort((a, b) => a.index - b.index);
-  const roundOf = (m: Marker) => leadRoundOf(evidence, sentences, m, leadBefore.includes(m), leads, round);
+  const roundOf = (m: Marker) => leadRoundOf(evidence, sentences, m, namesFollow(markers, m), leads, round);
   const parts = tokens(head(name));
   const kinds: string[] = [];
   for (let at = findTokens(folded, parts); at >= 0; at = findTokens(folded, parts, at + 1)) {
@@ -1542,7 +1565,7 @@ export function investedInRound(evidence: string, name: string): boolean {
   for (let at = findTokens(folded, parts); at >= 0; at = findTokens(folded, parts, at + 1)) {
     const marker = markerFor(evidence, sentences, markers, at, head(name).length);
     if (marker?.kind === "participant") return true;
-    if (marker?.kind !== "lead" || marker.end > at) continue;
+    if (marker?.kind !== "lead" || !namesFollow(markers, marker)) continue;
     const described = markers.before.some(
       (m) => m.kind === "participant" && m.end <= marker.index && /^\s+(?:[a-z]+\s+){0,2}$/.test(evidence.slice(m.end, marker.index)),
     );
@@ -1855,11 +1878,12 @@ export function cleanInvestors(input: InvestorInput): InvestorOutput {
   });
   merged.sort((a, b) => a.order - b.order);
 
-  // Rule 9: a lead of another round, a participant only where the evidence puts it in this one.
+  // Rule 9: a lead of another round, a participant only where the evidence puts it in this one. A name
+  // no marker places is checked too: the extractor's lead it would keep may be another round's.
   const round = input.round;
   if (round) {
     merged = merged.filter((m) => {
-      if (m.attribution !== "lead" || !leadOfAnotherRound(evidence, m.name, round)) return true;
+      if (m.attribution === "participant" || !leadOfAnotherRound(evidence, m.name, round)) return true;
       if (investedInRound(evidence, m.name)) {
         m.attribution = "participant";
         return true;

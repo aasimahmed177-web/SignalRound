@@ -1064,6 +1064,146 @@ describe("rule 9: a lead of another round is not this round's lead", () => {
     expect(combined.lead_investors).toEqual(["General Catalyst", "CRV"]);
     expect(clean(["General Catalyst", "CRV"], [], MELIUS, "$20 million").lead_investors).toEqual(["General Catalyst", "CRV"]);
   });
+
+  test("lasso: a participant whose parenthesis says it led an earlier round stays a participant", () => {
+    const evidence =
+      "Lasso is announcing a $30 million funding round led by ClearSky, with participation from Entrée Capital (which led Lasso's earlier seed round and increased its position in this round).";
+    const out = cleanFor(["ClearSky", "Entrée Capital"], [], evidence, {
+      stage: "other",
+      stage_as_written: "funding round",
+      amount_as_written: "$30 million",
+    });
+    expect(out.lead_investors).toEqual(["ClearSky"]);
+    expect(out.other_investors).toEqual(["Entrée Capital"]);
+  });
+});
+
+describe("rule 9 reads a lead however its sentence names it", () => {
+  const SERIES_A: LeadRound = { stage: "series_a", stage_as_written: "Series A", amount_as_written: "$20 million" };
+
+  // Each phrasing twice: on an earlier round named beside this one, then on this round.
+  test.each([
+    [
+      "an appositive",
+      "Founders Fund",
+      "Founders Fund, the Thiel-backed VC, led its $5 million seed; the $20 million Series A was led by CRV.",
+      "Founders Fund, the Thiel-backed VC, led the $20 million Series A, after CRV led its $5 million seed.",
+    ],
+    [
+      "a dashed appositive",
+      "NFX",
+      "NFX – known for its network thesis – led its $5 million seed; the $20 million Series A was led by CRV.",
+      "NFX – known for its network thesis – led the $20 million Series A, after CRV led its $5 million seed.",
+    ],
+    [
+      "a firm-led round",
+      "B Capital",
+      "CRV led the $20 million Series A, which follows a $5 million B Capital-led seed.",
+      "Acme closed a B Capital-led $20 million Series A, after CRV led its $5 million seed.",
+    ],
+    [
+      "a Dr. that ends no sentence",
+      "Patrick Soon-Shiong",
+      "The $5 million seed was led by Dr. Patrick Soon-Shiong; the $20 million Series A was led by CRV.",
+      "The $20 million Series A was led by Dr. Patrick Soon-Shiong, after CRV led its $5 million seed.",
+    ],
+    [
+      "with a firm leading",
+      "B Capital",
+      "Acme's $5 million seed closed with B Capital leading the seed round; the $20 million Series A was led by CRV.",
+      "Acme raised a $20 million Series A with B Capital leading the round, after CRV led its $5 million seed.",
+    ],
+    [
+      "a firm with its acronym leading",
+      "S2G Investments",
+      "Acme raised a $5 million seed with S2G Investments (S2G) leading the seed round; the $20 million Series A was led by CRV.",
+      "Acme raised a $20 million Series A with S2G Investments (S2G) leading the round, after CRV led its $5 million seed.",
+    ],
+    [
+      "a co-lead alongside",
+      "Krafton",
+      "CRV led the $20 million Series A. Acme Ventures co-led the $5 million seed alongside Krafton.",
+      "Acme Ventures co-led the $20 million Series A alongside Krafton, after CRV led its $5 million seed.",
+    ],
+    [
+      "a lead together with",
+      "Beta Partners",
+      "Acme Ventures led the seed together with Beta Partners; the $20 million Series A was led by CRV.",
+      "Acme Ventures led the round together with Beta Partners, a $20 million Series A that follows a $5 million seed led by CRV.",
+    ],
+    [
+      "a lead list continued with together with",
+      "Beta Partners",
+      "The $5 million seed was led by Acme Capital, together with Beta Partners; the $20 million Series A was led by CRV.",
+      "The $20 million Series A was led by Acme Capital, together with Beta Partners, after CRV led its $5 million seed.",
+    ],
+    [
+      "the lead named after its verb",
+      "The House Fund",
+      "Co-leading the $5 million seed round with Third Prime was The House Fund. The $20 million Series A was led by CRV.",
+      "Co-leading the $20 million Series A round with Third Prime was The House Fund, after CRV led its $5 million seed.",
+    ],
+    [
+      "a firm proud to lead",
+      "Energize Capital",
+      "Energize Capital was proud to lead the $5 million seed alongside DCVC in 2024. The $20 million Series A was led by CRV.",
+      "Energize Capital is proud to lead the $20 million Series A, after CRV led its $5 million seed.",
+    ],
+    [
+      "an anchor co-lead",
+      "SBI Group",
+      "SBI Group joined as anchor co-lead investor of the $5 million seed; the $20 million Series A was led by CRV.",
+      "SBI Group joined as anchor co-lead investor of the $20 million Series A, after CRV led its $5 million seed.",
+    ],
+    [
+      "led by new investment from",
+      "Acme Growth",
+      "The $5 million seed was led by new investment from Acme Growth; the $20 million Series A was led by CRV.",
+      "The $20 million Series A was led by new investment from Acme Growth, after CRV led its $5 million seed.",
+    ],
+    [
+      "from co-leads",
+      "Rally Ventures",
+      "Acme raised its $5 million seed from co-leads Rally Ventures and Crosslink Capital; the $20 million Series A was led by CRV.",
+      "Acme raised its $20 million Series A from co-leads Rally Ventures and Crosslink Capital, after CRV led its $5 million seed.",
+    ],
+    [
+      "the firm set apart from the participation",
+      "Accel",
+      "Acme raised a $5 million seed from Accel, with participation from Creandum; the $20 million Series A was led by CRV.",
+      "Acme raised a $20 million Series A from Accel, with participation from Creandum, after CRV led its $5 million seed.",
+    ],
+    [
+      "the investors a lead marker names",
+      "Acme Ventures",
+      "The $5 million seed was led by new industry investors including Acme Ventures; the $20 million Series A was led by CRV.",
+      "The $20 million Series A was led by new industry investors including Acme Ventures, after CRV led its $5 million seed.",
+    ],
+    [
+      "German",
+      "Acme Capital",
+      "Die Seed-Runde wurde angeführt von Acme Capital, die Series A angeführt von CRV.",
+      "Die Series A wurde angeführt von Acme Capital, nach einer Seed-Runde unter Führung von CRV.",
+    ],
+    [
+      "French",
+      "Acme Capital",
+      "Le seed est mené par Acme Capital ; la Series A est menée par CRV.",
+      "La Series A est menée par Acme Capital, après un seed mené par CRV.",
+    ],
+  ])("%s: %s leads the earlier round, then this one", (_phrasing, name, earlier, own) => {
+    expect(leadOfAnotherRound(earlier, name, SERIES_A)).toBe(true);
+    const out = cleanInvestors({
+      lead_investors: [name, "CRV"],
+      other_investors: [],
+      evidence: earlier,
+      amount_as_written: "$20 million",
+      round: SERIES_A,
+    });
+    expect(out.lead_investors).not.toContain(name);
+    expect(leadOfAnotherRound(own, name, SERIES_A)).toBe(false);
+    expect(statedRole(name, [own])).toBe("lead");
+  });
 });
 
 describe("shape", () => {
