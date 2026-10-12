@@ -221,7 +221,7 @@ describe("URL shapes", () => {
 });
 
 describe("itemSource titles", () => {
-  test("a per-item link to another page takes its slug as the title, not the read page's headline", () => {
+  test("a per-item link to another page has no title until its own page is read, never its slug or the read page's headline", () => {
     const page = {
       url: "https://traded.co/vc/deal/snorkel-ai-secures-350-million-in-series-e-funding",
       host: "traded.co",
@@ -233,8 +233,8 @@ describe("itemSource titles", () => {
       "Basecamp Research",
     );
     expect(item.url).toBe("https://traded.co/vc/deal/basecamp-research-raises-140-million-in-series-c-funding");
-    expect(item.title).toBe("Basecamp research raises 140 million in series c funding");
-    // An anchor on the read page keeps its title; a link with no words in its slug has no title.
+    expect(item.title).toBeUndefined();
+    // An anchor on the read page keeps its title.
     expect(itemSource(page, `${page.url}#basecamp`, "Snorkel AI").title).toBe(page.title);
     expect(itemSource(page, "https://traded.co/vc/deal/8843221", null).title).toBeUndefined();
   });

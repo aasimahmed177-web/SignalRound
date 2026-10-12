@@ -686,6 +686,10 @@ describe("urls and domains", () => {
       canonicalUrl("https://www.marketwatch.com/story/x-b64c1b60"),
     );
     expect(canonicalUrl("https://a.example/p?ncid=abc&guce_referrer=x&keep=1")).toBe("https://a.example/p?keep=1");
+    // Google's result-tracking id: The Times' article arrived as nine sources, one per search.
+    expect(canonicalUrl("https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg?srsltid=AU7gw4XBEAeE")).toBe(
+      "https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg",
+    );
   });
 });
 

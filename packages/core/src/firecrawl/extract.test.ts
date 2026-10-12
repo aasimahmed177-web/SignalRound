@@ -183,9 +183,9 @@ describe("slug titles", () => {
     expect(mentionsCompany(undefined, "Ollie")).toBe(false);
   });
 
-  test("sourceTitle prefers the slug when the title names another company and the slug names this one", () => {
-    expect(sourceTitle("Emberos Raises $5.5M Seed - The SaaS News", OLLIE_URL, ["Ollie"])).toBe("Ollie raises 7.5M seed");
-    expect(sourceTitle(undefined, OLLIE_URL, ["Ollie"])).toBe("Ollie raises 7.5M seed");
+  test("sourceTitle drops a search title that names another company while the slug names this one, and never uses the slug", () => {
+    expect(sourceTitle("Emberos Raises $5.5M Seed - The SaaS News", OLLIE_URL, ["Ollie"])).toBeUndefined();
+    expect(sourceTitle(undefined, OLLIE_URL, ["Ollie"])).toBeUndefined();
   });
 
   test("sourceTitle keeps a title that names the company, or when the slug does not name it either", () => {
@@ -205,13 +205,11 @@ describe("slug titles", () => {
     const listUrl =
       "https://www.automate.org/robotics/industry-insights/robotics-raises-able-labs-easy-aerial-lupin-dental-motion-reframe-systems";
     expect(sourceTitle(weekly, listUrl, ["Able Labs", "Easy Aerial", "Lupin Dental", "Reframe Systems"])).toBe(weekly);
-    expect(sourceTitle(undefined, listUrl, ["Able Labs", "Easy Aerial"])).toBe(
-      "Robotics raises able labs easy aerial lupin dental motion reframe systems",
-    );
+    expect(sourceTitle(undefined, listUrl, ["Able Labs", "Easy Aerial"])).toBeUndefined();
     // A sibling's title of the same shape shares too few words with the slug to be this article's.
     expect(
       sourceTitle("Laters.com Raises $1.5M Seed - The SaaS News", "https://www.thesaasnews.com/news/catch-raises-5m-seed", ["Catch"]),
-    ).toBe("Catch raises 5M seed");
+    ).toBeUndefined();
   });
 });
 
@@ -264,8 +262,9 @@ describe("pageItems and the ungrounded count", () => {
     const { kept, dropped } = resolveRounds(items, { stages: ["seed"], windowStart: windowStartFor("week", NOW), now: NOW });
     expect(dropped.ungrounded).toBe(1);
     expect(kept.map((r) => r.company_name)).toEqual(["Ollie"]);
-    // The sidebar round does not get a say in the title: only the grounded companies are checked.
-    expect(kept[0].sources[0].title).toBe("Ollie raises 7.5M seed");
+    // The sidebar round does not get a say in the title: only the grounded companies are checked, and
+    // the sibling's search title goes without the slug taking its place.
+    expect(kept[0].sources[0].title).toBeUndefined();
   });
 
   test("a roundup's rounds share the page's own title", () => {
@@ -377,6 +376,28 @@ describe("extractRounds", () => {
     expect(result.items.map((i) => i.grounded)).toEqual([true, false]);
     expect(result.pages[0]).toMatchObject({ ok: true, rounds: 2, ungrounded: 1, cached: false });
     expect(result.creditsEstimated).toBe(5);
+  });
+
+  test("the page's own headline stands even when it does not name the company and the slug does", async () => {
+    const headline = "AI university spin-out led by former Oxford Nanopore boss raises £4m";
+    const client = fakeClient({
+      markdown: `# ${headline}\n\nMatter Machine raised £4 million in a pre-Series A round.`,
+      json: {
+        rounds: [
+          round({
+            company_name: "Matter Machine",
+            round_type_as_written: "pre-Series A",
+            amount_as_written: "£4 million",
+            evidence_quote: "Matter Machine raised £4 million in a pre-Series A round.",
+          }),
+        ],
+      },
+      metadata: { ogTitle: headline },
+    });
+    const url =
+      "https://www.thetimes.com/business/companies-markets/article/oxford-nanopore-liverpool-university-ai-matter-machine-v73fc9jlg";
+    const result = await extractRounds(client, [{ url, title: "Oxford nanopore liverpool university ai matter machine" }]);
+    expect(result.items[0]?.source.title).toBe(headline);
   });
 
   test("an X timeline keeps its label as the title", async () => {

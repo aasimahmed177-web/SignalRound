@@ -14,7 +14,6 @@ import {
   dateFromUrl,
   dollarFromEvidence,
   hostOf,
-  humanizeSlug,
   isArticleUrl,
   isCompanyDescription,
   isDataPointQuote,
@@ -29,10 +28,8 @@ import {
   parseStatedDate,
   registrableDomain,
   SOCIAL_AND_DIRECTORY_HOSTS,
-  slugWords,
   stageForAmount,
   stripFurniture,
-  urlSlug,
   withinWindow,
 } from "./normalize.ts";
 import { backgroundByPageShape } from "./page-shape.ts";
@@ -685,7 +682,7 @@ export function itemSource(source: RoundSource, itemUrl: string | null | undefin
  * timeline post (its "@handle on X" label names the account, not a story). A link to another page on
  * the site was never read, so the read page's headline is not its title: traded.co's Snorkel AI deal
  * page listed Basecamp Research's deal, and the Basecamp link was stored under the Snorkel headline.
- * Its slug read as a headline is the title then, or none when the slug has no words.
+ * It has no title until it is read: a slug is never a title.
  */
 function itemTitle(source: RoundSource, item: URL): string | undefined {
   let read: URL;
@@ -696,8 +693,7 @@ function itemTitle(source: RoundSource, item: URL): string | undefined {
   }
   if (read.pathname.replace(/\/+$/, "") === item.pathname.replace(/\/+$/, "")) return source.title;
   if (DEFAULT_TIMELINE_HOSTS.includes(registrableDomain(item.toString()) ?? "")) return source.title;
-  const slug = urlSlug(item.toString());
-  return slugWords(slug).some((w) => /[a-z]{3,}/i.test(w)) ? humanizeSlug(slug) : undefined;
+  return undefined;
 }
 
 /** Whether a URL path could be about the company: it has no words, or at least half the name's longer tokens appear in it. */

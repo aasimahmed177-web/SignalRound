@@ -1,47 +1,65 @@
-// Retitle the sources a store wrote before titles came from the page itself:
+// Retitle the sources a store titled from their URL slug before a slug stopped being a title:
 //   pnpm retitle-sources              # rewrite
 //   pnpm retitle-sources -- --dry-run # count and list, change nothing
-// A source whose title names none of the companies its rounds are about, while its URL slug
-// names one, was titled from a search result that belonged to a sibling article. The slug is
-// the article's own, so it becomes the title, humanized (`sourceTitle` in core). The extraction
-// path applies the same rule to new data. Filings (sec.gov) are not articles and are titled
-// when rendered, so they are left alone.
+// A source whose title is its own slug read as a headline ("Oxford nanopore liverpool university ai
+// matter machine v73fc9jlg") takes the headline of the page as last read (its h1, articleTitle in core)
+// when that headline carries most of the slug's words.
+// A source with no read page keeps its title and is listed. Filings (sec.gov) are not articles and are
+// titled when rendered, so they are left alone.
 
-import { sourceTitle } from "@fireround/core";
+import { articleTitle, humanizeSlug, urlSlug } from "@fireround/core";
 import { closeDb, schema } from "@fireround/core/db";
-import { eq, notInArray } from "drizzle-orm";
+import { desc, eq, inArray, notInArray } from "drizzle-orm";
 import { openStore } from "../../lib/db.ts";
-import { FILING_HOSTS } from "../../lib/news.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
 
-const { sources, roundSources, fundingRounds, companies } = schema;
+const { sources, pageSnapshotReads, pageSnapshots } = schema;
 const dryRun = process.argv.includes("--dry-run");
 
 const handle = await openStore();
 const rows = await handle
-  .select({ id: sources.id, url: sources.url, title: sources.title, company: companies.name })
+  .select({ id: sources.id, url: sources.url, title: sources.title })
   .from(sources)
-  .innerJoin(roundSources, eq(roundSources.sourceId, sources.id))
-  .innerJoin(fundingRounds, eq(fundingRounds.id, roundSources.roundId))
-  .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
-  .where(notInArray(sources.host, [...FILING_HOSTS]));
+  .where(notInArray(sources.host, ["sec.gov", "www.sec.gov"]));
+const slugTitled = rows.filter((r) => r.title && r.title === humanizeSlug(urlSlug(r.url)));
 
-const bySource = new Map<string, { url: string; title: string | null; companies: string[] }>();
-for (const r of rows) {
-  const entry = bySource.get(r.id) ?? { url: r.url, title: r.title, companies: [] };
-  entry.companies.push(r.company);
-  bySource.set(r.id, entry);
-}
+const wordsOf = (value: string) => value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+const renders = (headline: string, slugTitle: string) => {
+  const own = new Set(wordsOf(headline));
+  const slug = wordsOf(slugTitle).filter((w) => w.length > 2);
+  return slug.length > 0 && slug.filter((w) => own.has(w)).length >= 0.5 * slug.length;
+};
 
 let rewritten = 0;
-for (const [id, s] of bySource) {
-  const next = sourceTitle(s.title ?? undefined, s.url, s.companies);
-  if (next === undefined || next === (s.title ?? undefined)) continue;
+const unread: string[] = [];
+for (const s of slugTitled) {
+  const [read] = await handle
+    .select({ markdown: pageSnapshots.markdown })
+    .from(pageSnapshotReads)
+    .innerJoin(pageSnapshots, eq(pageSnapshots.hash, pageSnapshotReads.snapshotHash))
+    .where(inArray(pageSnapshotReads.sourceUrl, [s.url, `${s.url}/`]))
+    .orderBy(desc(pageSnapshotReads.readAt))
+    .limit(1);
+  const headline = read
+    ? articleTitle({ markdown: read.markdown })
+        ?.replace(/^[*_]+|[*_]+$/g, "")
+        .trim()
+    : undefined;
+  // The headline is this article's only when it carries most of the slug's words; a site's furniture
+  // (a banner's "A message from ..." as the first heading) does not.
+  const next = headline && renders(headline, s.title as string) ? headline : undefined;
+  if (!next || next === s.title) {
+    unread.push(s.url);
+    continue;
+  }
   rewritten++;
   console.log(`${dryRun ? "would retitle" : "retitled"} ${s.url}\n  ${JSON.stringify(s.title)} -> ${JSON.stringify(next)}`);
-  if (!dryRun) await handle.update(sources).set({ title: next }).where(eq(sources.id, id));
+  if (!dryRun) await handle.update(sources).set({ title: next }).where(eq(sources.id, s.id));
 }
-console.log(`${dryRun ? "Would rewrite" : "Rewrote"} ${rewritten} of ${bySource.size} source title(s).`);
-await invalidateScriptEntityPages();
+for (const url of unread) console.log(`no headline on record: ${url}`);
+console.log(
+  `${dryRun ? "Would rewrite" : "Rewrote"} ${rewritten} of ${slugTitled.length} slug-titled source(s); ${unread.length} have no headline on record.`,
+);
+if (!dryRun) await invalidateScriptEntityPages();
 await closeDb();
 process.exit(0);

@@ -11,7 +11,6 @@ import {
   classifyStage,
   dateFromUrl,
   hostOf,
-  humanizeSlug,
   isArticleUrl,
   namesCompany,
   normalizeCompanyKey,
@@ -54,6 +53,8 @@ export interface PageReading {
   page_kind: PageKind | null;
   page_date: string | null;
   visible_article_date?: boolean;
+  /** The source's title is the page's own (its og:title, h1, or title tag), not a search result's. */
+  title_from_page?: boolean;
 }
 
 export interface ExtractOptions {
@@ -106,30 +107,23 @@ export function mentionsCompany(value: string | undefined, companyName: string):
 const TITLE_RENDERS_SLUG = 0.8;
 
 /**
- * The title a source row carries for the rounds it reported. The page's title stands unless it
- * names none of the companies while the URL slug names one: then the slug, humanized, is the
- * title, since a URL is minted for its own article and a title can be copied from a sibling.
- * Two exceptions keep a real title: a roundup, whose slug lists two or more of the companies
- * ("The Week's Top Funding for Robotics" over `robotics-raises-acme-labs-beta-aerial-...`), and a
- * title that carries most of the slug's own words ("The Week's 10 Biggest Funding Rounds" over
- * `biggest-funding-rounds-ai-tools-assistants-instinct`). A company whose key normalizes to
- * nothing counts as named. Returns the title to store.
+ * The title a source row carries for the rounds it reported, when the page gave none of its own and the
+ * search result's title stands in. That title stands unless it names none of the companies while the
+ * URL slug names one: then it belonged to a sibling article, and the row has no title rather than a
+ * wrong one. A slug is never a title (The Times' "Oxford nanopore liverpool university ai matter machine
+ * v73fc9jlg"). A roundup's title, whose slug lists two or more of the companies, and a title that
+ * carries most of the slug's own words stand. A company whose key normalizes to nothing counts as named.
  */
 export function sourceTitle(title: string | undefined, url: string, companyNames: string[]): string | undefined {
   const names = companyNames.filter((n) => words(n).length > 0);
-  if (names.length === 0) return title;
+  if (!title || names.length === 0) return title;
   if (names.some((n) => mentionsCompany(title, n))) return title;
-  const slug = urlSlug(url);
-  const slugText = slugWords(slug).join(" ");
+  const slugText = slugWords(urlSlug(url)).join(" ");
   const namedInSlug = slugText ? names.filter((n) => mentionsCompany(slugText, n)).length : 0;
-  if (namedInSlug === 0) return title;
-  if (title) {
-    if (namedInSlug >= 2) return title;
-    const titleWords = new Set(words(title));
-    const shared = words(slugText).filter((w) => titleWords.has(w)).length;
-    if (shared >= TITLE_RENDERS_SLUG * words(slugText).length) return title;
-  }
-  return humanizeSlug(slug);
+  if (namedInSlug === 0 || namedInSlug >= 2) return title;
+  const titleWords = new Set(words(title));
+  const shared = words(slugText).filter((w) => titleWords.has(w)).length;
+  return shared >= TITLE_RENDERS_SLUG * words(slugText).length ? title : undefined;
 }
 
 /** Lower case, markdown link and image syntax reduced to their text, punctuation gone, whitespace collapsed. */
@@ -431,7 +425,8 @@ export function pageItems(
   const grounded = rounds.map((round) => (markdown === undefined ? undefined : groundingCheck(round, markdown)));
   const dateline = pageDateline(markdown);
   const companies = rounds.filter((_, i) => grounded[i] !== false).map((r) => r.company_name);
-  const titled = { ...source, title: sourceTitle(source.title, source.url, companies) };
+  // The page's own title stands; only a search result's title standing in for it is checked.
+  const titled = page.title_from_page ? source : { ...source, title: sourceTitle(source.title, source.url, companies) };
   return rounds.map((round, i) => ({
     round,
     source: titled,
@@ -659,6 +654,10 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
             )
           : null,
       }));
+      // An X timeline is not an article: its label ("@handle on X") stays; every other page is titled by itself.
+      const timeline = DEFAULT_TIMELINE_HOSTS.includes(registrableDomain(t.url) ?? "");
+      const ownTitle = timeline ? undefined : articleTitle(doc as TitleDoc);
+      const title = timeline ? t.title : (ownTitle ?? text(t.title));
       const reading: PageReading = {
         page_kind: parsed.success ? parsed.data.page_kind : null,
         page_date:
@@ -671,11 +670,9 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
             now,
           ),
         visible_article_date: Boolean(visible),
+        title_from_page: timeline || ownTitle !== undefined,
       };
       const published = visible ?? metadataPublished ?? t.published;
-      // An X timeline is not an article: its label ("@handle on X") stays; every other page is titled by itself.
-      const timeline = DEFAULT_TIMELINE_HOSTS.includes(registrableDomain(t.url) ?? "");
-      const title = timeline ? t.title : articleTitle(doc as TitleDoc, t.title);
       const source: RoundSource = { url: t.url, host: hostOf(t.url), title, published, query: t.query };
       const pageRounds = pageItems(rounds, source, doc.markdown, reading);
       items.push(...pageRounds);
