@@ -768,11 +768,12 @@ export interface MergeRow extends RoundIdentity {
   pinned: Pinned | null;
 }
 
-/** The facts fix-records pins on a row: a redate's day, a restage's stage, a valuation (null pins it blank). */
+/** The facts fix-records pins on a row: a redate's day, a restage's stage, a valuation (null pins it blank), a certainty. */
 export interface Pinned {
   announced_on?: string;
   stage?: string;
   valuation?: string | null;
+  certainty?: RoundCertainty;
 }
 
 /**
@@ -1061,7 +1062,11 @@ export async function persistRecords(
     if (prev && prev.certainty !== "announced" && (r.certainty ?? "announced") === "announced" && !closes) r.certainty = prev.certainty;
     if (prev) r.evidence_quotes = [...new Set([...prev.evidence, ...r.evidence_quotes])];
     const upgrade = Boolean(
-      prev && prev.certainty !== "announced" && r.certainty === "announced" && matchingCertainty(prev, r, recordIdentity(r)),
+      prev &&
+        !prev.pinned?.certainty &&
+        prev.certainty !== "announced" &&
+        r.certainty === "announced" &&
+        matchingCertainty(prev, r, recordIdentity(r)),
     );
     const reportedOn = prev?.reportedOn ?? (r.certainty !== "announced" ? (r.announced_date ?? now.toISOString().slice(0, 10)) : null);
     const arriving = r.certainty ?? prev?.certainty ?? "announced";
@@ -1073,6 +1078,8 @@ export async function persistRecords(
           : arriving;
     // Nor does a low-tier "closed" stand against an established outlet's "reportedly raising" (FieldAI, 2026-10-02).
     if (r.certainty === "announced" && !closes && doubtedBy) r.certainty = doubtedBy;
+    // A certainty a person pinned stands whatever this reading says (fix-records).
+    if (prev?.pinned?.certainty) r.certainty = prev.pinned.certainty;
     if (upgrade && reportedOn) {
       const note = `Reported before its announcement on ${reportedOn}`;
       const verification = r.verification ?? { status: "unverified" as const, notes: [], url: null };
@@ -2294,7 +2301,9 @@ export interface RoundMerge {
 function survivorFacts(keep: MergeRow, dup: MergeRow): Partial<typeof fundingRounds.$inferInsert> {
   const set: Partial<typeof fundingRounds.$inferInsert> = {};
   const certaintyRank: Record<RoundCertainty, number> = { unconfirmed: 0, expected: 1, reported: 2, announced: 3 };
-  if (certaintyRank[dup.certainty] > certaintyRank[keep.certainty]) set.certainty = dup.certainty;
+  // A pinned certainty wins; otherwise the surer one does.
+  if (dup.pinned?.certainty && !keep.pinned?.certainty) set.certainty = dup.pinned.certainty;
+  else if (!keep.pinned?.certainty && certaintyRank[dup.certainty] > certaintyRank[keep.certainty]) set.certainty = dup.certainty;
   if (!keep.reportedOn && dup.reportedOn) set.reportedOn = dup.reportedOn;
   if (keep.reportedOn && dup.reportedOn && dup.reportedOn < keep.reportedOn) set.reportedOn = dup.reportedOn;
   const rank = (r: MergeRow) => (r.announcedOn ? (DATE_PRECISION_RANK[r.datePrecision as keyof typeof DATE_PRECISION_RANK] ?? 0) : -1);
@@ -2373,6 +2382,7 @@ function survivorFacts(keep: MergeRow, dup: MergeRow): Partial<typeof fundingRou
     if (dup.pinned.announced_on && !keep.pinned?.announced_on) pinned.announced_on = dup.pinned.announced_on;
     if (dup.pinned.stage && !keep.pinned?.stage) pinned.stage = dup.pinned.stage;
     if ("valuation" in dup.pinned && !(keep.pinned && "valuation" in keep.pinned)) pinned.valuation = dup.pinned.valuation;
+    if (dup.pinned.certainty && !keep.pinned?.certainty) pinned.certainty = dup.pinned.certainty;
     if (JSON.stringify(pinned) !== JSON.stringify(keep.pinned ?? {})) set.pinned = pinned;
   }
   // Both rows' valuation claims, and the valuation they support; a pin on either stands.

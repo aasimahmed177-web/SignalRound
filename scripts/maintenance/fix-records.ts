@@ -8,7 +8,8 @@
 // page names), "describe" (a description the company's own page supports, for one that says nothing),
 // "investors" (a round's leads and participants as its announcement states them, written as persist
 // writes a verified list), "hq" and "sector" (a company's headquarters, or its sector from the
-// vocabulary), and "history_lead" (a missing earlier round queued on the history ledger with the page
+// vocabulary), "certainty" (a round shown as announced that its pages say is still being raised, pinned),
+// and "history_lead" (a missing earlier round queued on the history ledger with the page
 // that states it; the history pass reads and verifies it; `requeue` sends a lead that ended without a
 // source back to pending with a new page). Every fix but a merge cites the page it rests on, and
 // each names what the row holds now, so a row that has moved on is refused, and a fix already in place is

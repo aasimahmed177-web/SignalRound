@@ -4,7 +4,7 @@
 // `pnpm reset-data` are the commands (scripts/maintenance/merge-duplicates.ts, scripts/maintenance/reset-data.ts);
 // lib/prune-corroboration.ts is the same shape, kept apart because its rule and SQL are its own.
 
-import type { FeedRecord, Sector, Stage } from "@fireround/core";
+import type { FeedRecord, RoundCertainty, Sector, Stage } from "@fireround/core";
 import {
   amountInEvidence,
   canonicalUrl,
@@ -566,6 +566,20 @@ export type RecordFix =
       note: string;
     }
   /**
+   * How sure the round is, as its pages say: a round shown as announced whose only established source
+   * says the company is still raising ("set to raise", "in talks") is expected. Pinned, so no later
+   * reading moves it back.
+   */
+  | {
+      kind: "certainty";
+      round: string;
+      from: RoundCertainty;
+      certainty: RoundCertainty;
+      evidence: string;
+      quote: string;
+      note: string;
+    }
+  /**
    * A company description that says nothing ("an artificial intelligence company") or is a headline,
    * replaced by one sentence the company's own page supports. A re-enrichment never replaces a
    * description the record already has, so a vague one stays until a fix like this.
@@ -944,6 +958,49 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       await handle
         .update(fundingRounds)
         .set({
+          verification: { ...verification, notes },
+          status: sql`CASE WHEN ${fundingRounds.status} = 'seen' AND NOT ${fundingRounds.history} THEN 'updated' ELSE ${fundingRounds.status} END`,
+          updatedAt: new Date(),
+        })
+        .where(eq(fundingRounds.id, fix.round));
+      out.applied++;
+      continue;
+    }
+
+    if (fix.kind === "certainty") {
+      if (row.certainty === fix.certainty) {
+        if (row.pinned?.certainty === fix.certainty) {
+          say(`skip certainty ${fix.round}: already ${fix.certainty}, pinned`);
+          out.skipped++;
+          continue;
+        }
+        say(`pin certainty ${fix.round}: already ${fix.certainty}; pinned so no later reading moves it`);
+        if (opts.apply) {
+          await handle
+            .update(fundingRounds)
+            .set({ pinned: { ...(row.pinned ?? {}), certainty: fix.certainty }, updatedAt: new Date() })
+            .where(eq(fundingRounds.id, fix.round));
+          out.applied++;
+        }
+        continue;
+      }
+      if (row.certainty !== fix.from) {
+        say(`refuse certainty ${fix.round}: certainty is ${row.certainty}, expected ${fix.from}`);
+        out.refused++;
+        continue;
+      }
+      const noteLine = `certainty ${row.certainty} read as ${fix.certainty} (${hostOf(fix.evidence)}): "${fix.quote}": ${fix.note}`;
+      say(`certainty ${fix.round}: ${row.certainty} -> ${fix.certainty}`);
+      say(`  evidence: ${fix.evidence}`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      const notes = verification.notes.includes(noteLine) ? verification.notes : [...verification.notes, noteLine];
+      await handle
+        .update(fundingRounds)
+        .set({
+          certainty: fix.certainty,
+          reportedOn: fix.certainty === "announced" ? row.reportedOn : (row.reportedOn ?? row.announcedOn),
+          pinned: { ...(row.pinned ?? {}), certainty: fix.certainty },
           verification: { ...verification, notes },
           status: sql`CASE WHEN ${fundingRounds.status} = 'seen' AND NOT ${fundingRounds.history} THEN 'updated' ELSE ${fundingRounds.status} END`,
           updatedAt: new Date(),

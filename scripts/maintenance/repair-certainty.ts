@@ -34,6 +34,8 @@ while (true) {
   }
   for (const row of page.rows) {
     counts.visible++;
+    // A certainty a person pinned (fix-records) is not the classifier's to move.
+    if (row.pinned?.certainty) continue;
     const decision = classifyStoredCertainty(row, tiers, new Date(), evidenceByRound.get(row.id));
     counts[decision.certainty]++;
     const untrusted = decision.certainty !== "announced" && !decision.tiered;

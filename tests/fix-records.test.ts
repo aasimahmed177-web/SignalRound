@@ -257,6 +257,66 @@ describe("applyRecordFixes", () => {
     expect(moved.refused).toBe(1);
   });
 
+  test("a round shown as announced that its source says is still being raised becomes expected and stays so", async () => {
+    const handle = await testDb();
+    const fieldai = () =>
+      record({
+        id: "fieldai:growth:2026-10-02",
+        company_name: "FieldAI",
+        company_key: "fieldai",
+        company_domain: "fieldai.com",
+        stage: "growth",
+        stage_as_written: "funding round",
+        announced_date: "2026-10-02",
+        amount: { value: 700, currency: "USD", as_written: "$700 million", usd_millions: 700, fx_rate: 1, fx_date: "2026-10-02" },
+        sources: [
+          {
+            url: "https://traded.co/vc/deal/fieldai-raises-700-million-at-10-billion-valuation",
+            host: "traded.co",
+            title: "FieldAI Raises $700 Million At $10 Billion Valuation",
+            evidence: "FieldAI closed a $700 million round at a $10 billion valuation.",
+          },
+        ],
+      });
+    await persistRecords(handle, [fieldai()], "growth", "run-1");
+    const fix: RecordFix = {
+      kind: "certainty",
+      round: "fieldai:growth:2026-10-02",
+      from: "announced",
+      certainty: "expected",
+      evidence: "https://www.businessinsider.com/robotics-startup-fieldai-raises-at-10b-valuation-in-new-round-2026-10",
+      quote: "FieldAI is raising $700 million at a $10 billion valuation, according to a person familiar with the deal",
+      note: "the established report says the round is still being raised",
+    };
+    const dry = await applyRecordFixes(handle, [fix], { apply: false });
+    expect(dry.lines.join("\n")).toContain("certainty fieldai:growth:2026-10-02: announced -> expected");
+    const read = async () => (await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, fix.round)))[0];
+    expect((await read())?.certainty).toBe("announced");
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 1, refused: 0 });
+    const row = await read();
+    expect(row).toMatchObject({ certainty: "expected", reportedOn: "2026-10-02", pinned: { certainty: "expected" } });
+    const notes = (row?.verification as { notes: string[] } | undefined)?.notes ?? [];
+    expect(notes.some((n) => n.startsWith("certainty announced read as expected (businessinsider.com)"))).toBe(true);
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+    expect(await applyRecordFixes(handle, [{ ...fix, from: "reported", certainty: "unconfirmed" }], { apply: true })).toMatchObject({
+      refused: 1,
+    });
+    // A later "closed" reading, even an established outlet's, does not move a pinned certainty back.
+    const closed = fieldai();
+    closed.certainty = "announced";
+    closed.sources = [
+      {
+        url: "https://www.reuters.com/technology/fieldai-closes-700-million-round-2026-10-03/",
+        host: "reuters.com",
+        title: "FieldAI closes $700 million round",
+        evidence: "FieldAI closed a $700 million round at a $10 billion valuation.",
+      },
+    ];
+    await persistRecords(handle, [closed], "growth", "run-2");
+    expect(await handle.select().from(schema.fundingRounds)).toHaveLength(1);
+    expect((await read())?.certainty).toBe("expected");
+  });
+
   test("a round's syndicate is replaced from its announcement, a company's headquarters and sector move; a second apply skips", async () => {
     const handle = await testDb();
     const round = "positron:series_c:2026-09-11";

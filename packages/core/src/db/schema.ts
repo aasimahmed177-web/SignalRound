@@ -189,11 +189,16 @@ export const fundingRounds = pgTable(
     /** The disposition a row asked for while the publication gate holds it in review for its audit. */
     pendingDisposition: dispositionEnum("pending_disposition"),
     /**
-     * Facts a person set by hand (`pnpm fix-records`: a redate's day, a restage's stage) with the page
+     * Facts a person set by hand (`pnpm fix-records`: a redate's day, a restage's stage, a certainty) with the page
      * that states them. No later reading, read-back, merge, or maintenance pass moves a pinned fact:
      * bluecore-energy's hand-checked Sep 8 was back at a trade republication's Sep 22 a day later.
      */
-    pinned: jsonb("pinned").$type<{ announced_on?: string; stage?: string; valuation?: string | null }>(),
+    pinned: jsonb("pinned").$type<{
+      announced_on?: string;
+      stage?: string;
+      valuation?: string | null;
+      certainty?: "announced" | "reported" | "expected" | "unconfirmed";
+    }>(),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     ...timestamps,
