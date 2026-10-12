@@ -1339,7 +1339,7 @@ export async function persistRecords(
       const { disposition, presetSlug: _incomingPreset, ...derived } = base;
       const keep = <T>(incoming: T | null, column: (typeof fundingRounds)[keyof typeof fundingRounds]) =>
         incoming === null ? sql`${column}` : incoming;
-      await handle
+      const updated = await handle
         .update(fundingRounds)
         .set({
           ...derived,
@@ -1409,7 +1409,11 @@ export async function persistRecords(
           // A reading that holds the row in review withdraws what it asked for at the publication gate.
           ...(disposition === "review" ? { pendingDisposition: null } : {}),
         })
-        .where(eq(fundingRounds.id, r.id));
+        .where(eq(fundingRounds.id, r.id))
+        .returning({ id: fundingRounds.id });
+      // A lane running beside this one merged the row away since the candidates were read: its survivor
+      // already holds the round, and nothing more of this reading may be written onto the deleted id.
+      if (updated.length === 0) continue;
       if (changed) {
         summary.updated++;
         summary.changedIds.push(r.id);

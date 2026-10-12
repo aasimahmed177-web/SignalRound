@@ -1766,3 +1766,23 @@ describe("folding one company into another", () => {
     expect((await db.select().from(schema.companyNewsroomScans)).map((n) => n.companyId)).toEqual(["acme.com"]);
   });
 });
+
+describe("a row merged away while a reading is written", () => {
+  test("writes nothing more onto the deleted id: no investor or source link fails on it", async () => {
+    const db = await testDb();
+    const r = record({ company_name: "Valon", lead_investors: ["Ribbit Capital"], announced_date: isoDaysAgo(1) });
+    await persistRecords(db, [r], "series-a-b", "run-1");
+    // Another lane merges the row away after this writer read its candidates: the company upsert stands in for that moment.
+    await db.execute(
+      sql.raw(
+        `create function drop_round() returns trigger language plpgsql as $$ begin delete from funding_rounds where id = '${r.id}'; return new; end $$`,
+      ),
+    );
+    await db.execute(sql`create trigger drop_round after update on companies for each row execute function drop_round()`);
+    const again = record({ ...r, lead_investors: ["Ribbit Capital", "Thrive Capital"] });
+    const summary = await persistRecords(db, [again], "series-a-b", "run-2");
+    expect(summary.persistedIds).toEqual([]);
+    const links = await db.select().from(schema.roundInvestors).where(eq(schema.roundInvestors.roundId, r.id));
+    expect(links).toEqual([]);
+  });
+});
