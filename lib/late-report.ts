@@ -9,6 +9,7 @@
 import type { FeedRecord, PriorRound, Stage } from "@fireround/core";
 import {
   BAND_OF_STAGE,
+  canonicalUrl,
   classifyStage,
   extractRounds,
   isArticleUrl,
@@ -322,7 +323,7 @@ export async function holdLateReports(
           updatedAt: new Date(),
         })
         .where(eq(fundingRounds.id, r.id));
-      const sourceId = original.sourceUrl;
+      const sourceId = canonicalUrl(original.sourceUrl);
       await handle
         .insert(sources)
         .values({ id: sourceId, url: sourceId, host: new URL(sourceId).hostname, title: original.label, publishedAt: original.date })

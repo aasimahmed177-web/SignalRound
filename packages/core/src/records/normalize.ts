@@ -697,7 +697,7 @@ export function canonicalUrl(url: string): string {
     // Tracking and attribution parameters: the same article arrives with and without them.
     for (const k of [...u.searchParams.keys()]) {
       if (
-        /^(utm_|fbclid|gclid|dclid|msclkid|srsltid$|mc_|_hs|hsa_|igshid|yclid|ref$|ref_|source$|src$|s$|si$|mod$|cmpid$|ncid$|guccounter$|guce_)/i.test(
+        /^(utm_|utm$|fbclid|gclid|dclid|msclkid|mc_|_hs|hsa_|igshid|yclid|srsltid$|eafs_enabled$|feedref$|ocid$|smid$|ref$|ref_|source$|src$|s$|si$|mod$|cmpid$|ncid$|guccounter$|guce_)/i.test(
           k,
         )
       ) {

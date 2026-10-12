@@ -706,6 +706,11 @@ describe("urls and domains", () => {
     expect(canonicalUrl("https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg?srsltid=AU7gw4XBEAeE")).toBe(
       "https://www.thetimes.co.uk/article/matter-machine-v73fc9jlg",
     );
+    // A search engine's click id and a publisher's own switches are the same article too.
+    expect(canonicalUrl("https://www.wsj.com/tech/ai/story-88ef9f0a?eafs_enabled=false")).toBe(
+      "https://www.wsj.com/tech/ai/story-88ef9f0a",
+    );
+    expect(canonicalUrl("https://a.example/p?srsltid=AfmBOo&feedref=rss&ocid=x&smid=tw&utm=1&id=7")).toBe("https://a.example/p?id=7");
   });
 });
 
