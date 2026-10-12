@@ -13,7 +13,7 @@ import { schema } from "@fireround/core/db";
 import { NextRequest } from "next/server";
 import { searchEntities } from "../app/(dashboard)/search/actions";
 import { GET as logoGet } from "../app/api/logo/[id]/route";
-import { GET as mcpGet } from "../app/api/mcp/route";
+import { GET as mcpGet, POST as mcpPost } from "../app/api/mcp/route";
 import { GET as roundsGet } from "../app/api/v1/rounds/route";
 import { GET as runsGet } from "../app/api/v1/runs/route";
 import { db } from "../lib/db";
@@ -127,6 +127,29 @@ describe("the open doors on a public demo", () => {
   test("MCP answers 429 before the server reads the request", async () => {
     await exhaust(LIMITS.mcp);
     expect((await mcpGet(new Request("http://app.test/api/mcp", { headers: from() }))).status).toBe(429);
+  });
+
+  test("MCP refuses a batch, so one request cannot carry many tool calls on one count", async () => {
+    const call = (id: number) => ({
+      jsonrpc: "2.0",
+      id,
+      method: "tools/call",
+      params: { name: "search_rounds", arguments: { query: "acme" } },
+    });
+    const post = (body: unknown) =>
+      mcpPost(
+        new Request("http://app.test/api/mcp", {
+          method: "POST",
+          headers: { ...from(), "content-type": "application/json", accept: "application/json, text/event-stream" },
+          body: JSON.stringify(body),
+        }),
+      );
+    const batch = await post([call(1), call(2), call(3)]);
+    expect(batch.status).toBe(400);
+    expect(await batch.json()).toMatchObject({ error: { code: -32600 } });
+    expect(await (await db()).select().from(schema.rateLimits)).toHaveLength(0);
+    expect((await post(call(1))).status).toBe(200);
+    expect((await post([call(1)])).status).toBe(200);
   });
 
   test("the palette's search returns no hits past its budget", async () => {

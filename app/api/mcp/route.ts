@@ -288,10 +288,34 @@ const guarded = apiKey
     )
   : handler;
 
+/**
+ * Whether the body is a JSON-RPC batch of more than one message. The SDK still runs every call in a
+ * batch (the 2025-03-26 revision allowed them; current revisions dropped them, and no SDK client
+ * sends one), so a single request could carry thousands of tool calls on one count of the limiter.
+ */
+async function isBatch(request: Request): Promise<boolean> {
+  if (request.method !== "POST") return false;
+  const body: unknown = await request
+    .clone()
+    .json()
+    .catch(() => null);
+  return Array.isArray(body) && body.length > 1;
+}
+
 /** An untrusted caller (a public demo with no MCP_API_KEY) is counted per address before the server sees the request. */
 async function limited(request: Request): Promise<Response> {
   if (!apiKey && !isPublicDemo() && dashboardPassword() !== null) {
     return Response.json({ error: "MCP_API_KEY is required on a password-protected deployment" }, { status: 401 });
+  }
+  if (await isBatch(request)) {
+    return Response.json(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32600, message: "Batched requests are not supported: send one JSON-RPC message per request." },
+        id: null,
+      },
+      { status: 400 },
+    );
   }
   return (await limitRequest(request, LIMITS.mcp, mcpTrusted())) ?? guarded(request);
 }
