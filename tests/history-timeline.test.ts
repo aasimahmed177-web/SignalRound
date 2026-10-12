@@ -238,6 +238,40 @@ test("company recall is bounded and claims prevent concurrent discovery calls", 
   expect(calls.search).toBeLessThanOrEqual(7);
 });
 
+test("a company folded away while its timeline reads stops paying for pages", async () => {
+  const handle = await testDb();
+  await handle.insert(schema.companies).values({ id: "acme-2", name: "Acme", nameKey: "acme", domain: "acme.com" });
+  const { reader: r, calls } = reader({
+    search: Array.from({ length: 30 }, (_, i) => ({
+      url: `https://acme.com/blog/round-${i}`,
+      title: `Acme raises $${i + 1}M Series A`,
+      published: `${2000 + i}-01-01`,
+      via: "search",
+    })),
+  });
+  const extract = r.extract;
+  r.extract = async (targets) => {
+    await handle.delete(schema.companies).where(eq(schema.companies.id, "acme-2"));
+    return extract(targets);
+  };
+  const recall = await queueCompanyTimeline(handle, r, "acme-2", NOW, true);
+  expect(calls.extract).toBe(1);
+  expect(recall.pages).toBe(1);
+  const [run] = await handle.select().from(schema.runs).where(eq(schema.runs.id, "history-timeline:acme-2"));
+  expect(run.finishedAt).not.toBeNull();
+});
+
+test("a forced timeline skips a company whose last pass started within the hour", async () => {
+  const handle = await testDb();
+  await handle.insert(schema.companies).values({ id: "acme", name: "Acme", nameKey: "acme", domain: "acme.com" });
+  const { reader: r } = reader({ search: [{ url: "https://acme.com/blog/seed", title: "Acme raises $5M seed", via: "search" }] });
+  const later = (minutes: number) => new Date(NOW.getTime() + minutes * 60_000);
+  expect((await queueCompanyTimeline(handle, r, "acme", NOW, true)).credits).toBeGreaterThan(0);
+  expect(await queueCompanyTimeline(handle, r, "acme", later(30), true)).toEqual({ queued: 0, credits: 0, pages: 0 });
+  expect((await queueCompanyTimeline(handle, r, "acme", later(61), true)).credits).toBeGreaterThan(0);
+  expect(await queueCompanyTimeline(handle, r, "acme", later(90), false)).toEqual({ queued: 0, credits: 0, pages: 0 });
+});
+
 test("a company folded away mid-search ends its leads instead of failing the run", async () => {
   const handle = await testDb();
   await handle.insert(schema.companies).values({ id: "corgi", name: "Corgi", nameKey: "corgi", domain: "corgi.insure" });

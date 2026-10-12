@@ -138,11 +138,20 @@ async function nextRetryStep(companyId: string): Promise<string | null> {
 }
 
 /**
+ * How long a forced timeline (a new round just landed) waits before it searches. The lane that landed
+ * the round enriches next, and enrichment folds a new company into the row that already owns its
+ * domain: in the week to October 11, 2026, 309 timelines read a company that was folded within 15 minutes of the start.
+ * After the wait, a folded company is gone and its timeline costs nothing.
+ */
+export const TIMELINE_SETTLE = "15m";
+
+/**
  * A newly checked dossier's prior rounds. A failure waits out its backoff (1 hour, 6 hours, a day)
  * in a durable sleep and is tried again, HISTORY_MAX_ATTEMPTS tries in all.
  */
 export async function companyHistoryWorkflow(companyId: string, includeRecent = false, forceTimeline = false): Promise<HistoryTally> {
   "use workflow";
+  if (forceTimeline) await sleep(TIMELINE_SETTLE);
   await timelineStep(companyId, forceTimeline);
   return processCompanyHistoryWithRetries(companyId, includeRecent);
 }

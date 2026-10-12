@@ -246,6 +246,12 @@ export function gapQueries(name: string, known: KnownRound[]): string[] {
 export const TIMELINE_PAGES = 12;
 export const TIMELINE_LEADS = 32;
 export const TIMELINE_RECHECK_DAYS = 7;
+/**
+ * A forced pass (a new round landed) still skips a company whose last pass started within the hour:
+ * forced passes wait out workflows/history.ts TIMELINE_SETTLE first, so two lanes landing one
+ * company's round in the same hour would otherwise both pay for one.
+ */
+export const TIMELINE_FORCE_GAP_MS = 60 * 60_000;
 
 export async function queueCompanyTimeline(handle: Db, reader: HistoryReader, companyId: string, now = new Date(), force = false) {
   const [company] = await handle.select().from(companies).where(eq(companies.id, companyId)).limit(1);
@@ -257,7 +263,7 @@ export async function queueCompanyTimeline(handle: Db, reader: HistoryReader, co
     .onConflictDoUpdate({
       target: schema.runs.id,
       set: { startedAt: now, finishedAt: null, error: null },
-      setWhere: sql`(${schema.runs.finishedAt} < ${new Date(now.getTime() - (force ? 0 : TIMELINE_RECHECK_DAYS) * 86_400_000)} or (${schema.runs.finishedAt} is null and ${schema.runs.startedAt} < ${new Date(now.getTime() - 30 * 60_000)}))`,
+      setWhere: sql`(${schema.runs.finishedAt} < ${new Date(now.getTime() - (force ? TIMELINE_FORCE_GAP_MS : TIMELINE_RECHECK_DAYS * 86_400_000))} or (${schema.runs.finishedAt} is null and ${schema.runs.startedAt} < ${new Date(now.getTime() - 30 * 60_000)}))`,
     })
     .returning({ id: schema.runs.id });
   if (claimed.length === 0) return { queued: 0, credits: 0, pages: 0 };
@@ -320,6 +326,10 @@ export async function queueCompanyTimeline(handle: Db, reader: HistoryReader, co
     });
     const candidates = [...new Map([...feed, ...ranked].map((c) => [canonicalUrl(c.url), c])).values()].slice(0, TIMELINE_PAGES);
     for (const candidate of candidates) {
+      // Enrichment can fold a new company into the row that owns its domain while this reads; the fold
+      // moves the ledger, so pages read after it would only be paid for.
+      const [still] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (!still) break;
       const extraction = await reader.extract([
         { url: candidate.url, title: candidate.title, published: candidate.published, query: `${name} funding history` },
       ]);

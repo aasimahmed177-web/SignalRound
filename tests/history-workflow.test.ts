@@ -4,14 +4,16 @@ process.env.DATABASE_URL = "";
 import { schema } from "@fireround/core/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { sleep } from "workflow";
 import { start } from "workflow/api";
 import { db } from "../lib/db";
 import { persistRecords } from "../lib/persist";
 import { startLeadHistoryStep } from "../workflows/enrich";
-import { companyHistoryWorkflow, startCompanyTimelinesStep } from "../workflows/history";
+import { companyHistoryWorkflow, startCompanyTimelinesStep, TIMELINE_SETTLE } from "../workflows/history";
 import { record } from "./helpers";
 
 vi.mock("workflow/api", () => ({ start: vi.fn(async () => undefined) }));
+vi.mock("workflow", async (original) => ({ ...(await original<object>()), sleep: vi.fn(async () => undefined) }));
 
 beforeEach(async () => {
   vi.stubEnv("FIRECRAWL_API_KEY", "test");
@@ -43,4 +45,13 @@ test("accuracy recall respects its cap and moves past recently checked prominent
     [companyHistoryWorkflow, ["stale"]],
     [companyHistoryWorkflow, ["new"]],
   ]);
+});
+
+test("a forced timeline waits for the landing lane's enrichment to fold its company first; an ordinary one does not wait", async () => {
+  vi.mocked(sleep).mockClear();
+  await companyHistoryWorkflow("folded-away", false, true);
+  expect(sleep).toHaveBeenCalledExactlyOnceWith(TIMELINE_SETTLE);
+  vi.mocked(sleep).mockClear();
+  await companyHistoryWorkflow("folded-away");
+  expect(sleep).not.toHaveBeenCalled();
 });
