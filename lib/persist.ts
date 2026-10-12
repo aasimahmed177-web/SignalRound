@@ -1870,6 +1870,18 @@ export function feedHistory(q: Pick<RoundQuery, "since" | "until" | "company">):
  */
 export const SEARCH_TEXT_MAX = 200;
 
+/** The preset SEC Form D filings are written under. */
+export const FORM_D_PRESET = "form-d";
+
+/**
+ * A public list's query (the feed, Biggest rounds, the API's and MCP's lists, RSS). A Form D filing
+ * carries no amount, lead, or description most of the time, so it is a record a reader reaches by
+ * asking for it (`preset=form-d`) or through its company, not a row of the default list.
+ */
+export function publicRoundQuery<Q extends RoundQuery>(q: Q): Q {
+  return q.preset || q.company || q.companyId || q.ids?.length ? q : { ...q, excludePreset: FORM_D_PRESET };
+}
+
 /** The WHERE half of a round query, shared by listRounds and countRounds. Cursor stays with the caller. */
 function roundConds(q: RoundQuery) {
   const conds = [];

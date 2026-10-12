@@ -14,7 +14,7 @@ import { esc } from "@/lib/digest";
 import { hostLabel, stageLabel, stageOf, usd } from "@/lib/format";
 import { companyHref, webUrl } from "@/lib/links";
 import type { RoundRow } from "@/lib/persist";
-import { listRounds } from "@/lib/persist";
+import { listRounds, publicRoundQuery } from "@/lib/persist";
 import { listPresets } from "@/lib/presets";
 import { ALL_ROUNDS, feedItemId } from "@/lib/public-feeds";
 import { readAgainst } from "@/lib/source-count";
@@ -104,7 +104,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ token: stri
 
   const origin = new URL(request.url).origin;
   // A feed is news: history rows (earlier rounds promoted from dossiers) never enter it.
-  const listed = await listRounds(handle, { preset: preset === "all" ? undefined : preset, limit: 100, history: "exclude" });
+  const listed = await listRounds(
+    handle,
+    publicRoundQuery({ preset: preset === "all" ? undefined : preset, limit: 100, history: "exclude" }),
+  );
   const rows = listed.rows.filter((r) => acceptsCertainty(r, includeExpected));
   const feed = new Feed({
     title: `Fireround: ${presetName}`,

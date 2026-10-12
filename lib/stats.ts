@@ -9,7 +9,7 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, lte, notInArray, type SQL, sql } from "drizzle-orm";
 import { FILING_HOSTS } from "@/lib/news";
-import { listRounds, type RoundRow } from "@/lib/persist";
+import { listRounds, publicRoundQuery, type RoundRow } from "@/lib/persist";
 import { type TrendingMark, trendingTop } from "@/lib/trending";
 
 const { fundingRounds, companies, investors, roundInvestors, runs, sources, roundSources } = schema;
@@ -612,7 +612,10 @@ export async function marketView(handle: Db, presetSlug?: string, now: Date = ne
   const [m, biggest, trending] = await Promise.all([
     market(handle, presetSlug, now),
     // The rounds that closed, as the Capital figure above them counts them: an expected round is not raised money.
-    listRounds(handle, { since: week.since, sort: "amount", history: "exclude", certainty: "closed", preset: presetSlug, limit: 5 }),
+    listRounds(
+      handle,
+      publicRoundQuery({ since: week.since, sort: "amount", history: "exclude", certainty: "closed", preset: presetSlug, limit: 5 }),
+    ),
     trendingTop(handle, 5, presetSlug, now),
   ]);
   return { market: m, biggest: biggest.rows.filter((r) => r.amount.usd_millions !== null), trending };

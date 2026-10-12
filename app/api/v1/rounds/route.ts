@@ -24,7 +24,7 @@ import {
 } from "@/lib/api-params";
 import { db } from "@/lib/db";
 import type { RoundRow } from "@/lib/persist";
-import { feedHistory, listRounds } from "@/lib/persist";
+import { feedHistory, listRounds, publicRoundQuery } from "@/lib/persist";
 import { didYouMean } from "@/lib/public-api";
 import { publicRound } from "@/lib/public-view";
 import { LIMITS, limitRequest } from "@/lib/rate-limit";
@@ -133,7 +133,7 @@ export async function GET(request: Request) {
   if (limited) return limited;
 
   const handle = await db();
-  const filters = {
+  const filters = publicRoundQuery({
     since: since.value,
     stages: stages.value,
     status: status.value,
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
     includeReview,
     // History rows (earlier rounds promoted from dossiers) list only when the caller asks for dates or a company.
     history: feedHistory({ since: since.value, company: p.get("company") ?? undefined }),
-  };
+  });
   let rows: RoundRow[];
   let nextCursor: string | null;
   // An export is the whole filtered set, not the first page: a CSV asked for without a limit follows

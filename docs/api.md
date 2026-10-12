@@ -47,3 +47,7 @@ Each company has one sector from a fixed list. The sectors sit in a few groups, 
 | `other` | other |
 
 The same reading applies to `/api/v1/rounds`, `/api/v1/companies`, `/api/v1/investors/top`, `/api/v1/news`, MCP's `list_rounds`, and the feed's sector menu, which lists each group with its sectors inset under it. Case, spaces, and dashes don't matter, and common other names map on (`healthcare` is `health`, `saas` is `software`, `dev tools` is `developer tools`). An unknown word is a 400 that lists the sectors and groups. The groups live in `packages/core/src/records/sectors.ts` (`SECTOR_GROUPS`), and a test holds every sector to exactly one group.
+
+# SEC Form D filings
+
+Rounds read from SEC Form D filings (`preset_slug: "form-d"`) rarely state an amount, a lead, or what the company does, so default lists leave them out. These are `GET /api/v1/rounds`, MCP's `list_rounds`, the feed, Biggest rounds and RSS. Ask for them with `preset=form-d`, for example `GET /api/v1/rounds?preset=form-d`. A company's own record still lists its filings: `company=<domain>`, `get_company` and the company page.

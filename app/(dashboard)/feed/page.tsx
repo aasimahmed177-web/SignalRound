@@ -25,7 +25,7 @@ import { firstRunProps } from "@/lib/first-run";
 import { feedScope, feedTitle } from "@/lib/format";
 import { houseDomain, isFreshHouseRound } from "@/lib/house";
 import { parsePage } from "@/lib/pages";
-import { feedHistory, toFeedRow } from "@/lib/persist";
+import { feedHistory, publicRoundQuery, toFeedRow } from "@/lib/persist";
 import { PRESET_PARAM } from "@/lib/preset-param";
 import { presetOptions } from "@/lib/presets";
 import { defaultFeedView, FEED_VIEW_PANEL, type FeedNarrowing, isNarrowed, toFeedSort, toFeedView, viewTabId } from "@/lib/round-sort";
@@ -109,7 +109,7 @@ async function FeedBody({ searchParams }: { searchParams: Promise<Search> }) {
   const until = isoDay(one(search.until));
   // A publisher host, from an Overview link; lowercased like the stored hosts.
   const source = one(search.source).trim().toLowerCase() || undefined;
-  const filters: FeedPageQuery["filters"] = {
+  const filters: FeedPageQuery["filters"] = publicRoundQuery({
     q: one(search.q) || undefined,
     stages: stages.length ? stages : undefined,
     status: status === "new" ? ["new", "updated"] : undefined,
@@ -123,7 +123,7 @@ async function FeedBody({ searchParams }: { searchParams: Promise<Search> }) {
     // Latest lists what the lanes caught; an earlier round promoted from a dossier joins only a date
     // range, unless the link says history=exclude (the Overview's figures count news rounds only).
     history: one(search.history) === "exclude" ? "exclude" : feedHistory({ since, until }),
-  };
+  });
   const scope = feedScope({ since, until, source });
   // A bare /feed opens Trending where this instance runs the lane (Latest where it would be empty);
   // a search, filter, or date range opens Latest, since Trending ranks only three days (lib/round-sort.ts).

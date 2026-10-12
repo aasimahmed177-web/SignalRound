@@ -28,7 +28,7 @@ import { houseDomain, houseFreshSince, isFreshHouseRound } from "@/lib/house";
 import { getInvestor, type InvestorPage } from "@/lib/investor";
 import { landingStats } from "@/lib/landing";
 import { listRuns, type NewsEntry, type RunRow, readNews } from "@/lib/news";
-import { listRounds, listSectors, type RoundRow } from "@/lib/persist";
+import { listRounds, listSectors, publicRoundQuery, type RoundRow } from "@/lib/persist";
 import { listPresets } from "@/lib/presets";
 import { getCoverage } from "@/lib/settings";
 import { slackPreviews } from "@/lib/slack-delivery";
@@ -91,7 +91,7 @@ export async function cachedLatestRounds(limit: number): Promise<RoundRow[]> {
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return (await read((h) => listRounds(h, { limit, history: "exclude" }))).rows;
+  return (await read((h) => listRounds(h, publicRoundQuery({ limit, history: "exclude" })))).rows;
 }
 
 /** The newest published Series A rounds and the cursor after them: the landing page's API example. */
@@ -99,7 +99,7 @@ export async function cachedSeriesAPick(limit: number): Promise<{ rows: RoundRow
   "use cache: remote";
   cacheLife(FRONT_DOOR);
   cacheTag(TAG_ROUNDS);
-  return read((h) => listRounds(h, { stages: ["series_a"], limit, history: "exclude" }));
+  return read((h) => listRounds(h, publicRoundQuery({ stages: ["series_a"], limit, history: "exclude" })));
 }
 
 /**
@@ -127,7 +127,7 @@ export async function cachedLandingHero(limit: number): Promise<{ rows: RoundRow
   return read(async (handle) => {
     const { rounds } = await trendingTop(handle, limit);
     if (rounds.length > 0) return { rows: rounds, trending: true };
-    return { rows: (await listRounds(handle, { limit, history: "exclude" })).rows, trending: false };
+    return { rows: (await listRounds(handle, publicRoundQuery({ limit, history: "exclude" }))).rows, trending: false };
   });
 }
 

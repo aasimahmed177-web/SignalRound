@@ -475,7 +475,7 @@ export function GET(request: Request) {
               name: "preset",
               in: "query",
               description:
-                "One preset's rounds: series-a-b (Series A and B, the default preset), seed (seed and pre-seed), or growth (Series C and later). Omit for every preset.",
+                "One preset's rounds: series-a-b (Series A and B, the default preset), seed (seed and pre-seed), growth (Series C and later), or form-d (SEC Form D filings, which a list leaves out unless asked for or narrowed to a company). Omit for every preset but form-d.",
               schema: { type: "string", examples: ["series-a-b", "seed", "growth"] },
             },
             {

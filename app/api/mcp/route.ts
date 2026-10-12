@@ -14,7 +14,7 @@ import { dashboardPassword } from "@/lib/dashboard-auth";
 import { db } from "@/lib/db";
 import { COMPANY_SORTS } from "@/lib/directory";
 import type { RoundRow } from "@/lib/persist";
-import { feedHistory, listRounds, setStatus } from "@/lib/persist";
+import { feedHistory, listRounds, publicRoundQuery, setStatus } from "@/lib/persist";
 import { listPresets } from "@/lib/presets";
 import {
   API_INVESTOR_SORTS,
@@ -136,7 +136,13 @@ const handler = createMcpHandler(
             .optional()
             .describe("A sector or a group, e.g. ai (includes ai infrastructure), health (healthtech, biotech, medtech), fintech, climate"),
           min_amount_usd_millions: z.number().min(0).optional(),
-          preset: z.string().max(100).optional().describe("Preset slug, for example series-a-b, seed, or growth; omit for every preset"),
+          preset: z
+            .string()
+            .max(100)
+            .optional()
+            .describe(
+              "Preset slug, for example series-a-b, seed, or growth; omit for every preset except form-d (SEC Form D filings), which is listed only when asked for",
+            ),
           cursor: z.string().max(200).optional(),
           limit: z.number().int().min(1).max(100).optional(),
         }),
@@ -146,18 +152,21 @@ const handler = createMcpHandler(
         const sector = parseSector(args.sector ?? null);
         if (!sector.ok) return refusal(sector.error);
         const handle = await db();
-        const { rows, nextCursor } = await listRounds(handle, {
-          since: args.since,
-          stages: args.stage as Stage[] | undefined,
-          status: args.status,
-          certainty: args.certainty,
-          sector: sector.value,
-          minUsdMillions: args.min_amount_usd_millions,
-          preset: args.preset,
-          cursor: args.cursor,
-          limit: args.limit ?? 25,
-          history: feedHistory({ since: args.since }),
-        });
+        const { rows, nextCursor } = await listRounds(
+          handle,
+          publicRoundQuery({
+            since: args.since,
+            stages: args.stage as Stage[] | undefined,
+            status: args.status,
+            certainty: args.certainty,
+            sector: sector.value,
+            minUsdMillions: args.min_amount_usd_millions,
+            preset: args.preset,
+            cursor: args.cursor,
+            limit: args.limit ?? 25,
+            history: feedHistory({ since: args.since }),
+          }),
+        );
         return text({ rounds: rows.map(compactRound), next_cursor: nextCursor });
       }),
     );
