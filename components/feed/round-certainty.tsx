@@ -1,5 +1,5 @@
 import type { FeedRecord } from "@fireround/core";
-import { classifyRoundCertainty } from "@fireround/core";
+import { classifyRoundCertainty } from "@fireround/core/client";
 import { hostLabel } from "@/lib/format";
 
 type CertaintyRow = {

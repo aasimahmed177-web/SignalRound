@@ -1,7 +1,7 @@
 "use client";
 
 import type { Preset } from "@fireround/core";
-import { STAGES } from "@fireround/core";
+import { STAGES } from "@fireround/core/client";
 import { type ReactNode, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createPreset, type PresetInput, updatePreset } from "@/app/(dashboard)/presets/actions";
