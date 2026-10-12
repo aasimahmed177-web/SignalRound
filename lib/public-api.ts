@@ -324,7 +324,8 @@ export function oneEditAway<T extends { edits: number }>(near: T[]): T | null {
 
 /**
  * A profile by what was asked; else the one name a single edit away, read under that name and saying so
- * (matched_from, note); else the 404 body naming the near ones.
+ * (matched_from, note); else the 404 body naming the near ones. A site (linear.app) names one page exactly,
+ * so a miss on it is never read as a near name's profile (Liner) and only lists the near ones.
  */
 async function profileOrNear<T extends { name: string }>(
   handle: Db,
@@ -336,7 +337,7 @@ async function profileOrNear<T extends { name: string }>(
   const found = await read(wanted);
   if (found) return found;
   const near = await nearNames(handle, kind, wanted);
-  const meant = oneEditAway(near);
+  const meant = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(bareSite(wanted)) ? null : oneEditAway(near);
   const matched = meant ? await read(meant.id) : null;
   if (matched) {
     const noun = kind === "companies" ? "company" : "investor";

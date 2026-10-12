@@ -207,6 +207,12 @@ describe("/api/v1/companies and /api/v1/companies/{id}", () => {
     expect(typo.status).toBe(200);
     expect(typo.body).toMatchObject({ id: "zeta.example", matched_from: "zetta", note: expect.stringContaining("this is Zeta") });
     expect((await company("zeta.example")).body).not.toHaveProperty("matched_from");
+    // A site names one page exactly, so a site one edit off is a 404 that names the near company, never its profile.
+    for (const site of ["zetta.example", "https://www.zetta.example/"]) {
+      const near = await company(encodeURIComponent(site));
+      expect(near.status, site).toBe(404);
+      expect(near.body.did_you_mean, site).toEqual([{ id: "zeta.example", name: "Zeta" }]);
+    }
     expect((await company("nobody.example")).body.did_you_mean).toEqual([]);
     expect((await company("hidden.example")).status).toBe(404);
   });
