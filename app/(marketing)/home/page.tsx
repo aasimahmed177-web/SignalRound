@@ -27,7 +27,7 @@ import { Tag } from "@/components/ui/tag";
 import { isLanding, isPublicDemo } from "@/lib/access";
 import { digestsConfigured } from "@/lib/digest";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
-import { API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
+import { ALEXANDRIA_URL, API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
 import { siteOrigin } from "@/lib/origin";
 import { siteJsonLd } from "@/lib/seo";
 import { publicSlackConfig } from "@/lib/slack-subscriptions";
@@ -243,6 +243,15 @@ function Hero() {
               Deploy your own
             </a>
           </div>
+          {/* The hosted feed is a provider in Firecrawl Alexandria; an instance of your own is not, so only the demo says so. */}
+          {isPublicDemo() && (
+            <p className="mt-5 text-body-medium text-muted-foreground">
+              Ask it from ChatGPT or Claude:{" "}
+              <Out href={ALEXANDRIA_URL} className="text-body-medium">
+                Fireround in Firecrawl Alexandria
+              </Out>
+            </p>
+          )}
         </div>
         <div className="mx-auto mt-14 max-w-5xl sm:mt-16">
           <Suspense fallback={<LiveGlimpseSkeleton />}>
@@ -348,6 +357,21 @@ function Product() {
             <h3 className="text-title-h5">Query it with curl, or connect it to an agent.</h3>
             <p className="max-w-2xl text-body-medium text-muted-foreground">
               The same records over HTTP and over MCP. The response below is a row from this instance, trimmed to a few fields.
+              {isPublicDemo() && (
+                <>
+                  {" "}
+                  In ChatGPT or Claude, use{" "}
+                  <a
+                    href={ALEXANDRIA_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-foreground underline underline-offset-2 hover:no-underline"
+                  >
+                    Fireround in Firecrawl Alexandria
+                  </a>
+                  .
+                </>
+              )}
             </p>
           </div>
           <div className="flex shrink-0 gap-5">

@@ -20,6 +20,9 @@ export const DEPLOY_URL =
 
 export const API_KEYS_URL = "https://www.firecrawl.dev/app/api-keys";
 
+/** Fireround's page in Firecrawl Alexandria, where ChatGPT, Claude, and other agents query this feed through Firecrawl. */
+export const ALEXANDRIA_URL = "https://www.firecrawl.dev/alexandria/fireround";
+
 /** The README's quick start, with the comment on the key line cut to fit a phone. */
 export const QUICK_START = [
   "git clone https://github.com/firecrawl/fireround.git && cd fireround",
