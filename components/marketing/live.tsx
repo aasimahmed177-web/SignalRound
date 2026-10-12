@@ -427,6 +427,12 @@ const MCP_TOOLS: Array<[string, string]> = [
   ["search_rounds", "Free text over company names, descriptions, and investors"],
   ["get_company", "Every round on record for one company"],
   ["list_trending", "The most discussed rounds first seen in the last three days, with their counts"],
+  ["list_companies", "Companies by search, sector, stage, or date, with what each raised"],
+  ["get_company_profile", "One company's rounds, leads, announcements, and investors"],
+  ["list_investors", "Investors by name, with the rounds each led and joined"],
+  ["get_investor", "One investor's rounds, sectors, stages, and co-investors"],
+  ["top_investors", "The most active leads over 7, 30, or 90 days, by sector or stage"],
+  ["list_news", "The latest articles behind the rounds, with the rounds each reports"],
   ["mark_seen", "Take rounds out of the unread set"],
   ["list_presets", "The watchlists and their slugs"],
 ];
@@ -484,10 +490,10 @@ export async function ApiExamples() {
             <CodeLines code={mcp} lang="json" label="MCP client config" />
           </div>
           <div className="min-w-0 border-t border-border-faint xl:border-t-0">
-            <PaneLabel>{tools.length === 6 ? "Six" : "Five"} tools</PaneLabel>
+            <PaneLabel>{tools.length} tools</PaneLabel>
             <ul className="divide-y divide-border-faint">
               {tools.map(([name, what]) => (
-                <li key={name} className="grid gap-1 px-5 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4">
+                <li key={name} className="grid gap-1 px-5 py-3 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-4">
                   <code className="font-mono text-[13px] text-foreground">{name}</code>
                   <span className="text-body-small text-muted-foreground">{what}</span>
                 </li>

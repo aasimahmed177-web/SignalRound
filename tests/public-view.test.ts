@@ -174,6 +174,12 @@ describe("MCP, feeds, and the browser's rows carry none either", () => {
       ["get_company", { company: "leaky" }],
       ["list_trending", {}],
       ["list_presets", {}],
+      ["list_companies", {}],
+      ["get_company_profile", { id: "leaky" }],
+      ["list_investors", {}],
+      ["get_investor", { id: "fund-one" }],
+      ["top_investors", { window: "90d" }],
+      ["list_news", {}],
     ] as const) {
       const out = await mcpCall(name, args);
       expect(internalFields(out), name).toEqual([]);

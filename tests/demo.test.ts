@@ -170,7 +170,19 @@ describe("MCP in demo mode", () => {
 
   test("a keyless demo drops mark_seen and reads only the feed's rows", async () => {
     vi.stubEnv("PUBLIC_DEMO", "1");
-    expect(await toolNames()).toEqual(["list_rounds", "search_rounds", "get_company", "list_trending", "list_presets"]);
+    expect(await toolNames()).toEqual([
+      "list_rounds",
+      "search_rounds",
+      "get_company",
+      "list_trending",
+      "list_companies",
+      "get_company_profile",
+      "list_investors",
+      "get_investor",
+      "top_investors",
+      "list_news",
+      "list_presets",
+    ]);
     expect(await companyRounds()).toBe(0);
   });
 
