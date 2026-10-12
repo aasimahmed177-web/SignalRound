@@ -33,6 +33,7 @@
     "reverify-profiles": "node --env-file-if-exists=.env scripts/maintenance/reverify-profiles.ts",
     "replace-profile": "node --env-file-if-exists=.env scripts/maintenance/replace-profile.ts",
     "accuracy-check": "node --env-file-if-exists=.env scripts/accuracy-check.ts",
+    "agent-eval": "node --env-file-if-exists=.env scripts/agent-eval.ts",
     "alexandria-backfill": "node --env-file-if-exists=.env scripts/alexandria-backfill.ts",
     "investor-domains": "node --env-file-if-exists=.env scripts/investor-domains.ts",
     "resolve-investors": "node --env-file-if-exists=.env scripts/resolve-investors.ts",
