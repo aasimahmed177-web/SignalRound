@@ -32,7 +32,7 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, desc, eq, gte, inArray, isNull, like, lt, lte, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
 import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
@@ -302,6 +302,65 @@ async function rememberNameKey(handle: Db, companyId: string, key: string, name:
   await handle.execute(
     sql`insert into company_aliases (company_id, kind, alias_key, alias, source_url) select ${companyId}, 'name', ${key}, ${name}, ${sourceUrl} where not exists (select 1 from companies where id = ${companyId} and name_key = ${key}) on conflict do nothing`,
   );
+}
+
+/** A company id as it stands now: the id itself while its row lives, else the company it was folded into. */
+async function liveCompanyId(handle: Db, id: string | undefined): Promise<string | undefined> {
+  if (!id) return undefined;
+  const [live] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.id, id)).limit(1);
+  if (live) return id;
+  const [fold] = await handle
+    .select({ intoId: schema.companyFolds.intoId })
+    .from(schema.companyFolds)
+    .where(eq(schema.companyFolds.fromId, id))
+    .limit(1);
+  return fold?.intoId ?? id;
+}
+
+/**
+ * The one company with a domain that holds this reading's name key, as its own or as an alias; null when
+ * none or several do, or when the reading's own name or headquarters says it is another company.
+ */
+async function namedOwner(handle: Db, r: FeedRecord): Promise<string | null> {
+  const key = r.company_key;
+  if (!key || normalizeCompanyKey(r.company_name) !== key) return null;
+  const rows = await handle
+    .select({ id: companies.id, hq: companies.hq })
+    .from(companies)
+    .where(
+      and(
+        isNotNull(companies.domain),
+        or(
+          eq(companies.nameKey, key),
+          sql`exists (select 1 from company_aliases a where a.company_id = ${companies.id} and a.kind = 'name' and a.alias_key = ${key})`,
+        ),
+      ),
+    );
+  if (rows.length !== 1) return null;
+  const [owner] = rows;
+  if (owner.hq && r.headquarters && normalizeCompanyKey(owner.hq) !== normalizeCompanyKey(r.headquarters)) return null;
+  return owner.id;
+}
+
+/**
+ * Fold every company row with no domain whose site is on this company's domain (crusoe-2, stored with
+ * www.crusoe.ai as its site, beside crusoe.ai) into it, through the app's merge. Returns the ids folded.
+ */
+export async function foldSiteTwins(handle: Db, companyId: string, domain: string): Promise<string[]> {
+  const rows = await handle
+    .select({ id: companies.id, website: companies.website })
+    .from(companies)
+    .where(
+      and(
+        isNull(companies.domain),
+        isNotNull(companies.website),
+        ne(companies.id, companyId),
+        sql`${companies.website} ilike ${`%${domain}%`}`,
+      ),
+    );
+  const twins = rows.filter((row) => registrableDomain(row.website) === domain).map((row) => row.id);
+  for (const id of twins) await mergeCompanies(handle, id, companyId);
+  return twins;
 }
 
 /**
@@ -574,6 +633,8 @@ export function companyMatch(a: CompanyIdentity, b: CompanyIdentity): "same" | "
 /** A repeated name is not an identity assertion unless a second identifying fact agrees. */
 export function identityAgrees(stored: MergeRow, incoming: FeedRecord): boolean {
   if (stored.domain && incoming.company_domain) return stored.domain === incoming.company_domain;
+  // The site the reading gives for the company, when it is the stored company's own (Crusoe's www.crusoe.ai).
+  if (stored.domain && incoming.company_website && registrableDomain(incoming.company_website) === stored.domain) return true;
   if (stored.domain && incoming.sources.some((source) => registrableDomain(source.url) === stored.domain)) return true;
   if (
     stored.identityHeadquarters &&
@@ -1036,19 +1097,24 @@ export async function persistRecords(
 
   for (const r of records) {
     const now = new Date();
-    const identityCollision =
-      candidates.some((c) => c.nameKey === r.company_key) && !candidates.some((c) => c.nameKey === r.company_key && identityAgrees(c, r));
     // Keep the company row the existing round already points at, so a later run that learns
     // the domain does not fork the company; and when the domain it learned already belongs to
-    // another row, fold this one into that row instead of colliding on the unique domain.
+    // another row, fold this one into that row instead of colliding on the unique domain. A row
+    // folded away since it was read (the history lane's subject, an existing round's company) is
+    // written under the company it was folded into, never brought back as a second row.
+    const standing = await liveCompanyId(handle, existingById.get(r.id)?.companyId ?? options.companyId);
+    const agreeing = candidates.find((c) => identityAgrees(c, r) && companyMatch(c, recordIdentity(r)))?.companyId;
+    // A reading that gives the company's name and nothing else (no domain, no site) belongs to the
+    // company that already holds the name with a domain, held until its identity is settled: a second
+    // row under the name (ramp-2 from a news roundup) would take that company's later readings, the
+    // history lane's included.
+    const owner = !standing && !agreeing && !r.company_domain && !r.company_website ? await namedOwner(handle, r) : null;
+    const identityCollision =
+      owner !== null ||
+      (candidates.some((c) => c.nameKey === r.company_key) && !candidates.some((c) => c.nameKey === r.company_key && identityAgrees(c, r)));
     const companyId = await claimDomain(
       handle,
-      existingById.get(r.id)?.companyId ??
-        options.companyId ??
-        (identityCollision
-          ? await newCompanyId(handle, r, true)
-          : (candidates.find((c) => identityAgrees(c, r) && companyMatch(c, recordIdentity(r)))?.companyId ??
-            (await newCompanyId(handle, r, false)))),
+      standing ?? owner ?? (identityCollision ? await newCompanyId(handle, r, true) : (agreeing ?? (await newCompanyId(handle, r, false)))),
       r.company_domain,
     );
     await handle
@@ -1375,6 +1441,9 @@ export async function persistRecords(
       const { disposition, presetSlug: _incomingPreset, ...derived } = base;
       const keep = <T>(incoming: T | null, column: (typeof fundingRounds)[keyof typeof fundingRounds]) =>
         incoming === null ? sql`${column}` : incoming;
+      const amountUsd = judged
+        ? (r.amount.usd_millions?.toString() ?? null)
+        : keep(r.amount.usd_millions?.toString() ?? null, fundingRounds.amountUsdMillions);
       const updated = await handle
         .update(fundingRounds)
         .set({
@@ -1405,9 +1474,7 @@ export async function persistRecords(
           amountAsWritten: judged ? r.amount.as_written : keep(r.amount.as_written, fundingRounds.amountAsWritten),
           amountValue: judged ? (r.amount.value?.toString() ?? null) : keep(r.amount.value?.toString() ?? null, fundingRounds.amountValue),
           amountCurrency: judged ? r.amount.currency : keep(r.amount.currency, fundingRounds.amountCurrency),
-          amountUsdMillions: judged
-            ? (r.amount.usd_millions?.toString() ?? null)
-            : keep(r.amount.usd_millions?.toString() ?? null, fundingRounds.amountUsdMillions),
+          amountUsdMillions: amountUsd,
           fxRate: judged ? (r.amount.fx_rate?.toString() ?? null) : keep(r.amount.fx_rate?.toString() ?? null, fundingRounds.fxRate),
           fxDate: judged ? r.amount.fx_date : keep(r.amount.fx_date, fundingRounds.fxDate),
           // Decided above from the row's claims and this reading's: a retraction clears it, a pin holds it.
@@ -1439,8 +1506,14 @@ export async function persistRecords(
               : options.startIn
                 ? sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} = 'review' THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
                 : r.valuation_ruled_out || doubt
-                  ? // A valuation taken off, a broken invariant, or secondhand sources move even a published row.
-                    sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged', 'publish') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
+                  ? // A valuation taken off, a broken invariant, or secondhand sources move even a published row,
+                    // except a doubt on a row a person placed when the reading keeps its company and amount: Ramp's
+                    // hand-published Series C went back to review when a namesake doubt came with a new source.
+                    sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged', 'publish') AND NOT (${
+                      r.valuation_ruled_out
+                        ? sql`false`
+                        : sql`coalesce(${fundingRounds.audit}->>'status', '') = 'human' AND ${fundingRounds.disposition} IN ('publish', 'flagged') AND ${fundingRounds.companyId} = ${companyId} AND ${fundingRounds.amountUsdMillions} IS NOT DISTINCT FROM (${amountUsd})::numeric`
+                    }) THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
                   : sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`,
           // A reading that holds the row in review withdraws what it asked for at the publication gate.
           ...(disposition === "review" ? { pendingDisposition: null } : {}),
@@ -1521,6 +1594,15 @@ export async function persistRecords(
       .set({ announcedOn: sql`${fundingRounds.announcedOn}` })
       .where(inArray(fundingRounds.id, summary.persistedIds));
   }
+  // A company this batch wrote with a domain takes in the rows that only carry its site.
+  const written = summary.persistedIds.length
+    ? await handle
+        .selectDistinct({ id: companies.id, domain: companies.domain })
+        .from(fundingRounds)
+        .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
+        .where(and(inArray(fundingRounds.id, summary.persistedIds), isNotNull(companies.domain)))
+    : [];
+  for (const c of written) if (c.domain) await foldSiteTwins(handle, c.id, c.domain);
   await queueEarlierRounds(handle, records);
   return summary;
 }

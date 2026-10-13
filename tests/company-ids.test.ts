@@ -84,7 +84,7 @@ describe("new rows", () => {
     expect(r?.company.id).toBe("nexbank-capital");
   });
 
-  test("a namesake takes the next number, never a news site's host", async () => {
+  test("a namesake with a site of its own takes the next number, never a news site's host", async () => {
     const db = await testDb();
     await persistRecords(
       db,
@@ -105,6 +105,7 @@ describe("new rows", () => {
         record({
           company_name: "Ghost",
           company_key: "ghost",
+          company_website: "https://ghostkitchens.example",
           stage: "seed",
           announced_date: "2026-10-05",
           sources: [{ url: "https://venture-pitch-online.com/ghost", host: "venture-pitch-online.com" }],

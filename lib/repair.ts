@@ -37,6 +37,7 @@ import {
   isDuplicateRound,
   listRounds,
   type MergeRow,
+  mergeCompanies,
   mergeDuplicateRounds,
   neverLater,
   planRoundInvestors,
@@ -541,6 +542,12 @@ export type RecordFix =
     }
   /** Two rows for one round the window rule keeps apart (a trend story's months-late reading): the app's merge, forced. */
   | { kind: "merge"; keep: string; drop: string }
+  /**
+   * A company row with no domain that is another row's company (a second "Ramp" a news roundup made),
+   * folded into it by the app's merge: its rounds, enrichments, aliases and history ledger move, and
+   * its id redirects to the survivor. The evidence is the page that shows the two are one company.
+   */
+  | { kind: "fold"; from: string; into: string; evidence: string; note: string }
   | {
       kind: "domain";
       company: string;
@@ -856,6 +863,44 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       out.applied++;
       continue;
     }
+    if (fix.kind === "fold") {
+      const [from] = await handle.select().from(companies).where(eq(companies.id, fix.from));
+      const [into] = await handle.select().from(companies).where(eq(companies.id, fix.into));
+      if (!from) {
+        const [fold] = await handle.select().from(schema.companyFolds).where(eq(schema.companyFolds.fromId, fix.from));
+        if (fold?.intoId === fix.into) {
+          say(`skip fold ${fix.from}: already folded into ${fix.into}`);
+          out.skipped++;
+        } else {
+          say(`refuse fold ${fix.from}: no such company`);
+          out.refused++;
+        }
+        continue;
+      }
+      if (!into?.domain) {
+        say(`refuse fold ${fix.from}: ${fix.into} ${into ? "has no domain" : "is not a company"}`);
+        out.refused++;
+        continue;
+      }
+      if (from.domain && from.domain !== into.domain) {
+        say(`refuse fold ${fix.from}: its domain ${from.domain} is not ${into.domain}; two domains are two companies`);
+        out.refused++;
+        continue;
+      }
+      const moving = await handle
+        .select({ id: fundingRounds.id, disposition: fundingRounds.disposition })
+        .from(fundingRounds)
+        .where(eq(fundingRounds.companyId, fix.from));
+      say(`fold ${fix.from} (${from.name}, site ${from.website ?? "none"}) into ${fix.into} (${into.name}, ${into.domain})`);
+      say(`  rounds moving: ${moving.length ? moving.map((r) => `${r.id} (${r.disposition})`).join(", ") : "none"}`);
+      say(`  why: ${fix.note}`);
+      say(`  evidence: ${fix.evidence}`);
+      if (!opts.apply) continue;
+      await mergeCompanies(handle, fix.from, fix.into);
+      out.applied++;
+      continue;
+    }
+
     if (fix.kind === "domain") {
       const [company] = await handle.select().from(companies).where(eq(companies.id, fix.company));
       if (!company) {
