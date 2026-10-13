@@ -85,6 +85,18 @@ describe("a reading that names a stored company", () => {
     expect(await companyIds(db)).toEqual(["ramp-2", "ramp.com"]);
   });
 
+  test("with headquarters written at another grain lands on the company", async () => {
+    const db = await ramp();
+    await db.update(schema.companies).set({ hq: "New York, United States" }).where(eq(schema.companies.id, "ramp.com"));
+    await persistRecords(
+      db,
+      [record({ company_name: "Ramp", headquarters: "New York and San Francisco", stage: "seed", announced_date: "2021-01-05" })],
+      "seed",
+      "run-2",
+    );
+    expect(await companyIds(db)).toEqual(["ramp.com"]);
+  });
+
   test("with a site of its own is another company", async () => {
     const db = await ramp();
     await persistRecords(

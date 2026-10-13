@@ -338,7 +338,13 @@ async function namedOwner(handle: Db, r: FeedRecord): Promise<string | null> {
     );
   if (rows.length !== 1) return null;
   const [owner] = rows;
-  if (owner.hq && r.headquarters && normalizeCompanyKey(owner.hq) !== normalizeCompanyKey(r.headquarters)) return null;
+  // Headquarters written at another grain ("Australia" for "Melbourne, Australia", two cities for one of
+  // them) is the same place; only one that shares no place name with the owner's says another company.
+  const places = (hq: string) =>
+    normalizeCompanyKey(hq)
+      .split(" ")
+      .filter((word) => word.length > 2 && word !== "and");
+  if (owner.hq && r.headquarters && !places(r.headquarters).some((word) => places(owner.hq as string).includes(word))) return null;
   return owner.id;
 }
 
