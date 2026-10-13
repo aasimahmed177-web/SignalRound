@@ -4,8 +4,62 @@
 // feeds, and the exports to anyone, so each of those surfaces passes its rows through here first.
 // Admins, and every caller on a private instance (the password already gated them), keep the full row.
 
+import { parseAmount, withBasis } from "@fireround/core";
 import type { RunRow } from "./news.ts";
 import type { RoundRow } from "./persist.ts";
+
+/** A round's valuation as a reader may cite it: the figure as its source wrote it, in USD when known, and pre- or post-money when a source says which. */
+export interface RoundValuation {
+  usd_millions: number | null;
+  as_written: string;
+  basis: "post" | "pre" | "unknown";
+}
+
+const BASIS = /\b(pre|post)[\s-]?money\b/i;
+
+/**
+ * The valuation a reader may cite, or null. Only a published round (never a flagged, held-for-review
+ * or rejected one) that closed (announced or reported) and that the read-back confirmed or corrected
+ * carries one. The USD figure is the stated one, or the round's own announcement-day rate when the
+ * valuation is in the amount's currency; any other currency leaves it null. The basis comes from the
+ * valuation's own words, else from a sentence the round keeps that states the same figure.
+ */
+export function citableValuation(r: {
+  valuation_as_written: string | null;
+  quotes: readonly (string | null)[];
+  disposition: RoundRow["disposition"];
+  certainty: RoundRow["certainty"];
+  verification: { status: string } | null;
+  amount: Pick<RoundRow["amount"], "value" | "currency" | "usd_millions">;
+}): RoundValuation | null {
+  const asWritten = r.valuation_as_written?.trim();
+  if (!asWritten || r.disposition !== "publish") return null;
+  if (r.certainty !== "announced" && r.certainty !== "reported") return null;
+  if (r.verification?.status !== "confirmed" && r.verification?.status !== "corrected") return null;
+  const { value, currency } = parseAmount(asWritten);
+  if (value === null) return null;
+  const { amount } = r;
+  const rate =
+    currency === "USD"
+      ? 1
+      : currency && amount.currency === currency && amount.value && amount.usd_millions !== null
+        ? amount.usd_millions / amount.value
+        : null;
+  const basis = [asWritten, ...r.quotes.filter((q): q is string => Boolean(q)).map((q) => withBasis(asWritten, q))]
+    .map((text) => BASIS.exec(text)?.[1]?.toLowerCase())
+    .find(Boolean);
+  return {
+    usd_millions: rate === null ? null : Math.round(value * rate * 1000) / 1000,
+    as_written: asWritten,
+    basis: basis === "pre" || basis === "post" ? basis : "unknown",
+  };
+}
+
+/** Whether a round's valuation is disclosed as a reader sees it: true only for a citable one; a hidden one says nothing either way. */
+export function publicValuationDisclosed(r: Partial<Pick<RoundRow, "valuation" | "valuation_disclosed">>): boolean | null {
+  if (r.valuation) return true;
+  return r.valuation_disclosed === false ? false : null;
+}
 
 /**
  * A verdict's verifier as a reader may see it: "judge" (Firecrawl read the primary page) or "model"
@@ -46,11 +100,12 @@ export function publicNotes(notes: readonly string[]): string[] {
 
 /**
  * The public form of a round in the API and JSONL: no verifier, no source queries, no profile-refusal
- * trail, and none of the reviewer's record (the hold, a person's pins, the reviewer's notes).
+ * trail, and none of the reviewer's record (the hold, a person's pins, the reviewer's notes). A valuation
+ * shows only where it is citable (citableValuation): a flagged or unverified row's stays off.
  */
-export function publicRound<T extends Pick<RoundRow, "verification" | "sources" | "enrichment">>(
-  r: T & { hold?: unknown; pinned?: unknown },
-) {
+export function publicRound<
+  T extends Pick<RoundRow, "verification" | "sources" | "enrichment"> & Partial<Pick<RoundRow, "valuation" | "valuation_disclosed">>,
+>(r: T & { hold?: unknown; pinned?: unknown }) {
   const { verification, sources, enrichment, hold: _hold, pinned: _pinned, ...rest } = r;
   let publicVerification: Omit<NonNullable<RoundRow["verification"]>, "verifier"> | null = null;
   if (verification) {
@@ -64,6 +119,8 @@ export function publicRound<T extends Pick<RoundRow, "verification" | "sources" 
   }
   return {
     ...rest,
+    valuation_as_written: r.valuation?.as_written ?? null,
+    valuation_disclosed: publicValuationDisclosed(r),
     verification: publicVerification,
     sources: sources.map(({ query: _query, ...s }) => s),
     enrichment: publicEnrichment,

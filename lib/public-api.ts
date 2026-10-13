@@ -114,8 +114,9 @@ export function bareSite(raw: string): string {
 /**
  * A company's funding, by its id, or by a domain (a URL works too), earlier id, or name it is also known by (as its page
  * redirects them): who it is, what it raised (announced and reported rounds only, as its page
- * counts it), every round the feed lists for it, newest first, each with its leads and its official
- * announcement, and the investors on those rounds, leads first.
+ * counts it), every round the feed lists for it, newest first, each with its leads, its official
+ * announcement, and its valuation where one is citable, the valuations again as a history (never summed
+ * into what it raised), and the investors on those rounds, leads first.
  */
 export async function apiCompanyProfile(handle: Db, wanted: string) {
   const id = bareSite(wanted);
@@ -138,12 +139,19 @@ export async function apiCompanyProfile(handle: Db, wanted: string) {
       usd: r.amount.usd_millions,
       announcedOn: r.announced_on,
     }),
+    valuation: r.valuation,
     certainty: r.certainty,
     lead_investors: r.lead_investors,
     other_investors: r.other_investors,
     primary_source: r.primary_source?.url ?? null,
     earlier_round: r.history,
   }));
+  // Newest first, as the rounds are: every round with a citable valuation, kept apart from what it raised.
+  const valuations = rounds.flatMap((r) =>
+    r.valuation
+      ? [{ ...r.valuation, announced_on: r.announced_on, stage: r.stage, stage_as_written: r.stage_as_written, certainty: r.certainty }]
+      : [],
+  );
   return {
     id: company.id,
     name: company.name,
@@ -154,6 +162,7 @@ export async function apiCompanyProfile(handle: Db, wanted: string) {
     sector: company.sector,
     headquarters: company.hq,
     total_raised_usd_millions: page.totals.usd_millions_raised,
+    valuation_history: { latest: valuations[0] ?? null, stated: valuations },
     latest_round: rounds[0] ?? null,
     rounds,
     investors: page.investors.map((i) => ({

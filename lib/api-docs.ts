@@ -61,8 +61,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   {
     id: "company",
     path: "/api/v1/companies/{id}",
-    summary: "One company's funding: who it is, what it raised, every round with its leads and announcement, and its investors.",
-    returns: "{ id, name, domain, total_raised_usd_millions, latest_round, rounds, investors, … }",
+    summary:
+      "One company's funding: who it is, what it raised, its stated valuations, every round with its leads and announcement, and its investors.",
+    returns: "{ id, name, domain, total_raised_usd_millions, valuation_history, latest_round, rounds, investors, … }",
     params: [["id", "The company's id, as in its page address: /companies/ramp is ramp"]],
     example: (o) => ["# Everything on record for one company", `curl "${o}/api/v1/companies/ramp"`].join("\n"),
   },

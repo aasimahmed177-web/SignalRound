@@ -91,6 +91,12 @@ export function usd(millions: number | null | undefined): string {
   return `$${Math.round(millions * 1000)}K`;
 }
 
+/** A valuation in its source's words, with pre- or post-money when a source says which: "$5.8 billion post-money". */
+export function valuationLabel(v: { as_written: string; basis: "post" | "pre" | "unknown" }): string {
+  const figure = v.as_written.replace(/\s*valuation\s*$/i, "");
+  return v.basis === "unknown" || /\b(?:pre|post)[\s-]?money\b/i.test(figure) ? figure : `${figure} ${v.basis}-money`;
+}
+
 /** A mixed financing shows its reported total, clearly marked as not isolated new primary money. */
 export function reportedAmount(r: {
   amount: { usd_millions: number | null; as_written: string | null };

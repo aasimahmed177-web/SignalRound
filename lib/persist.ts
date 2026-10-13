@@ -40,7 +40,7 @@ import { beforeEverySource, releaseDay, staleBeforeRelease, storedReleaseSources
 import { fullerInvestorName } from "./investor-names.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
-import { publicLane, publicNotes, publicVerifier } from "./public-view.ts";
+import { citableValuation, publicLane, publicNotes, publicVerifier, type RoundValuation } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
 import { companyAccounts, identitySettled, isWireUrl, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
@@ -1752,6 +1752,8 @@ export interface RoundRow {
   valuation_as_written: string | null;
   /** true: a valuation is stated; false: a source says it was not disclosed; null: no source says (lib/valuation-disclosure.ts). */
   valuation_disclosed: boolean | null;
+  /** The valuation a reader may cite (lib/public-view.ts citableValuation): null on a flagged, unverified, or unclosed round. */
+  valuation: RoundValuation | null;
   announced_on: string | null;
   certainty: RoundCertainty;
   reported_on: string | null;
@@ -1855,6 +1857,7 @@ export function toFeedRow(r: RoundRow): FeedRow {
     amount_scope: r.amount_scope,
     valuation_as_written: r.valuation_as_written,
     valuation_disclosed: r.valuation_disclosed,
+    valuation: r.valuation,
     announced_on: r.announced_on,
     certainty: r.certainty,
     reported_on: r.reported_on,
@@ -2199,6 +2202,12 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
       })),
       domains,
     );
+    const amount = {
+      value: round.amountValue === null ? null : Number(round.amountValue),
+      currency: round.amountCurrency,
+      as_written: round.amountAsWritten,
+      usd_millions: round.amountUsdMillions === null ? null : Number(round.amountUsdMillions),
+    };
     return {
       id: round.id,
       company: {
@@ -2214,17 +2223,20 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
       stage: round.stage,
       stage_as_written: round.stageAsWritten,
       is_extension: round.isExtension,
-      amount: {
-        value: round.amountValue === null ? null : Number(round.amountValue),
-        currency: round.amountCurrency,
-        as_written: round.amountAsWritten,
-        usd_millions: round.amountUsdMillions === null ? null : Number(round.amountUsdMillions),
-      },
+      amount,
       financing_total_as_written: round.financingTotalAsWritten,
       financing_total_quote: round.financingTotalQuote,
       amount_scope: round.amountScope,
       valuation_as_written: round.valuationAsWritten,
       valuation_disclosed: round.valuationAsWritten ? true : round.valuationDisclosed === false ? false : null,
+      valuation: citableValuation({
+        valuation_as_written: round.valuationAsWritten,
+        quotes: [...(round.valuationClaims ?? []).map((c) => c.quote), ...round.evidenceQuotes],
+        disposition: round.disposition,
+        certainty: round.certainty,
+        verification: round.verification,
+        amount,
+      }),
       announced_on: round.announcedOn,
       certainty: round.certainty,
       reported_on: round.reportedOn,

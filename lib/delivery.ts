@@ -49,6 +49,7 @@ export function roundEvent(r: RoundRow): Record<string, unknown> {
       stage_as_written: r.stage_as_written,
       amount: r.amount,
       valuation_as_written: r.valuation_as_written,
+      valuation: r.valuation,
       announced_on: r.announced_on,
       lead_investors: r.lead_investors,
       other_investors: r.other_investors,

@@ -32,6 +32,7 @@ function round(partial: Partial<RoundRow> = {}): RoundRow {
     amount_scope: null,
     valuation_as_written: null,
     valuation_disclosed: null,
+    valuation: null,
     primary_source: null,
     previous_rounds: [],
     announced_on: "2026-09-04",

@@ -1,7 +1,7 @@
 // A round as a Slack message: the Block Kit payload an incoming webhook receives. Pure, so the
 // landing page's preview and the subscription messages (slack-messages.ts) draw exactly what posts.
 
-import { hostLabel, sectorLabel, stageOf, usd } from "./format.ts";
+import { hostLabel, sectorLabel, stageOf, usd, valuationLabel } from "./format.ts";
 import { houseHeadline } from "./house.ts";
 import { companyHref, webUrl } from "./links.ts";
 import type { RoundRow } from "./persist.ts";
@@ -140,7 +140,7 @@ export function slackBlocks(r: RoundRow, origin: string): SlackMessage {
     // "Other" names nothing; like any field the record lacks, it is left out.
     ...(r.company.sector && r.company.sector !== "other" ? [field("Sector", sectorLabel(r.company.sector))] : []),
     ...(r.other_investors.length ? [field("Also in", nameList(r.other_investors))] : []),
-    ...(r.valuation_as_written ? [field("Valuation", r.valuation_as_written)] : []),
+    ...(r.valuation ? [field("Valuation", valuationLabel(r.valuation))] : []),
   ];
   const shown = r.sources.slice(0, 3).map((s) => link(s.url, hostLabel(s.host)));
   const more = r.sources.length - shown.length;

@@ -25,7 +25,7 @@ import { track } from "@/lib/analytics";
 import { type BuzzScale, EMPTY_SCALE } from "@/lib/buzz";
 import { factChips, LINKEDIN_TITLE } from "@/lib/company-facts";
 import { foldCopies } from "@/lib/fold-copies";
-import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel } from "@/lib/format";
+import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel, valuationLabel } from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
 import { companyHref, investorHrefByName } from "@/lib/links";
 import type { FeedRow } from "@/lib/persist";
@@ -177,10 +177,10 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
               </dd>
             </>
           )}
-          {r.valuation_as_written && (
+          {r.valuation && (
             <>
               <dt className="text-muted-foreground">Valuation</dt>
-              <dd>{r.valuation_as_written}</dd>
+              <dd>{valuationLabel(r.valuation)}</dd>
             </>
           )}
           {/* Sourced facts on this company, each naming its source in the tooltip. */}

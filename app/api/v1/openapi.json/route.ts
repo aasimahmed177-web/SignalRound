@@ -48,6 +48,25 @@ export function GET(request: Request) {
       scored_at: { type: ["string", "null"], format: "date-time" },
     },
   };
+  const Valuation = {
+    type: ["object", "null"],
+    description:
+      "The round's valuation as a reader may cite it, or null. Only a published round that closed (certainty announced or reported) and that the read-back confirmed or corrected carries one; a flagged, unverified, expected, or unconfirmed round never does. A valuation is the company's value at the round, never money raised: it is not counted in amount or in a company's total_raised_usd_millions.",
+    properties: {
+      usd_millions: {
+        type: ["number", "null"],
+        description:
+          "In millions of USD: the stated figure when it is in dollars, else converted at the round's own announcement-day rate when it is in the amount's currency; null otherwise",
+      },
+      as_written: { type: "string", description: 'The figure as its source writes it, e.g. "$61.5 billion" or "around US$380 billion"' },
+      basis: {
+        type: "string",
+        enum: ["post", "pre", "unknown"],
+        description: "post-money or pre-money only when the valuation or a sentence stating it says so; unknown otherwise",
+      },
+    },
+    required: ["usd_millions", "as_written", "basis"],
+  };
   const Round = {
     type: "object",
     properties: {
@@ -94,11 +113,15 @@ export function GET(request: Request) {
         description:
           "What the source's figure covers: a tranche, the round, all new money in the financing, or a total that includes grants, secondary sales, combined rounds, or funding to date. null when the source does not say.",
       },
-      valuation_as_written: { type: ["string", "null"] },
+      valuation: Valuation,
+      valuation_as_written: {
+        type: ["string", "null"],
+        description: "The same figure as valuation.as_written, kept for older clients; null whenever valuation is null",
+      },
       valuation_disclosed: {
         type: ["boolean", "null"],
         description:
-          "true when a valuation is stated (valuation_as_written); false when a source says outright that the valuation was not disclosed; null when no source says either way. A null valuation_as_written with valuation_disclosed false is a known non-disclosure, not a gap.",
+          "true when the round carries a valuation; false when a source says outright that the valuation was not disclosed; null when no source says either way, or when a stated valuation is held back with the round (flagged or unverified). A null valuation with valuation_disclosed false is a known non-disclosure, not a gap.",
       },
       announced_on: { type: ["string", "null"], format: "date" },
       reported_on: {
@@ -277,6 +300,7 @@ export function GET(request: Request) {
       {
         type: "object",
         properties: {
+          valuation: Valuation,
           certainty: { type: "string", enum: [...ROUND_CERTAINTIES] },
           lead_investors: { type: "array", items: { type: "string" } },
           other_investors: { type: "array", items: { type: "string" } },
@@ -289,6 +313,21 @@ export function GET(request: Request) {
         },
       },
     ],
+  };
+  const ValuationPoint = {
+    type: "object",
+    description: "One round's valuation with the round it was stated for",
+    properties: {
+      ...Valuation.properties,
+      announced_on: { type: ["string", "null"], format: "date" },
+      stage: { type: "string", enum: [...STAGES] },
+      stage_as_written: { type: "string" },
+      certainty: {
+        type: "string",
+        enum: ["announced", "reported"],
+        description: "reported: a publisher's report citing unnamed sources, not the company's announcement",
+      },
+    },
   };
   const DidYouMean = {
     type: "array",
@@ -658,7 +697,7 @@ export function GET(request: Request) {
           operationId: "getCompany",
           summary: "One company's funding",
           description:
-            "Who the company is, what it raised (announced and reported rounds only), every round the feed lists for it, newest first, each with its leads and official announcement, and the investors on those rounds, leads first.",
+            "Who the company is, what it raised (announced and reported rounds only), its valuation history, every round the feed lists for it, newest first, each with its leads, official announcement, and citable valuation, and the investors on those rounds, leads first.",
           parameters: [{ name: "id", in: "path", required: true, schema: CompanyId }],
           responses: {
             "404": {
@@ -692,6 +731,20 @@ export function GET(request: Request) {
                         type: "number",
                         description:
                           "Stated USD amounts of its announced and reported rounds; expected and unconfirmed rounds are left out",
+                      },
+                      valuation_history: {
+                        type: "object",
+                        description:
+                          "The valuations its rounds carry (see valuation on each round), newest first. Separate from total_raised_usd_millions, which counts money raised only.",
+                        properties: {
+                          latest: {
+                            ...ValuationPoint,
+                            type: ["object", "null"],
+                            description: "The first of stated; null when no round carries one",
+                          },
+                          stated: { type: "array", items: ValuationPoint },
+                        },
+                        required: ["latest", "stated"],
                       },
                       latest_round: { ...CompanyRound, type: ["object", "null"], description: "The first of rounds" },
                       rounds: { type: "array", description: "Every round the feed lists for it, newest first", items: CompanyRound },
@@ -1097,7 +1150,7 @@ export function GET(request: Request) {
       ...(process.env.COMPANY_REQUESTS === "1" ? companyRequestPaths : {}),
     },
     components: {
-      schemas: { Round, Money, Trending },
+      schemas: { Round, Money, Trending, Valuation },
       ...(demo
         ? {}
         : {

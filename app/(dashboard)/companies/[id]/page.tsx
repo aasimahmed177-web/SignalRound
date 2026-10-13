@@ -58,7 +58,17 @@ import { companyRequestFor, requestTally } from "@/lib/company-requests";
 import { db } from "@/lib/db";
 import { companyRedirect } from "@/lib/entity-exists";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
-import { approxDate, hostLabel, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageAsWrittenNote, usd } from "@/lib/format";
+import {
+  approxDate,
+  hostLabel,
+  precisionNote,
+  reportedAmount,
+  roundStageLabel,
+  sectorLabel,
+  stageAsWrittenNote,
+  usd,
+  valuationLabel,
+} from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
 import { companyHref, decodeParam, investorHref, investorHrefByName } from "@/lib/links";
 import { SECTION_INDEX_TITLE } from "@/lib/news";
@@ -619,6 +629,9 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
                             <span className="text-muted-foreground">undated</span>
                           )}
                         </div>
+                        {r.valuation && (
+                          <div className="text-body-small text-muted-foreground">at {valuationLabel(r.valuation)} valuation</div>
+                        )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                           <RoundCheckLine r={r} className="contents" />
                           <BuzzInline mark={buzz.marks[r.id]} scale={buzz.scale} />
@@ -717,6 +730,9 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
                           </>
                         ) : (
                           <span className="text-muted-foreground">n/a</span>
+                        )}
+                        {r.valuation && (
+                          <div className="text-body-small text-muted-foreground">at {valuationLabel(r.valuation)} valuation</div>
                         )}
                       </td>
                       <td className="py-3 pl-6 align-top text-mono-small">

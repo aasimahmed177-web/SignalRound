@@ -29,6 +29,7 @@ import {
   TOP_WINDOWS,
   type TopWindow,
 } from "@/lib/public-api";
+import { publicValuationDisclosed } from "@/lib/public-view";
 import { clientKey, LIMITS, limitRequest } from "@/lib/rate-limit";
 import { tokenEquals } from "@/lib/tokens";
 import { listTrending, TRENDING_EXPLAINER, trendingMarks } from "@/lib/trending";
@@ -93,8 +94,11 @@ function compactRound(r: RoundRow) {
     certainty: r.certainty,
     amount: r.amount.as_written,
     amount_usd_millions: r.amount.usd_millions,
-    valuation: r.valuation_as_written,
-    valuation_disclosed: r.valuation_disclosed,
+    // Only a published, read-back-confirmed round that closed carries a valuation (lib/public-view.ts citableValuation).
+    valuation: r.valuation?.as_written ?? null,
+    valuation_usd_millions: r.valuation?.usd_millions ?? null,
+    valuation_basis: r.valuation?.basis ?? null,
+    valuation_disclosed: publicValuationDisclosed(r),
     lead_investors: r.lead_investors,
     other_investors: r.other_investors,
     announced_on: r.announced_on,
@@ -292,7 +296,7 @@ const handler = createMcpHandler(
       {
         title: "Get a company profile",
         description:
-          "One company's funding: who it is, what it raised (announced and reported rounds), every round the feed lists for it, newest first, with leads and the official announcement, and its investors, leads first. An id one edit from a single company reads that company, with matched_from and a note; any other miss is an error naming the nearest companies.",
+          "One company's funding: who it is, what it raised (announced and reported rounds), its valuation history (valuation_history: the latest stated valuation and every one before it, kept apart from what it raised), every round the feed lists for it, newest first, with leads, the official announcement, and its valuation where one is citable, and its investors, leads first. An id one edit from a single company reads that company, with matched_from and a note; any other miss is an error naming the nearest companies.",
         inputSchema: z.object({
           id: z
             .string()
