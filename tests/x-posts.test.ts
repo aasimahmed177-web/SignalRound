@@ -196,6 +196,34 @@ describe("post text", () => {
     expect(postText(none, ORIGIN)).toMatch(/^Spiko raised a Series B led by/);
   });
 
+  test("a billion figure keeps the digit rounding would lose; a converted figure says about", async () => {
+    const db = await testDb();
+    const [r] = await published(db, spiko());
+    const billion = (m: number) => ({ ...r, amount: { value: m, currency: "USD", as_written: `$${m}M`, usd_millions: m } }) as RoundRow;
+    expect(postText(billion(1850), ORIGIN)).toMatch(/^Spiko raised a \$1\.85B Series B/);
+    expect(postText(billion(1500), ORIGIN)).toMatch(/^Spiko raised a \$1\.5B Series B/);
+    expect(postText(billion(12_500), ORIGIN)).toMatch(/^Spiko raised a \$13B Series B/);
+    expect(postText(billion(42), ORIGIN)).toMatch(/^Spiko raised a \$42M Series B/);
+    const yuan = {
+      ...r,
+      amount: { value: 2300, currency: "CNY", as_written: "2.3 billion yuan (approximately $344.2 million)", usd_millions: 343.689 },
+    } as RoundRow;
+    expect(postText(yuan, ORIGIN)).toMatch(/^Spiko raised about \$344M in a Series B/);
+    const overYuan = { ...yuan, amount: { ...yuan.amount, as_written: "over 1 billion yuan", usd_millions: 149.414 } } as RoundRow;
+    expect(postText(overYuan, ORIGIN)).toMatch(/^Spiko raised over \$149M in a Series B/);
+  });
+
+  test("a lead another lead already names is said once", async () => {
+    const db = await testDb();
+    const [r] = await published(db, spiko());
+    const led = (lead_investors: string[]) => postText({ ...r, lead_investors } as RoundRow, ORIGIN);
+    expect(led(["Patrick Soon-Shiong's NantWorks", "Patrick Soon-Shiong"])).toContain("led by Patrick Soon-Shiong's NantWorks.");
+    expect(led(["Vinod Khosla", "Khosla Ventures"])).toContain("led by Khosla Ventures.");
+    expect(led(["Index", "Index Ventures", "Accel"])).toContain("led by Index Ventures and Accel.");
+    expect(led(["GV", "Lightspeed Venture Partners"])).toContain("led by GV and Lightspeed Venture Partners.");
+    expect(led(["General Catalyst", "Catalyst Health Ventures"])).toContain("led by General Catalyst and Catalyst Health Ventures.");
+  });
+
   test("never past 280: the line goes first, then the leads", async () => {
     const db = await testDb();
     const [r] = await published(db, spiko());

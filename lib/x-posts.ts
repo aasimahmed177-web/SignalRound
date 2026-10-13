@@ -247,9 +247,17 @@ export type FactsInput = Pick<RoundRow, "stage" | "stage_as_written" | "amount">
 export function postFacts(r: FactsInput): DeliverySnapshot["facts"] {
   const stage = stageOf(r);
   const symbol = r.amount.currency ? CURRENCY_SYMBOL[r.amount.currency] : undefined;
+  const converted = !symbol && !!r.amount.currency && r.amount.usd_millions !== null;
   const millions = symbol ? (r.amount.value ?? r.amount.usd_millions) : r.amount.usd_millions;
-  const figure = symbol ? usd(millions).replace("$", symbol) : usd(millions);
-  const qualifier = figure ? QUALIFIER.exec(r.amount.as_written ?? "")?.[1]?.toLowerCase() : undefined;
+  const billions = (millions ?? 0) / 1000;
+  const dollars =
+    millions !== null && millions >= 1000 && millions < 10_000 && billions.toFixed(2) !== `${billions.toFixed(1)}0`
+      ? `$${billions.toFixed(2)}B`
+      : usd(converted && millions !== null ? Math.round(millions) : millions);
+  const figure = symbol ? dollars.replace("$", symbol) : dollars;
+  const qualifier = figure
+    ? (QUALIFIER.exec(r.amount.as_written ?? "")?.[1]?.toLowerCase() ?? (converted ? "about" : undefined))
+    : undefined;
   return {
     company: withoutLegalSuffix(clean(r.company.name)),
     stage: r.stage === "series_d_plus" && stage === "Series D+" ? "late-stage round" : (STAGE_PHRASE[r.stage] ?? stage),
@@ -271,14 +279,32 @@ function article(phrase: string): string {
   return /^([aeiou]|[$€£](8|11(?!\d)|18(?!\d)))/i.test(phrase) ? "an" : "a";
 }
 
+/** The second word of a firm named for its founder ("Khosla Ventures"). */
+const FIRM_WORD = /^(?:ventures|capital|partners|fund|group|investments|holdings)$/;
+
 /**
  * "Spiko raised a $90M Series B led by New Enterprise Associates. Tokenized cash funds.\n<company page>".
- * Two leads at most, then "and others"; the company's line only when oneLiner allows it. A post that
- * would run past 280 drops the line, then the leads.
+ * Two leads at most, then "and others"; a lead another lead already names ("Patrick Soon-Shiong" beside
+ * "Patrick Soon-Shiong's NantWorks", "Vinod Khosla" beside "Khosla Ventures") is said once. The
+ * company's line only when oneLiner allows it. A post that would run past 280 drops the line, then the leads.
  */
 export function postText(r: RoundRow, origin: string): string {
   const { company, stage, amount } = postFacts(r);
-  const leads = r.lead_investors.map(leadName).filter(Boolean);
+  const names = r.lead_investors.map(leadName).filter(Boolean);
+  const leads = names.filter((name) => {
+    const words = name.toLowerCase().split(" ");
+    const within = new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^\\p{L}\\p{N}])`,
+      "u",
+    );
+    return !names.some((other) => {
+      const theirs = other.toLowerCase();
+      if (theirs === name.toLowerCase()) return false;
+      if (within.test(theirs)) return true;
+      const [first, firm, ...rest] = theirs.split(" ");
+      return words.length === 2 && rest.length === 0 && first === words[1] && FIRM_WORD.test(firm ?? "");
+    });
+  });
   const link = `${origin}${companyHref(r.company.id)}`;
   const about = oneLiner(r);
   const sentence = (shown: number) => {
