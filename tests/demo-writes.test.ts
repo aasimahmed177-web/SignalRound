@@ -74,6 +74,7 @@ const SWEPT_FILES = [
  * it is listed here, so adding one is a decision about who may call it, not an accident of the matcher.
  */
 const ROUTE_GUARDS: Record<string, Record<string, string>> = {
+  "app/(dashboard)/companies/[id]/index.md/route.ts": { GET: "public read, the company page's cached visitor view" },
   "app/(dashboard)/review/research/route.ts": { POST: "same origin, then requireDashboard" },
   "app/api/cache/invalidate/route.ts": { POST: "CRON_SECRET bearer, closed without a secret" },
   "app/api/cron/accuracy/route.ts": { GET: "CRON_SECRET", POST: "CRON_SECRET" },
@@ -118,6 +119,7 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
   "app/api/webhooks/firecrawl/route.ts": { POST: "FIRECRAWL_WEBHOOK_SECRET signature and/or WEBHOOK_BEARER_TOKEN" },
   "app/api/webhooks/slack/route.ts": { POST: "SLACK_SIGNING_SECRET signature and five-minute timestamp window" },
   "app/feeds/[token]/[file]/route.ts": { GET: "feed token (hashed), or the demo's public token" },
+  "app/llms.txt/route.ts": { GET: "public read, built from the environment" },
 };
 
 const ROOT = path.resolve(__dirname, "..");

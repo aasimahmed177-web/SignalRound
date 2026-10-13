@@ -2,6 +2,7 @@ import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 import { withWorkflow } from "workflow/next";
 import { posthogHosts } from "./lib/analytics";
+import { HTML_LIMITED_BOTS } from "./lib/crawlers";
 
 /**
  * The Content-Security-Policy, the "without nonces" shape from Next's CSP guide. A nonce needs every
@@ -49,6 +50,8 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   // No X-Powered-By: the framework is in the public repo, but a header advertising it helps only a scanner.
   poweredByHeader: false,
+  // Answer engines' crawlers read HTML without running it: they get metadata in <head> (lib/crawlers.ts).
+  htmlLimitedBots: HTML_LIMITED_BOTS,
   ...(posthog && {
     // PostHog posts to paths with a trailing slash (/e/), which Next's own redirect would bounce and a
     // beacon sent as the page closes would not follow. So the redirect is ours: every other path

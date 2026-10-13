@@ -56,7 +56,7 @@ Set `DATABASE_URL` to any Postgres 15+ and `CRON_SECRET` to any random string of
 
 ## Production settings
 
-Set `APP_ORIGIN` to your production URL so webhooks, Slack links, share cards, canonical tags, and the sitemap point at it, and `EDGAR_USER_AGENT` to `your-app/version (you@example.com)`, because EDGAR asks every caller to identify itself.
+Set `APP_ORIGIN` to your production URL so webhooks, Slack links, share cards, canonical tags, and the sitemap point at it (`SITE_URL` moves only the canonical page addresses, when another site serves the pages), and `EDGAR_USER_AGENT` to `your-app/version (you@example.com)`, because EDGAR asks every caller to identify itself.
 
 Set `FIRECRAWL_WEBHOOK_SECRET` before creating a monitor. It is the secret in your Firecrawl dashboard (Advanced settings) that signs monitor webhooks. In production the route requires both a configured secret and a valid `x-firecrawl-signature` HMAC. `WEBHOOK_BEARER_TOKEN`, when configured, is an additional requirement, never a replacement for the signature.
 

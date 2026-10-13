@@ -26,6 +26,22 @@ export function siteOrigin(): string {
   return host ? `https://${host}` : "http://localhost:3000";
 }
 
+/**
+ * Where a search engine should keep a page: SITE_URL when set, else siteOrigin(). SITE_URL may carry
+ * a path (https://www.example.com/funding) when another site serves these pages under its own
+ * address; every canonical tag, og:url, sitemap entry, and JSON-LD page URL is built on it, while
+ * the API, the MCP server, and the social images stay on this deployment. No trailing slash.
+ */
+export function canonicalBase(): string {
+  const configured = process.env.SITE_URL?.trim();
+  return configured ? configured.replace(/\/+$/, "") : siteOrigin();
+}
+
+/** The absolute canonical URL of a page path ("/companies/ramp"). */
+export function canonicalUrl(path: string): string {
+  return `${canonicalBase()}${path}`;
+}
+
 /** A loopback origin: Slack can neither redirect to it over https nor fetch a feed from it. */
 export function isLoopbackOrigin(origin: string): boolean {
   try {

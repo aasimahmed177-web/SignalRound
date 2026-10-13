@@ -3,7 +3,7 @@ import { cacheLife } from "next/cache";
 import { connection } from "next/server";
 import { isLanding } from "@/lib/access";
 import { db } from "@/lib/db";
-import { siteOrigin } from "@/lib/origin";
+import { canonicalBase } from "@/lib/origin";
 import { buildSitemap, sitemapEntities } from "@/lib/seo";
 
 /**
@@ -23,5 +23,5 @@ async function entities() {
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection();
-  return buildSitemap(siteOrigin(), isLanding(), await entities());
+  return buildSitemap(canonicalBase(), isLanding(), await entities());
 }

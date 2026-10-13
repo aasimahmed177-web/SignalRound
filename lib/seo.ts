@@ -1,6 +1,8 @@
-// What a search engine reads beside the page: the sitemap's entries and the JSON-LD blocks. The
-// reads cover the rounds the feed lists (publish and flagged), the set the directories count
-// (lib/directory.ts), so the sitemap never names a page a visitor would get a 404 for.
+// What a search engine reads beside the page: the sitemap's entries, the JSON-LD blocks, and a
+// company's search title and summary. The sitemap reads cover the rounds the feed lists (publish
+// and flagged), the set the directories count (lib/directory.ts), so it never names a page a
+// visitor would get a 404 for. What states a figure as fact (the JSON-LD rounds, the summary)
+// counts only the citable rounds: published, verified, and closed.
 
 import { isPersonShaped, normalizeInvestorKey } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
@@ -9,9 +11,12 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import type { MetadataRoute } from "next";
 import type { CompanyPage } from "@/lib/company";
 import { inFeed } from "@/lib/company";
-import { stageOf } from "@/lib/format";
+import { reportedAmount, roundStageLabel, stageOf, usd } from "@/lib/format";
 import { REPO_URL } from "@/lib/landing";
 import { companyHref, investorHref } from "@/lib/links";
+import type { RoundRow } from "@/lib/persist";
+import { capitalise, cardDate, clip, nameList } from "@/lib/share";
+import { isVerified } from "@/lib/source-count";
 import { capitalizeFirst } from "@/lib/text";
 
 const { companies, fundingRounds, investors, roundInvestors } = schema;
@@ -26,7 +31,7 @@ export const SITEMAP_ENTITY_CAP = 24_000;
 
 export interface SitemapEntity {
   id: string;
-  /** ISO timestamp of the newest change to a visible round (or, for a company, its profile). */
+  /** ISO timestamp of when the entity's newest visible round joined the record. */
   lastModified: string;
 }
 
@@ -36,29 +41,29 @@ function iso(value: unknown): string {
 
 /**
  * Every company and investor page worth listing, two grouped queries in all: a company with a
- * visible round, dated by its newest round update or profile update; an investor named on a
- * visible round, dated by that round's update.
+ * visible round, an investor named on one, each dated by when its latest round joined the record.
+ * Not the rows' updatedAt: marking a round seen or re-reading a source moves that without changing
+ * what the page says, and a lastmod that moves every day is one a search engine stops trusting.
  */
 export async function sitemapEntities(handle: Db): Promise<{ companies: SitemapEntity[]; investors: SitemapEntity[] }> {
-  const companyLast = sql<string>`greatest(max(${fundingRounds.updatedAt}), max(${companies.updatedAt}))`;
-  const investorLast = sql<string>`max(${fundingRounds.updatedAt})`;
+  const latestRound = sql<string>`max(${fundingRounds.firstSeenAt})`;
   const [companyRows, investorRows] = await Promise.all([
     handle
-      .select({ id: companies.id, last: companyLast })
+      .select({ id: companies.id, last: latestRound })
       .from(companies)
       .innerJoin(fundingRounds, eq(fundingRounds.companyId, companies.id))
       .where(inArray(fundingRounds.disposition, [...VISIBLE]))
       .groupBy(companies.id)
-      .orderBy(desc(companyLast), companies.id)
+      .orderBy(desc(latestRound), companies.id)
       .limit(SITEMAP_ENTITY_CAP),
     handle
-      .select({ id: investors.id, last: investorLast })
+      .select({ id: investors.id, last: latestRound })
       .from(investors)
       .innerJoin(roundInvestors, eq(roundInvestors.investorId, investors.id))
       .innerJoin(fundingRounds, eq(fundingRounds.id, roundInvestors.roundId))
       .where(inArray(fundingRounds.disposition, [...VISIBLE]))
       .groupBy(investors.id)
-      .orderBy(desc(investorLast), investors.id)
+      .orderBy(desc(latestRound), investors.id)
       .limit(SITEMAP_ENTITY_CAP),
   ]);
   return {
@@ -144,17 +149,132 @@ function httpUrl(value: string | null | undefined): string | undefined {
   return value && /^https?:\/\//.test(value) ? value : undefined;
 }
 
+/**
+ * A round an answer engine may repeat as fact: published, which means its own pages confirmed it
+ * (an earlier round promoted from a checked dossier was verified against its announcement), and
+ * closed, announced by the company or reported by the press. A flagged row, a row in review, and a
+ * raise still expected never count, though the page lists the flagged ones for a reader to judge.
+ */
+export function citable(r: RoundRow): boolean {
+  return r.disposition === "publish" && (r.history || isVerified(r)) && (r.certainty === "announced" || r.certainty === "reported");
+}
+
+/** "Series A" and "SAFE" keep their capitals; "Seed" reads "seed round", "Funding round" stays one round. */
+function roundNoun(r: RoundRow): string {
+  const label = roundStageLabel(r);
+  const noun = /^(?:Series\b|\p{Lu}\p{Lu})/u.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
+  return `${noun}${/\bround$/i.test(noun) || noun.startsWith("Series") ? "" : " round"}${r.is_extension ? " extension" : ""}`;
+}
+
+/** One round as a clause: "$1.85B funding round led by Dragoneer and Thrive Capital, reported 9 Oct 2026". */
+function roundClause(r: RoundRow): string {
+  const amount = r.amount.as_written ?? reportedAmount(r);
+  const leads = r.lead_investors.length ? ` led by ${nameList(r.lead_investors)}` : "";
+  const day = cardDate(r.announced_on, r.date_precision);
+  const when = day ? `, ${r.certainty === "reported" ? "reported" : "announced"} ${day}` : "";
+  return `${amount ? `${amount} ` : ""}${roundNoun(r)}${leads}${when}`;
+}
+
+/**
+ * The one count of what a company raised, shared by the page's "raised on record" figure, the dated
+ * summary, the search description, and the markdown view: the citable rounds (newest first), the ones
+ * among them that state an amount, and those amounts summed in USD. `pending` is the rest the feed
+ * lists (flagged, expected, unverified), which the page shows but no figure counts.
+ */
+export function verifiedRaise(rounds: RoundRow[]) {
+  const cited = rounds.filter(citable);
+  const priced = cited.filter((r) => (r.amount.usd_millions ?? 0) > 0);
+  return {
+    cited,
+    priced,
+    usdMillions: priced.reduce((sum, r) => sum + (r.amount.usd_millions ?? 0), 0),
+    pending: rounds.filter((r) => inFeed(r) && !citable(r)),
+  };
+}
+
+/** The verified total as the page and the summary both print it, billions to two places: $2.65B never reads as $2.6B. */
+export function raisedFigure(usdMillions: number): string {
+  return usdMillions >= 1000 ? `$${Number((usdMillions / 1000).toFixed(2))}B` : usd(usdMillions);
+}
+
+/** "6 rounds still being checked", "1 expected raise not yet closed": the rows the page lists that no figure counts. */
+export function pendingClause(pending: RoundRow[]): string | null {
+  const expected = pending.filter((r) => r.certainty === "expected").length;
+  const checking = pending.length - expected;
+  const parts = [
+    checking ? `${checking} ${checking === 1 ? "round" : "rounds"} still being checked` : null,
+    expected ? `${expected} expected ${expected === 1 ? "raise" : "raises"} not yet closed` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" and ") : null;
+}
+
+export interface FundingSummary {
+  /** "Ramp has raised $2.65B across 3 verified rounds on record, plus 6 rounds still being checked". */
+  raised: string;
+  /** The newest citable round as a clause. */
+  latest: string;
+}
+
+/**
+ * What a company has raised, counted over the citable rounds only, or null when none is. "At least"
+ * when a round disclosed no amount; it says so when a figure was converted from another currency,
+ * and names the rounds the page lists that the figure leaves out.
+ */
+export function fundingSummary(name: string, rounds: RoundRow[]): FundingSummary | null {
+  const { cited, priced, usdMillions, pending } = verifiedRaise(rounds);
+  const [latest] = cited;
+  if (!latest) return null;
+  const count = `${cited.length} verified ${cited.length === 1 ? "round" : "rounds"} on record`;
+  const unpriced = cited.length - priced.length;
+  const notes = [
+    priced.length && unpriced ? `${unpriced} with no disclosed amount` : null,
+    priced.some((r) => r.amount.currency !== null && r.amount.currency !== "USD") ? "amounts in other currencies converted to USD" : null,
+  ].filter(Boolean);
+  const raised = priced.length
+    ? `${name} has raised ${unpriced ? "at least " : ""}${raisedFigure(usdMillions)} across ${count}${notes.length ? ` (${notes.join("; ")})` : ""}`
+    : `${name} has ${count}, none with a disclosed amount`;
+  const more = pendingClause(pending);
+  return { raised: more ? `${raised}, plus ${more}` : raised, latest: roundClause(latest) };
+}
+
+/** "As of 13 Oct 2026, Ramp has raised $2.65B across 3 verified rounds on record, plus 6 rounds still being checked; latest: …, reported 9 Oct 2026." */
+export function asOfSentence(summary: FundingSummary, asOf: Date): string {
+  return `As of ${cardDate(asOf.toISOString().slice(0, 10), "day")}, ${summary.raised}; latest: ${summary.latest}.`;
+}
+
+/** Search results cut a description near here; a sentence that ends beats one that is cut. */
+const MAX_DESCRIPTION = 300;
+
+/**
+ * The title and description a search result shows for a company page: the query people type
+ * ("Ramp funding rounds and investors", "How much has Ramp raised?") answered from the citable
+ * rounds alone. Without one the description is the share card's.
+ */
+export function companySearchMeta(page: CompanyPage, fallback: string): { title: string; description: string } {
+  const { name } = page.company;
+  const title = `${name} funding rounds and investors`;
+  const summary = fundingSummary(name, page.rounds);
+  if (!summary) return { title, description: fallback };
+  const what = capitalise(page.company.description);
+  const answer = `How much has ${name} raised? ${summary.raised}; latest: ${summary.latest}.`;
+  return { title, description: clip(what ? `${answer} ${/[.!?]$/.test(what) ? what : `${what}.`}` : answer, MAX_DESCRIPTION) };
+}
+
 /** How many rounds a company's JSON-LD carries; the page lists the rest. */
 const MAX_ROUNDS = 20;
 
+/** How many of a round's sources its JSON-LD cites, in reading order: the announcement first. */
+const MAX_ROUND_SOURCES = 5;
+
 /**
- * A company page's JSON-LD: the company as an Organization and each round the feed lists as an
- * InvestAction in the same graph, its investors the agents, the company its object, the stated
- * amount its price. Rounds were MonetaryGrants on `funding`, which labels equity as grants.
- * Undated and unpriced rounds just leave those fields out. An investor with a resolved firm
- * domain is an Organization; a name shaped like a person's with no domain is a Person.
+ * A company page's JSON-LD: the page itself, carrying the dated summary; the company as an
+ * Organization; and each citable round as an InvestAction on it, its lead investors the agents,
+ * the others participants, the stated amount its price, and the pages that reported it its
+ * subjectOf. Flagged, expected, and unverified rows never appear, whoever renders the page.
+ * Undated and unpriced rounds just leave those fields out. An investor with a resolved firm domain
+ * is an Organization; a name shaped like a person's with no domain is a Person.
  */
-export function companyJsonLd(page: CompanyPage, origin: string) {
+export function companyJsonLd(page: CompanyPage, base: string, asOf: Date) {
   const { company } = page;
   const known = new Map(page.investors.map((i) => [i.id, i]));
   const funder = (name: string) => {
@@ -166,10 +286,11 @@ export function companyJsonLd(page: CompanyPage, origin: string) {
       ...(domain ? { url: `https://${domain}` } : {}),
     };
   };
-  const pageUrl = `${origin}${companyHref(company.id)}`;
+  const pageUrl = `${base}${companyHref(company.id)}`;
   const orgId = `${pageUrl}#organization`;
+  const summary = fundingSummary(company.name, page.rounds);
   const rounds = page.rounds
-    .filter(inFeed)
+    .filter(citable)
     .slice(0, MAX_ROUNDS)
     .map((r) => {
       const label = ["undisclosed", "other"].includes(r.stage) ? "funding round" : stageOf(r);
@@ -179,18 +300,36 @@ export function companyJsonLd(page: CompanyPage, origin: string) {
           : r.amount.usd_millions !== null
             ? { value: Math.round(r.amount.usd_millions * 1_000_000), currency: "USD" }
             : null;
-      const funders = [...r.lead_investors, ...r.other_investors].map(funder);
+      const sources = r.sources.slice(0, MAX_ROUND_SOURCES).map((s) => ({
+        "@type": "WebPage",
+        url: s.url,
+        ...(s.title ? { name: s.title } : {}),
+        ...(s.published && /^\d{4}-\d{2}-\d{2}/.test(s.published) ? { datePublished: s.published.slice(0, 10) } : {}),
+      }));
       return {
         "@type": "InvestAction",
         name: `${company.name} ${label}${r.is_extension ? " extension" : ""}`,
+        description: `${capitalizeFirst(roundClause(r))}.`,
+        actionStatus: "https://schema.org/CompletedActionStatus",
         object: { "@id": orgId },
         ...(r.announced_on ? { startTime: r.announced_on.slice(0, r.date_precision === "day" ? 10 : 7) } : {}),
         ...(amount ? { price: amount.value, priceCurrency: amount.currency } : {}),
-        ...(funders.length ? { agent: funders } : {}),
+        ...(r.lead_investors.length ? { agent: r.lead_investors.map(funder) } : {}),
+        ...(r.other_investors.length ? { participant: r.other_investors.map(funder) } : {}),
+        ...(sources.length ? { subjectOf: sources } : {}),
       };
     });
   const website = httpUrl(company.website) ?? (company.domain ? `https://${company.domain}` : undefined);
   const description = company.description?.trim() ? capitalizeFirst(company.description.trim()) : undefined;
+  const webPage = {
+    "@type": "WebPage",
+    "@id": pageUrl,
+    url: pageUrl,
+    name: `${company.name} funding rounds and investors`,
+    ...(summary ? { description: asOfSentence(summary, asOf) } : {}),
+    about: { "@id": orgId },
+    isPartOf: { "@id": `${base}/#website` },
+  };
   const organization = {
     "@type": "Organization",
     "@id": orgId,
@@ -199,9 +338,44 @@ export function companyJsonLd(page: CompanyPage, origin: string) {
     ...(httpUrl(company.logo_url) ? { logo: company.logo_url } : {}),
     ...(description ? { description } : {}),
     ...(company.hq ? { location: company.hq } : {}),
-    mainEntityOfPage: pageUrl,
+    mainEntityOfPage: { "@id": pageUrl },
   };
-  return { "@context": "https://schema.org", "@graph": [organization, ...rounds] };
+  return { "@context": "https://schema.org", "@graph": [webPage, organization, ...rounds] };
+}
+
+/**
+ * The feed's JSON-LD: the rounds as a Dataset, published by Firecrawl, downloadable from the API
+ * and, on a public instance, the public feeds. `base` names the page, `origin` the deployment that
+ * serves the downloads.
+ */
+export function feedJsonLd(base: string, origin: string, feeds: Record<string, Array<{ url: string; title: string }>> | undefined) {
+  const download = (encodingFormat: string, path: string, name: string) => ({
+    "@type": "DataDownload",
+    name,
+    encodingFormat,
+    contentUrl: `${origin}${path}`,
+  });
+  return {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "@id": `${base}/feed#dataset`,
+    name: "Fireround startup funding rounds",
+    description:
+      "Startup funding rounds from across the open web, pre-seed to growth. Each round carries its company, stage, amount, announcement date, lead and other investors, and the source pages that reported it, with its verification status. New rounds are added as scheduled sweeps find them.",
+    url: `${base}/feed`,
+    inLanguage: "en",
+    isAccessibleForFree: true,
+    keywords: ["startup funding", "funding rounds", "venture capital", "seed", "Series A", "investors"],
+    creator: { "@type": "Organization", "@id": FIRECRAWL.id, name: "Firecrawl", url: FIRECRAWL.url },
+    variableMeasured: ["company", "stage", "amount", "announcement date", "lead investors", "other investors", "sources"],
+    measurementTechnique:
+      "Funding announcements found with Firecrawl web search, extracted to a schema, deduplicated, and checked against the pages that reported them.",
+    distribution: [
+      download("application/json", "/api/v1/rounds", "Funding rounds API (JSON)"),
+      download("text/csv", "/api/v1/rounds?format=csv", "Funding rounds API (CSV)"),
+      ...Object.entries(feeds ?? {}).flatMap(([type, links]) => links.map((l) => download(type, l.url, l.title))),
+    ],
+  };
 }
 
 /**

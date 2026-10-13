@@ -24,6 +24,7 @@ import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { approxDate, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageLabel, usd } from "@/lib/format";
 import { getInvestor, investorTypeLabel } from "@/lib/investor";
 import { companyHref, investorHref, investorIdFromParam } from "@/lib/links";
+import { canonicalUrl } from "@/lib/origin";
 import { investorShare, shareMetadata } from "@/lib/share";
 import { capitalizeFirst } from "@/lib/text";
 
@@ -37,13 +38,13 @@ export async function generateMetadata({ params }: PageProps<"/investors/[id]">)
   const page = await cachedInvestor(investorIdFromParam(id));
   if (!page) return { title: "Investor" };
   const share = investorShare(page);
-  // The title is the share title ("Insight Partners: led 3 rounds · Fireround"), so a search result
-  // reads like the unfurl; the canonical is the stored id, however the URL spelled it.
+  // A search result names what people look an investor up for, its investments; the unfurl keeps the
+  // share title ("Insight Partners: led 3 rounds"). The canonical is the stored id, however the URL spelled it.
   const meta = shareMetadata({ title: share.title, description: share.description });
-  const url = investorHref(page.investor.id);
+  const url = canonicalUrl(investorHref(page.investor.id));
   return {
     ...meta,
-    title: share.title,
+    title: `${page.investor.name} investments and funding rounds`,
     alternates: { canonical: url, types: feedAlternateTypes() },
     openGraph: { ...meta.openGraph, url },
   };

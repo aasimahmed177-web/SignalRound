@@ -12,6 +12,7 @@ import { HouseBanner } from "@/components/feed/house-banner";
 import { Pager } from "@/components/feed/pager";
 import { RoundsTable } from "@/components/feed/rounds-table";
 import { FirstRun } from "@/components/first-run";
+import { JsonLd } from "@/components/seo/json-ld";
 import { PageBody } from "@/components/shell/page-body";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -21,15 +22,18 @@ import { trackClick } from "@/lib/analytics";
 import { cachedDemoStats, cachedFeedPage, cachedPresets, cachedSectors, cachedTrendingOn } from "@/lib/cached";
 import { db } from "@/lib/db";
 import { feedCertainty } from "@/lib/feed-certainty";
+import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { type FeedPageQuery, readFeedPage } from "@/lib/feed-page";
 import { firstRunProps } from "@/lib/first-run";
 import { feedScope, feedTitle } from "@/lib/format";
 import { houseDomain, isFreshHouseRound } from "@/lib/house";
+import { canonicalBase, siteOrigin } from "@/lib/origin";
 import { parsePage } from "@/lib/pages";
 import { feedHistory, publicRoundQuery, toFeedRow } from "@/lib/persist";
 import { PRESET_PARAM } from "@/lib/preset-param";
 import { presetOptions } from "@/lib/presets";
 import { defaultFeedView, FEED_VIEW_PANEL, type FeedNarrowing, isNarrowed, toFeedSort, toFeedView, viewTabId } from "@/lib/round-sort";
+import { feedJsonLd } from "@/lib/seo";
 import { shareMetadata } from "@/lib/share";
 import { TRENDING_EXPLAINER } from "@/lib/trending";
 
@@ -264,6 +268,7 @@ export default function FeedPage({ searchParams }: PageProps<"/feed">) {
   const demo = isPublicDemo();
   return (
     <>
+      <JsonLd data={feedJsonLd(canonicalBase(), siteOrigin(), feedAlternateTypes())} />
       <PageHeader
         section={1}
         title={

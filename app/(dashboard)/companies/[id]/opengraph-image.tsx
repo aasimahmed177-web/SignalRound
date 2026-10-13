@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import { cachedCompanyView } from "@/lib/cached";
-import { usd } from "@/lib/format";
 import { isHouseCompany } from "@/lib/house";
 import { decodeParam } from "@/lib/links";
 import { CardFrame, Figure, GenericCard, Heading, loadLogo, OG_SIZE, renderCard } from "@/lib/og";
+import { raisedFigure, verifiedRaise } from "@/lib/seo";
 import { amountLabel, capitalise, cardDate, clip, companyShare, nameList, roundLabel, verifiedAgainst } from "@/lib/share";
 import { sourcesLabel } from "@/lib/source-count";
 
@@ -36,13 +36,14 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   if (!page) return renderCard([() => GENERIC]);
 
   const { company, totals, sources } = page;
-  const { latest, counted } = companyShare(page);
+  const { latest } = companyShare(page);
+  // The same verified total the page and its dated summary state (lib/seo.ts verifiedRaise).
+  const raise = verifiedRaise(page.rounds);
   // The company this feed is built on draws the flame in the tile's place and says why it is here.
   const house = isHouseCompany(company);
   const logo = house ? null : await loadLogo({ domain: company.domain, logoUrl: company.logo_url });
   const mark = company.name.trim().charAt(0).toUpperCase() || "?";
   const line = house ? HOUSE_LINE : clip(capitalise(company.description) ?? company.domain ?? "", 130);
-  const stated = counted.filter((r) => r.amount.usd_millions).length;
   const seen = latest && verifiedAgainst(latest) !== null ? sourcesLabel(latest) : null;
 
   const footer =
@@ -70,8 +71,14 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         />
         <Figure
           label="RAISED ON RECORD"
-          value={totals.usd_millions_raised > 0 ? usd(totals.usd_millions_raised) : "Undisclosed"}
-          hint={stated === 0 ? "no amount stated" : `across ${counted.length} ${counted.length === 1 ? "round" : "rounds"} on record`}
+          value={raise.cited.length === 0 ? "None verified" : raise.usdMillions > 0 ? raisedFigure(raise.usdMillions) : "Undisclosed"}
+          hint={
+            raise.cited.length === 0
+              ? "still being checked"
+              : raise.priced.length === 0
+                ? "no amount stated"
+                : `across ${raise.cited.length} verified ${raise.cited.length === 1 ? "round" : "rounds"}`
+          }
         />
       </div>
     </CardFrame>

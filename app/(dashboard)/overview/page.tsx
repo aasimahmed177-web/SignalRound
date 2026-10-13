@@ -13,6 +13,7 @@ import { cachedMarket, cachedPresets, cachedTrendingOn } from "@/lib/cached";
 import { db } from "@/lib/db";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { firstRunProps, storeIsEmpty } from "@/lib/first-run";
+import { canonicalUrl } from "@/lib/origin";
 import { listRounds, type RoundRow } from "@/lib/persist";
 import { PRESET_PARAM } from "@/lib/preset-param";
 import { presetOptions } from "@/lib/presets";
@@ -148,7 +149,7 @@ function OverviewSkeleton() {
 
 export const metadata = {
   title: "Overview",
-  alternates: { canonical: OVERVIEW_PATH, types: feedAlternateTypes() },
+  alternates: { canonical: canonicalUrl(OVERVIEW_PATH), types: feedAlternateTypes() },
   ...shareMetadata({
     title: "The funding market this week",
     description:

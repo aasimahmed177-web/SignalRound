@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import type { CompanyPage } from "@/lib/company";
 import { reportedAmount, roundStageLabel, sectorLabel, stageLabel, stageOf } from "@/lib/format";
 import type { InvestorPage } from "@/lib/investor";
+import { canonicalUrl } from "@/lib/origin";
 import type { RoundRow } from "@/lib/persist";
 import { readAgainst, sourceCount, sourcesLabel } from "@/lib/source-count";
 import { capitalizeFirst } from "@/lib/text";
@@ -195,7 +196,7 @@ export function shareMetadata({
 }): Metadata {
   return {
     description,
-    ...(canonical ? { alternates: { canonical } } : {}),
+    ...(canonical ? { alternates: { canonical: canonicalUrl(canonical) } } : {}),
     openGraph: {
       title,
       description,

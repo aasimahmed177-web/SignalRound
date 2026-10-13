@@ -72,11 +72,11 @@ import {
 import { isHouseCompany } from "@/lib/house";
 import { companyHref, decodeParam, investorHref, investorHrefByName } from "@/lib/links";
 import { SECTION_INDEX_TITLE } from "@/lib/news";
-import { siteOrigin } from "@/lib/origin";
+import { canonicalBase, canonicalUrl } from "@/lib/origin";
 import { type RoundRow, toAlexandria, toFeedRow } from "@/lib/persist";
 import { pricingModelLabel, pricingView } from "@/lib/pricing";
 import { loadPublisherTiers } from "@/lib/rules";
-import { companyJsonLd } from "@/lib/seo";
+import { asOfSentence, companyJsonLd, companySearchMeta, fundingSummary, pendingClause, raisedFigure, verifiedRaise } from "@/lib/seo";
 import { companyShare, shareMetadata } from "@/lib/share";
 import { capitalizeFirst } from "@/lib/text";
 import { cn } from "@/lib/utils";
@@ -92,14 +92,19 @@ export async function generateMetadata({ params }: PageProps<"/companies/[id]">)
   const page = (await cachedCompanyView(decodeParam(id)))?.page;
   if (!page) return { title: "Company" };
   const share = companyShare(page);
-  // The title is the share title ("Firecrawl: $75M Series B · Fireround"), so a search result reads
-  // like the unfurl; the canonical is the stored id, however the URL spelled it.
+  // A search result answers the query people type ("Ramp funding rounds and investors", "How much has
+  // Ramp raised?") from the verified rounds; the unfurl keeps the share card's latest-round title. The
+  // canonical is the stored id, however the URL spelled it.
+  const search = companySearchMeta(page, share.description);
   const meta = shareMetadata({ title: share.title, description: share.description });
-  const url = companyHref(page.company.id);
+  const url = canonicalUrl(companyHref(page.company.id));
+  // The same page as markdown for agents (lib/llms.ts), beside the feed links every page carries.
+  const markdown = [{ url: `${companyHref(page.company.id)}/index.md`, title: `${page.company.name} (Markdown)` }];
   return {
     ...meta,
-    title: share.title,
-    alternates: { canonical: url, types: feedAlternateTypes() },
+    title: search.title,
+    description: search.description,
+    alternates: { canonical: url, types: { ...feedAlternateTypes(), "text/markdown": markdown } },
     openGraph: { ...meta.openGraph, url },
   };
 }
@@ -297,14 +302,17 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
   const investorGroups = investorsByRound(rounds, investors);
 
   // The stat row answers what a reader asks first: the latest round, the money, who is on it, how sourced.
-  // Every figure counts the feed's rounds (publish, flagged), as /companies does; the rest only list below.
+  // The counts cover the feed's rounds (publish, flagged); the money counts only the verified ones
+  // (lib/seo.ts verifiedRaise), the same figure the dated summary states, so the page never shows two totals.
   const counted = rounds.filter(inFeed);
   const offFeed = rounds.length - counted.length;
   const latest = counted[0] ?? null;
-  const stated = counted.filter((r) => r.amount.usd_millions).length;
-  // Funding to date a round's page stated beyond the rounds on record: the gap said at the figure, not only in the research panel.
-  const reportedTotal = Math.max(0, ...counted.map((r) => totalToDate(r) ?? 0));
-  const beyondRecord = reportedTotal > totals.usd_millions_raised * 1.02 ? `${usd(reportedTotal)} to date, as reported` : null;
+  const raise = verifiedRaise(rounds);
+  const stated = raise.priced.length;
+  const pending = pendingClause(raise.pending);
+  // Funding to date a verified round's page stated beyond those rounds: the gap said at the figure, not only in the research panel.
+  const reportedTotal = Math.max(0, ...raise.cited.map((r) => totalToDate(r) ?? 0));
+  const beyondRecord = reportedTotal > raise.usdMillions * 1.02 ? `${usd(reportedTotal)} to date, as reported` : null;
   const leads = investors.filter((i) => i.leads > 0).length;
   const publishers = new Set(sources.map((s) => hostLabel(s.host))).size;
   // A round on the feed announced after the dossier was written: the dossier cannot know it.
@@ -312,6 +320,9 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
   const dossierPredates = newer ? `${roundName(newer)} of ${approxDate(newer.announced_on, newer.date_precision)}` : null;
   // A requested company research could not verify a round for: no empty figures or lists, one panel on why.
   const requestedEmpty = page.addedOnRequest && rounds.length === 0;
+  // The answer a search or an assistant quotes, dated: "As of 13 Oct 2026, Ramp has raised …".
+  const summary = fundingSummary(company.name, rounds);
+  const asOf = new Date();
 
   // One quiet line under the description: where to find it, where it is, and the sourced facts.
   const meta: Array<{ key: string; node: ReactNode }> = [];
@@ -375,7 +386,7 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
       canRefresh={!readOnly}
       founders={founders}
       foundersVia={foundersVia}
-      total={dossierTotal(dossier.data.total_raised_as_written, counted, stated ? totals.usd_millions_raised : null, dossier.fetched_at)}
+      total={dossierTotal(dossier.data.total_raised_as_written, counted, stated ? raise.usdMillions : null, dossier.fetched_at)}
       predates={dossierPredates}
     />
   ) : null;
@@ -456,13 +467,13 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <>
-      {/* Crawlers are never admins, so the structured data keeps to the feed's rounds whoever renders it. */}
-      <JsonLd data={companyJsonLd(page, siteOrigin())} />
+      {/* The structured data and the summary keep to the verified, published rounds whoever renders the page. */}
+      <JsonLd data={companyJsonLd(page, canonicalBase(), asOf)} />
       <TrackView event="fireround_company_viewed" properties={{ company: company.id, stage: latest?.stage ?? "none" }} />
       <PageHeader
         section={SECTION}
         title={company.name}
-        description={DESCRIPTION}
+        description={summary ? asOfSentence(summary, asOf) : DESCRIPTION}
         breadcrumb={<Crumbs current={company.name} />}
         actions={
           <>
@@ -546,25 +557,26 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
             )}
             <Stat
               label="RAISED ON RECORD · USD"
-              value={counted.length === 0 ? "None" : stated ? usd(totals.usd_millions_raised) : "Undisclosed"}
-              hint={
-                counted.length === 0
-                  ? "none on record"
+              value={raise.cited.length === 0 ? "None" : stated ? raisedFigure(raise.usdMillions) : "Undisclosed"}
+              hint={[
+                raise.cited.length === 0
+                  ? counted.length === 0
+                    ? "none on record"
+                    : "no verified round yet"
                   : stated === 0
-                    ? counted.some((r) => r.financing_total_as_written)
+                    ? raise.cited.some((r) => r.financing_total_as_written)
                       ? "no isolated primary amount"
-                      : "no round states an amount"
-                    : [
-                        stated === counted.length
-                          ? beyondRecord
-                            ? `${stated} ${stated === 1 ? "round" : "rounds"}`
-                            : `across ${stated} ${stated === 1 ? "round" : "rounds"} on record`
-                          : `${stated} of ${counted.length} rounds state an amount`,
-                        beyondRecord,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")
-              }
+                      : "no verified round states an amount"
+                    : stated === raise.cited.length
+                      ? beyondRecord
+                        ? `${stated} verified ${stated === 1 ? "round" : "rounds"}`
+                        : `across ${stated} verified ${stated === 1 ? "round" : "rounds"}`
+                      : `${stated} of ${raise.cited.length} verified rounds state an amount`,
+                beyondRecord,
+                pending && `plus ${pending}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             />
             {investors.length > 0 || !latest ? (
               // With no feed round the first card already says so; this one counts who is named on them.

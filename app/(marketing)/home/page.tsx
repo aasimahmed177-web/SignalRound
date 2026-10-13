@@ -29,7 +29,7 @@ import { trackClick } from "@/lib/analytics";
 import { digestsConfigured } from "@/lib/digest";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { ALEXANDRIA_URL, API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
-import { siteOrigin } from "@/lib/origin";
+import { canonicalBase, canonicalUrl } from "@/lib/origin";
 import { siteJsonLd } from "@/lib/seo";
 import { publicSlackConfig } from "@/lib/slack-subscriptions";
 import { cn } from "@/lib/utils";
@@ -42,14 +42,14 @@ export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
   // With LANDING=1 the page is served at `/`, so that is the address a search engine should keep.
-  alternates: isLanding() ? { canonical: "/", types: feedAlternateTypes() } : undefined,
+  alternates: isLanding() ? { canonical: canonicalUrl("/"), types: feedAlternateTypes() } : undefined,
   // Setting openGraph here replaces the root's, image included, so the site card is named again.
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
     siteName: "Fireround",
     type: "website",
-    url: isLanding() ? "/" : "/home",
+    url: canonicalUrl(isLanding() ? "/" : "/home"),
     images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: TITLE }],
   },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/opengraph-image"] },
@@ -584,7 +584,7 @@ function Closing() {
 export default function LandingPage() {
   return (
     <>
-      <JsonLd data={siteJsonLd(siteOrigin(), DESCRIPTION)} />
+      <JsonLd data={siteJsonLd(canonicalBase(), DESCRIPTION)} />
       <Hero />
       <Band>
         <Suspense fallback={<CountersSkeleton />}>

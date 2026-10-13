@@ -22,6 +22,7 @@ Every environment variable, in one table; [`.env.example`](../.env.example) has 
 | `ALEXANDRIA_API_KEY` | optional, public demos | The bearer Firecrawl's Alexandria sends to `/api/v1`; its calls skip the per-address budgets and read the same public rows ([deploy.md](deploy.md#alexandria)) |
 | `MCP_API_KEY` | required for MCP on password-protected private deployments | Bearer for `/api/mcp`; without it, a private instance with `DASHBOARD_PASSWORD` refuses MCP. A keyless public demo exposes read tools, not `mark_seen`; a private instance without a password remains open |
 | `APP_ORIGIN` | optional | Public HTTPS origin for webhooks, Slack links, and share cards; company newsroom monitors use it for section-change webhooks |
+| `SITE_URL` | optional | Where search engines should keep the pages, when another site serves them under its own address (a path is allowed, e.g. `https://www.example.com/funding`). Every canonical tag, `og:url`, sitemap entry, `/llms.txt` page link, and JSON-LD page URL is built on it; the API, the MCP server, and share images stay on `APP_ORIGIN`. Unset, canonicals follow `APP_ORIGIN` |
 | `FIRECRAWL_WEBHOOK_SECRET` | required in production for monitors | Verifies the signature on monitor webhooks (Firecrawl dashboard, Advanced settings) |
 | `WEBHOOK_BEARER_TOKEN` | optional | A bearer the monitor sends on top of the signature |
 | `AI_GATEWAY_API_KEY` | optional | Turns on the reconcile step through the Vercel AI Gateway; needed on Vercel too, since a deployed function does not see the OIDC token in its environment |
