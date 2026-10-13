@@ -572,6 +572,12 @@ export type RecordFix =
    * says the company is still raising ("set to raise", "in talks") is expected. Pinned, so no later
    * reading moves it back.
    */
+  /**
+   * A page linked to a round that is another round's: a reading of a second deal merged into this row
+   * (Immunomatics' September cheque on its October row). The link goes, with the quotes taken from that
+   * page; the page itself stays for the round it belongs to. A row keeps at least one source.
+   */
+  | { kind: "unlink"; round: string; source: string; quotes: string[]; note: string }
   | {
       kind: "certainty";
       round: string;
@@ -915,6 +921,42 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       continue;
     }
     const verification = (row.verification as FeedRecord["verification"]) ?? { status: "unverified" as const, notes: [], url: null };
+
+    if (fix.kind === "unlink") {
+      const sourceId = canonicalUrl(fix.source);
+      const links = await handle.select({ sourceId: roundSources.sourceId }).from(roundSources).where(eq(roundSources.roundId, fix.round));
+      if (!links.some((l) => l.sourceId === sourceId)) {
+        say(`skip unlink ${fix.round}: ${sourceId} is not one of its sources`);
+        out.skipped++;
+        continue;
+      }
+      if (links.length < 2) {
+        say(`refuse unlink ${fix.round}: ${sourceId} is its only source`);
+        out.refused++;
+        continue;
+      }
+      const quotes = (row.evidenceQuotes as string[] | null) ?? [];
+      const dropped = quotes.filter((q) => fix.quotes.includes(q));
+      const noteLine = `unlinked ${sourceId}: ${fix.note}`;
+      say(`unlink ${fix.round}: ${sourceId}; ${dropped.length} quote(s) go with it`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      await handle.delete(roundSources).where(and(eq(roundSources.roundId, fix.round), eq(roundSources.sourceId, sourceId)));
+      await handle
+        .update(fundingRounds)
+        .set({
+          evidenceQuotes: quotes.filter((q) => !fix.quotes.includes(q)),
+          verification: {
+            ...verification,
+            notes: verification.notes.includes(noteLine) ? verification.notes : [...verification.notes, noteLine],
+          },
+          status: sql`CASE WHEN ${fundingRounds.status} = 'seen' AND NOT ${fundingRounds.history} THEN 'updated' ELSE ${fundingRounds.status} END`,
+          updatedAt: new Date(),
+        })
+        .where(eq(fundingRounds.id, fix.round));
+      out.applied++;
+      continue;
+    }
 
     if (fix.kind === "reject") {
       if (row.disposition === "rejected") {

@@ -837,6 +837,85 @@ describe("re-reports and re-dated rows", () => {
     ).toBe(false);
   });
 
+  test("two stageless deals by different backers a month apart stay two rounds", () => {
+    const google = { stage: "other", announcedOn: "2023-10-27", amountUsdMillions: 2000, investorKeys: ["google"] };
+    const amazon = { stage: "other", announcedOn: "2023-09-26", amountUsdMillions: 4000, investorKeys: ["amazon"] };
+    expect(isSameRound(google, amazon)).toBe(false);
+    expect(isSameRound(google, { ...amazon, announcedOn: null })).toBe(false);
+    // A shared name, an unnamed side, a named stage, or the same week still join as before.
+    expect(isSameRound(google, { ...amazon, investorKeys: ["amazon", "google"] })).toBe(true);
+    expect(isSameRound(google, { ...amazon, investorKeys: [] })).toBe(true);
+    expect(isSameRound({ ...google, stage: "series_b" }, { ...amazon, stage: "series_b" })).toBe(true);
+    expect(isSameRound(google, { ...amazon, announcedOn: "2023-10-23" })).toBe(true);
+  });
+
+  test("Anthropic: Amazon's September 2023 investment does not land on Google's October 2023 row", async () => {
+    const db = await testDb();
+    const base = { company_name: "Anthropic", company_key: "anthropic", company_domain: "anthropic.com", stage: "other" as const };
+    const usd = (millions: number, day: string) => ({
+      value: millions,
+      currency: "USD",
+      as_written: `$${millions / 1000} billion`,
+      usd_millions: millions,
+      fx_rate: 1,
+      fx_date: day,
+    });
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "anthropic:other:2023-10-27",
+          stage_as_written: "investment",
+          announced_date: "2023-10-27",
+          amount: usd(2000, "2023-10-27"),
+          lead_investors: [],
+          other_investors: ["Google"],
+          sources: [
+            {
+              url: "https://www.cnbc.com/2023/10/27/google-commits-to-invest-2-billion-in-openai-competitor-anthropic.html",
+              host: "cnbc.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-1",
+      { history: true },
+    );
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "anthropic:other:2023-09-26",
+          stage_as_written: "investment",
+          announced_date: "2023-09-26",
+          amount: usd(4000, "2023-09-26"),
+          lead_investors: [],
+          other_investors: ["Amazon"],
+          sources: [
+            {
+              url: "https://www.forbes.com/sites/stevendickens/2023/09/26/amazon-invests-4-billion-in-anthropic-a-paradigm-shift-in-ai/",
+              host: "forbes.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-2",
+      { history: true },
+    );
+    const stored = await rows(db);
+    expect(stored.map((r) => [r.announced_on, r.amount.as_written])).toEqual(
+      expect.arrayContaining([
+        ["2023-10-27", "$2 billion"],
+        ["2023-09-26", "$4 billion"],
+      ]),
+    );
+    expect(stored).toHaveLength(2);
+  });
+
   test("Sammmm: a snippet re-reporting a history round folds into it, and the round stays history", async () => {
     const db = await testDb();
     const base = {

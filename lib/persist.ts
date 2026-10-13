@@ -350,6 +350,8 @@ export interface SameRoundFacts {
   sourceIds?: string[];
   /** Investor keys of the leads. */
   leadKeys?: string[];
+  /** Investor keys of everyone named as putting money in, leads and participants. */
+  investorKeys?: string[];
 }
 
 /** Days a precision leaves open before the stated day: a weekly list's day covers the week before it. */
@@ -445,6 +447,20 @@ function isStagelessReReport(a: SameRoundFacts, b: SameRoundFacts, days: number)
 }
 
 /**
+ * Whether two stageless readings are two deals by who put the money in: both name their investors and
+ * none in common, and they are not in one week (an undated one is in none). Without a stage label only
+ * the company and the window tie them, and two backers' money a month apart is two deals: Amazon's
+ * September 2023 investment in Anthropic is not Google's of October, nor one angel's cheque another's.
+ */
+function separateBackers(a: SameRoundFacts, b: SameRoundFacts): boolean {
+  if (!isStageless(a.stage as Stage) || !isStageless(b.stage as Stage)) return false;
+  const x = a.investorKeys ?? [];
+  const y = b.investorKeys ?? [];
+  if (x.length === 0 || y.length === 0 || x.some((k) => y.includes(k))) return false;
+  return !a.announcedOn || !b.announcedOn || readingGap(a, b) > CROSS_STAGE_WINDOW_DAYS;
+}
+
+/**
  * Whether two records for the same company describe one round. Undated on either side is a
  * match when the stage agrees (the date is what a second source usually supplies) and the figures
  * and series letters do not name another round, and never a match across stages (there is nothing
@@ -455,6 +471,7 @@ function isStagelessReReport(a: SameRoundFacts, b: SameRoundFacts, days: number)
  * company does not close two equal rounds a month apart, so the surer reading names the stage.
  */
 export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
+  if (separateBackers(a, b)) return false;
   if (!a.announcedOn || !b.announcedOn) {
     // An undated reading names no week, so the stage alone places it, unless the reading itself says it
     // is another round: another series letter, or figures more than twice apart. Ramp's undated page
@@ -526,6 +543,8 @@ export interface RoundIdentity extends CompanyIdentity {
   isExtension?: boolean;
   /** Investor keys of the leads, so a late re-report with the same lead joins its round. */
   leadKeys?: string[];
+  /** Investor keys of everyone named as putting money in, leads and participants. */
+  investorKeys?: string[];
 }
 
 /** One word of five letters or fewer ("nova", "heidi") names too many companies to join two rows on the name alone. */
@@ -711,6 +730,7 @@ function recordIdentity(r: FeedRecord): RoundIdentity {
     stageAsWritten: r.stage_as_written,
     isExtension: r.is_extension,
     leadKeys: r.lead_investors.map((n) => investorKeyForMerge(n)),
+    investorKeys: [...r.lead_investors, ...r.other_investors].map((n) => investorKeyForMerge(n)),
   };
 }
 
@@ -830,12 +850,15 @@ export async function roundsForMerge(handle: Db, where?: SQL): Promise<MergeRow[
       leadKeys: sql<
         string[] | null
       >`(select jsonb_agg(ri.investor_id) from round_investors ri where ri.round_id = ${fundingRounds.id} and ri.role = 'lead')`,
+      investorKeys: sql<
+        string[] | null
+      >`(select jsonb_agg(ri.investor_id) from round_investors ri where ri.round_id = ${fundingRounds.id})`,
     })
     .from(fundingRounds)
     .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
     .where(where);
   const num = (v: string | null) => (v === null ? null : Number(v));
-  return rows.map(({ round, companyName, nameKey, domain, description, companyHq, aliasKeys, sourceIds, leadKeys }) => ({
+  return rows.map(({ round, companyName, nameKey, domain, description, companyHq, aliasKeys, sourceIds, leadKeys, investorKeys }) => ({
     id: round.id,
     certainty: round.certainty,
     reportedOn: round.reportedOn,
@@ -848,6 +871,7 @@ export async function roundsForMerge(handle: Db, where?: SQL): Promise<MergeRow[
     aliasKeys: aliasKeys ?? [],
     sourceIds: sourceIds ?? [],
     leadKeys: leadKeys ?? [],
+    investorKeys: investorKeys ?? [],
     isExtension: round.isExtension,
     presetSlug: round.presetSlug,
     stage: round.stage,

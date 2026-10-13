@@ -422,6 +422,53 @@ describe("applyRecordFixes", () => {
     expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
   });
 
+  test("unlink takes a second deal's page and quote off a row, keeps its last source, and is idempotent", async () => {
+    const handle = await testDb();
+    const september = "https://immunomatics.com/press/dr-keith-robison-invests-25000-in-immunomatics";
+    const october = "https://www.prnewswire.com/news-releases/gendx-co-founder-invests-100-000-in-immunomatics-302900371.html";
+    const robison = "Computational Biologist Dr. Keith Robison Invests $25,000 in Immunomatics";
+    const mulder = "Immunomatics today announced a $100,000 strategic investment from Myosotis Investments B.V.";
+    await persistRecords(
+      handle,
+      [
+        record({
+          id: "immunomatics:other:2026-10-07",
+          company_name: "Immunomatics",
+          company_key: "immunomatics",
+          company_domain: "immunomatics.com",
+          stage: "other",
+          stage_as_written: "strategic investment",
+          announced_date: "2026-10-07",
+          amount: { value: 0.1, currency: "USD", as_written: "$100,000", usd_millions: 0.1, fx_rate: 1, fx_date: "2026-10-07" },
+          evidence_quotes: [mulder, robison],
+          sources: [
+            { url: october, host: "prnewswire.com" },
+            { url: september, host: "immunomatics.com" },
+          ],
+        }),
+      ],
+      "seed",
+      "run-1",
+    );
+    const fix: RecordFix = {
+      kind: "unlink",
+      round: "immunomatics:other:2026-10-07",
+      source: september,
+      quotes: [robison],
+      note: "Keith Robison's $25,000 of September 3 is its own investment",
+    };
+    const links = async () =>
+      (await handle.select().from(schema.roundSources).where(eq(schema.roundSources.roundId, fix.round))).map((l) => l.sourceId);
+    expect(await applyRecordFixes(handle, [fix], { apply: false })).toMatchObject({ applied: 0, refused: 0 });
+    expect(await links()).toHaveLength(2);
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 1 });
+    expect(await links()).toEqual([october]);
+    const [row] = await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, fix.round));
+    expect(row?.evidenceQuotes).toEqual([mulder]);
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+    expect(await applyRecordFixes(handle, [{ ...fix, source: october, quotes: [] }], { apply: true })).toMatchObject({ refused: 1 });
+  });
+
   test("a round's syndicate is replaced from its announcement, a company's headquarters and sector move; a second apply skips", async () => {
     const handle = await testDb();
     const round = "positron:series_c:2026-09-11";

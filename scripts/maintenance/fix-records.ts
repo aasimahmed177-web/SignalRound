@@ -12,6 +12,7 @@
 // "valuation" (a valuation in the words of the page and sentence that state it, pinned),
 // "publish" (a flagged or review row a person checked against a page it cites, published as from the
 // review queue),
+// "unlink" (a page and its quotes taken off a round they do not belong to, when a second deal was merged in),
 // and "history_lead" (a missing earlier round queued on the history ledger with the page
 // that states it; the history pass reads and verifies it; `requeue` sends a lead that ended without a
 // source back to pending with a new page). Every fix but a merge cites the page it rests on, and
