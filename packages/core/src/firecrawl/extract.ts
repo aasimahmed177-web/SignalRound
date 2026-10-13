@@ -26,7 +26,7 @@ import type { ExtractedItem } from "../records/resolve.ts";
 import { amountInEvidence, DEFAULT_TIMELINE_HOSTS } from "../records/resolve.ts";
 import type { ExtractedRound, PageKind, RoundSource } from "../records/schema.ts";
 import { ROUNDS_PAGE_PROMPT, RoundsPageLenient, roundsPageJsonSchema } from "../records/schema.ts";
-import { namedNearby, totalIsValuation } from "../records/valuation.ts";
+import { namedNearby, totalIsValuation, totalRepeatsAmount } from "../records/valuation.ts";
 import { extractionCredits, mapLimit } from "./credits.ts";
 import { groundQuotedPage, QuotedPage } from "./reader.ts";
 
@@ -369,7 +369,8 @@ export function settleOnPage(round: ExtractedRound, markdown: string): Extracted
       : null;
   const total =
     quoted(round.financing_total_as_written, round.financing_total_quote) &&
-    !totalIsValuation(round.financing_total_as_written, round.financing_total_quote);
+    !totalIsValuation(round.financing_total_as_written, round.financing_total_quote) &&
+    !totalRepeatsAmount(round.financing_total_as_written, round.amount_as_written, round.financing_total_quote, round.amount_scope);
   return {
     ...round,
     round_type_as_written: label,

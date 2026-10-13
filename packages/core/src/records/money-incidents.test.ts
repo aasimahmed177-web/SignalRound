@@ -10,7 +10,15 @@ import { hostOf } from "./normalize.ts";
 import { type ExtractedItem, resolveRounds } from "./resolve.ts";
 import type { ExtractedRound } from "./schema.ts";
 import { secondhandOnly } from "./source-fit.ts";
-import { namedNearby, pickValuation, totalIsValuation, unsupportedValuation, valuationSupport, withBasis } from "./valuation.ts";
+import {
+  namedNearby,
+  pickValuation,
+  totalIsValuation,
+  totalRepeatsAmount,
+  unsupportedValuation,
+  valuationSupport,
+  withBasis,
+} from "./valuation.ts";
 
 const NOW = new Date("2026-09-27T12:00:00Z");
 function round(p: Partial<ExtractedRound> & { company_name: string; round_type_as_written: string }): ExtractedRound {
@@ -546,5 +554,45 @@ describe("a financing total is never the valuation its sentence states", () => {
     ["€411M ($468M)", "raised €411M ($468M) in funding, at €2.4 Billion ($2.7 Billion) valuation"],
   ])("%s is money raised", (total, quote) => {
     expect(totalIsValuation(total, quote)).toBe(false);
+  });
+});
+
+describe("a financing total that only repeats the round's amount is not a total", () => {
+  test.each([
+    [
+      "$1 billion at a $22 billion valuation",
+      "$1 billion",
+      "Kalshi today announced a $1 billion Series F round at a $22 billion valuation",
+    ],
+    [
+      "$400 million",
+      "$400 million",
+      "We’re announcing new funding to accelerate our work at Chai: $400 million at a $3.8 billion valuation.",
+    ],
+    ["$700 million", "$700 million", "FieldAI Raises $700 Million At $10 Billion Valuation Led By CEO Ali Agha"],
+    ["$200 million", "$200M", "Type One Energy raises $200 million in Series B financing for fusion technology."],
+  ])("%s repeats %s", (total, amount, quote) => {
+    expect(totalRepeatsAmount(total, amount, quote, "round")).toBe(true);
+  });
+
+  test.each([
+    ["€75 million", "€75 million", "the round has a total volume of €75 million", "round"],
+    ["nearly $52 million", "$52 million", "nearly $52 million in combined seed and Series A financing.", "round"],
+    ["$117 million", "$117 million", "Parallax came out of stealth this week with $117 million in funding to date.", "round"],
+    ["$10 million", "$10 million", "bringing total capital raised to $10 million", "round"],
+    ["$19 million", "$19 million", "raised about $19 million in financing across two seed rounds", "round"],
+    ["$20 million", "$20m", "Ando has launched out of stealth with $20 million in pre-seed and seed funding", "round"],
+    [
+      "more than $48 million",
+      "$48 million",
+      "The company is backed by more than $48 million from investors including UPMC Enterprises.",
+      "round",
+    ],
+    ["£4 million disclosed external funding", "£4 million", "£4 million disclosed external funding", "round"],
+    ["$20 million", "$20 million", "Precision AI has raised a $20 million in Seed round of equity and grant funding.", "combined_rounds"],
+    ["€4 million", "$4 million", "raised €4 million", "round"],
+    ["$835 million", "$445 million", "bringing total funding to roughly $835M", "round"],
+  ] as const)("%s beside %s stays", (total, amount, quote, scope) => {
+    expect(totalRepeatsAmount(total, amount, quote, scope)).toBe(false);
   });
 });

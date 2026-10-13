@@ -203,6 +203,30 @@ export function totalIsValuation(total: string | null | undefined, quote: string
   return valuationAt > raisedAt;
 }
 
+/** Words that make a figure money raised over more than this round: "to date", "bringing its total to", "across two seed rounds", "seed and Series A". */
+const CUMULATIVE =
+  /\b(?:total(?:ling|ing)?|to date|cumulative(?:ly)?|in all|altogether|so far|overall|combined|bringing|brings|brought|since (?:its )?(?:founding|inception|launch)|lifetime|aggregate|across|backed by|disclosed|(?:two|three|four|several|multiple) (?:\w+ )?rounds)\b|\b(?:pre-?seed|seed|series [a-k])\s+and\s+(?:seed|series [a-k])\b/i;
+
+/**
+ * Whether a financing total only repeats the round's own amount: the same figure in the same currency,
+ * stated by a sentence that never says the money is cumulative ("Kalshi today announced a $1 billion
+ * Series F round"). A total equal to the amount that its sentence calls a total to date, or money across
+ * rounds, is the company's word and stays.
+ */
+export function totalRepeatsAmount(
+  total: string | null | undefined,
+  amount: string | null | undefined,
+  quote: string | null | undefined,
+  scope: FeedRecord["amount_scope"],
+): boolean {
+  // An amount that already spans more than one round (combined rounds, a total) may equal its total.
+  if (scope && scope !== "round" && scope !== "tranche") return false;
+  const t = parseAmount(total);
+  const a = parseAmount(amount);
+  if (t.value === null || a.value === null || (t.currency && a.currency && t.currency !== a.currency)) return false;
+  return Math.abs(t.value - a.value) <= 0.01 * Math.max(t.value, a.value) && !CUMULATIVE.test(quote ?? "");
+}
+
 /** Text as the context check compares it: link text kept, markdown marks dropped, lowercase. */
 function plainText(markdown: string): string {
   return markdown

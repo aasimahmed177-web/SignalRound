@@ -107,6 +107,22 @@ describe("reconcileProviderFor", () => {
 });
 
 describe("applyReconciliation", () => {
+  test("a total the read-back states that only repeats the round's amount is not kept", () => {
+    const source = "https://siliconangle.com/2026/09/04/gimlet-labs-raises-41m/";
+    const r = applyReconciliation(
+      record(),
+      { ...AGREES, financing_total: { stated: true, value: "$41 million", source, quote: "Gimlet Labs raised $41 million in a Series A" } },
+      OPTS,
+    );
+    expect(r.financing_total_as_written ?? null).toBeNull();
+    const toDate = applyReconciliation(
+      record(),
+      { ...AGREES, financing_total: { stated: true, value: "$41 million", source, quote: "bringing its funding to date to $41 million" } },
+      OPTS,
+    );
+    expect(toDate.financing_total_as_written).toBe("$41 million");
+  });
+
   test("a day, a lead, and a headquarters the sources state land with their citations; without the pages read, a silent name keeps its seat", () => {
     const r = applyReconciliation(record(), AGREES, OPTS);
     expect(r.verification?.status).toBe("corrected");

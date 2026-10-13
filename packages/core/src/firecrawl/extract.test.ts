@@ -151,6 +151,36 @@ describe("financing total", () => {
     );
     expect(kept.financing_total_as_written).toBe("roughly $835M");
   });
+
+  test("a total that only repeats the round's amount is dropped; one its sentence calls cumulative stays", () => {
+    const kalshi = "Kalshi today announced a $1 billion Series F round at a $22 billion valuation.";
+    const repeated = settleOnPage(
+      round({
+        company_name: "Kalshi",
+        amount_as_written: "$1 billion",
+        amount_scope: "round",
+        financing_total_as_written: "$1 billion",
+        financing_total_quote: kalshi,
+        evidence_quote: kalshi,
+      }),
+      kalshi,
+    );
+    expect(repeated.financing_total_as_written).toBeNull();
+
+    const parallax = "Parallax came out of stealth this week with $117 million in funding to date.";
+    const cumulative = settleOnPage(
+      round({
+        company_name: "Parallax",
+        amount_as_written: "$117 million",
+        amount_scope: "round",
+        financing_total_as_written: "$117 million",
+        financing_total_quote: parallax,
+        evidence_quote: parallax,
+      }),
+      parallax,
+    );
+    expect(cumulative.financing_total_as_written).toBe("$117 million");
+  });
 });
 
 describe("articleTitle", () => {
