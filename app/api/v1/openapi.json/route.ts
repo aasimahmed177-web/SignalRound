@@ -517,15 +517,15 @@ export function GET(request: Request) {
               name: "sort",
               in: "query",
               description:
-                "amount orders by USD, largest first, unknown amounts last; trending lists only the rounds the Trending lane is following (first seen in the last 72 hours), most discussed first; absent is newest announced first",
+                "amount orders by USD: published rounds announced on the record first, then flagged, expected, reported, and unconfirmed rounds, each part largest first with unknown amounts last; trending lists only the rounds the Trending lane is following (first seen in the last 72 hours), most discussed first; absent is newest announced first",
               schema: { type: "string", enum: ["amount", "trending"] },
             },
             {
               name: "cursor",
               in: "query",
               description:
-                'From next_cursor, under the same sort: "YYYY-MM-DD|id" (an empty date reads the undated tail), "amt:N|id" under sort=amount (an empty N reads the unknown-amount tail), or "trend:N" under sort=trending',
-              schema: { type: "string", pattern: "^(((\\d{4}-\\d{2}-\\d{2})?|amt:(\\d+(\\.\\d+)?)?)\\|[^|]+|trend:\\d{1,4})$" },
+                'From next_cursor, under the same sort: "YYYY-MM-DD|id" (an empty date reads the undated tail), "amt:N|id" or "amtp:N|id" under sort=amount (amtp pages the flagged, expected, reported, and unconfirmed rounds; an empty N reads the unknown-amount tail), or "trend:N" under sort=trending',
+              schema: { type: "string", pattern: "^(((\\d{4}-\\d{2}-\\d{2})?|amtp?:(\\d+(\\.\\d+)?)?)\\|[^|]+|trend:\\d{1,4})$" },
             },
             {
               name: "limit",

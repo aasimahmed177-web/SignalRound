@@ -29,7 +29,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       ["company", "One company by domain or exact name"],
       ["since", "Rounds announced on or after a YYYY-MM-DD day"],
       ["min_usd", "Minimum amount in USD millions"],
-      ["sort", "amount (largest first) or trending (most discussed now)"],
+      ["sort", "amount (largest first, announced rounds ahead of the rest) or trending (most discussed now)"],
       ["format", "json (default), csv, or jsonl"],
       ["limit, cursor", "Page size up to 200, and next_cursor from the previous page"],
     ],

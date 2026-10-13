@@ -1706,7 +1706,10 @@ export interface RoundQuery {
    * view, the RSS feeds, deliveries); "only" for a list of them alone.
    */
   history?: "exclude" | "only";
-  /** "" (newest announced first) or "amount" (largest USD first, unknown amounts last). */
+  /**
+   * "" (newest announced first) or "amount" (published announced rounds first, then the rest, each
+   * largest USD first, unknown amounts last).
+   */
   sort?: RoundSort;
   /** Where the last page ended, as `roundCursorAfter` wrote it; a cursor from the other sort is ignored. */
   cursor?: string;
@@ -2074,21 +2077,27 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
   const sort: RoundSort = q.sort ?? "";
   const conds = roundConds(q);
   const cursor = q.cursor ? parseRoundCursor(q.cursor) : null;
+  // isProvisional in SQL: false sorts first, so the amount order lists published announced rounds
+  // before the rest.
+  const provisional = sql`(${fundingRounds.disposition} <> 'publish' or ${fundingRounds.certainty} <> 'announced')`;
   // Both orders are a key desc nulls last, then id desc, so a keyed cursor also admits the whole
-  // null tail, and a cursor with no key starts inside that tail. A cursor from the other order
+  // null tail, and a cursor with no key starts inside that tail. Under amount that keyset runs
+  // within the cursor's part: a cursor among the announced rounds also admits every provisional
+  // one, and a provisional cursor admits only provisional rows. A cursor from the other order
   // would skip rows, so it is dropped and the page starts from the top.
   if (cursor && cursor.sort === sort) {
     const [column, key] =
       cursor.sort === "amount" ? [fundingRounds.amountUsdMillions, cursor.usdMillions] : [fundingRounds.announcedOn, cursor.announced];
-    const after =
+    const keyed =
       key === null
         ? and(isNull(column), lt(fundingRounds.id, cursor.id))
         : or(lt(column, key), and(eq(column, key), lt(fundingRounds.id, cursor.id)), isNull(column));
+    const after = cursor.sort !== "amount" ? keyed : cursor.provisional ? and(provisional, keyed) : or(provisional, keyed);
     if (after) conds.push(after);
   }
   const order =
     sort === "amount"
-      ? [sql`${fundingRounds.amountUsdMillions} desc nulls last`, desc(fundingRounds.id)]
+      ? [provisional, sql`${fundingRounds.amountUsdMillions} desc nulls last`, desc(fundingRounds.id)]
       : [sql`${fundingRounds.announcedOn} desc nulls last`, desc(fundingRounds.id)];
 
   const rows = await handle

@@ -251,7 +251,8 @@ export function parseFormat(raw: string | null): Parsed<(typeof ROUND_FORMATS)[n
 }
 
 /**
- * `sort=amount` orders by USD, largest first, unknown amounts last; `sort=trending` by the Trending
+ * `sort=amount` orders by USD, published announced rounds first and then the provisional ones (flagged,
+ * expected, reported, unconfirmed), each largest first with unknown amounts last; `sort=trending` by the Trending
  * lane's score, the most discussed of the rounds first seen in the last three days first; absent is newest announced first.
  */
 export function parseSort(raw: string | null): Parsed<FeedSort> {
@@ -269,7 +270,8 @@ export function parseCursor(raw: string | null, sort: FeedSort = ""): Parsed<str
     return ok(raw);
   }
   const cursor = parseRoundCursor(raw);
-  if (!cursor) return bad('cursor must be "YYYY-MM-DD|id" (an empty date reads the undated tail), or "amt:N|id" under sort=amount');
+  if (!cursor)
+    return bad('cursor must be "YYYY-MM-DD|id" (an empty date reads the undated tail), or "amt:N|id" or "amtp:N|id" under sort=amount');
   if (cursor.sort !== sort) return bad("cursor was written under a different sort; drop it or match the sort");
   return ok(raw);
 }

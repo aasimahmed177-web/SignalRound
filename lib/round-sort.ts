@@ -1,7 +1,10 @@
 // The feed's two orders, its two views, and the keyset cursors that page through them. Pure, so the
 // paging rules are unit-tested without a store; persist.ts turns a parsed cursor into SQL.
 
-/** "" is the default (newest announced first); "amount" is largest USD first, unknown amounts last. */
+/**
+ * "" is the default (newest announced first); "amount" is largest USD first, unknown amounts last,
+ * with every published, announced round ahead of the provisional ones (see isProvisional).
+ */
 export const ROUND_SORTS = ["", "amount"] as const;
 export type RoundSort = (typeof ROUND_SORTS)[number];
 
@@ -90,42 +93,61 @@ export function trendingCursorAfter(offset: number): string {
   return `trend:${offset}`;
 }
 
+/** What the two keyset orders read off a round. */
+export interface SortableRound {
+  id: string;
+  announcedOn: string | null;
+  amountUsdMillions: string | null;
+  disposition: string;
+  certainty: string;
+}
+
+/**
+ * A round that is not a published, announced round: flagged (or in review), or expected, reported,
+ * or unconfirmed. The amount order lists these after every published announced round, each part
+ * largest first, so "the biggest rounds" leads with money announced on the record. The row still
+ * says its certainty and disposition; this only decides where it sorts.
+ */
+export function isProvisional(r: { disposition: string; certainty: string }): boolean {
+  return r.disposition !== "publish" || r.certainty !== "announced";
+}
+
 /**
  * Where the previous page ended. Each sort has its own shape so a cursor from one order is never
  * read under the other: dated pages are `YYYY-MM-DD|id` (the undated tail is `|id`), amount
- * pages are `amt:25.5|id` (the tail of unknown amounts is `amt:|id`).
+ * pages are `amt:25.5|id` among the published announced rounds and `amtp:25.5|id` among the
+ * provisional ones after them (the tail of unknown amounts is `amt:|id` or `amtp:|id`).
  */
-export type RoundCursor = { sort: ""; announced: string | null; id: string } | { sort: "amount"; usdMillions: string | null; id: string };
+export type RoundCursor =
+  | { sort: ""; announced: string | null; id: string }
+  | { sort: "amount"; provisional: boolean; usdMillions: string | null; id: string };
 
 const DATE_CURSOR = /^(\d{4}-\d{2}-\d{2})?\|([^|]+)$/;
-const AMOUNT_CURSOR = /^amt:(\d+(?:\.\d+)?)?\|([^|]+)$/;
+const AMOUNT_CURSOR = /^amt(p)?:(\d+(?:\.\d+)?)?\|([^|]+)$/;
 
 export function parseRoundCursor(raw: string): RoundCursor | null {
   const amount = AMOUNT_CURSOR.exec(raw);
-  if (amount) return { sort: "amount", usdMillions: amount[1] ?? null, id: amount[2] };
+  if (amount) return { sort: "amount", provisional: amount[1] === "p", usdMillions: amount[2] ?? null, id: amount[3] };
   const date = DATE_CURSOR.exec(raw);
   if (date) return { sort: "", announced: date[1] ?? null, id: date[2] };
   return null;
 }
 
 /** The cursor after a row, in the given order. `usdMillions` is the store's numeric text, kept exact. */
-export function roundCursorAfter(
-  sort: RoundSort,
-  row: { id: string; announcedOn: string | null; amountUsdMillions: string | null },
-): string {
-  return sort === "amount" ? `amt:${row.amountUsdMillions ?? ""}|${row.id}` : `${row.announcedOn ?? ""}|${row.id}`;
+export function roundCursorAfter(sort: RoundSort, row: SortableRound): string {
+  return sort === "amount"
+    ? `amt${isProvisional(row) ? "p" : ""}:${row.amountUsdMillions ?? ""}|${row.id}`
+    : `${row.announcedOn ?? ""}|${row.id}`;
 }
 
 /**
- * The comparator the SQL order implements, for tests and any in-memory list: a key descending with
- * nulls last, then id descending as the tie-break so equal keys still page in a fixed order.
+ * The comparator the SQL order implements, for tests and any in-memory list: under amount, the
+ * published announced rounds before the provisional ones; then a key descending with nulls last,
+ * then id descending as the tie-break so equal keys still page in a fixed order.
  */
-export function compareRounds(
-  sort: RoundSort,
-  a: { id: string; announcedOn: string | null; amountUsdMillions: string | null },
-  b: { id: string; announcedOn: string | null; amountUsdMillions: string | null },
-): number {
-  const key = (r: typeof a) => (sort === "amount" ? r.amountUsdMillions : r.announcedOn);
+export function compareRounds(sort: RoundSort, a: SortableRound, b: SortableRound): number {
+  if (sort === "amount" && isProvisional(a) !== isProvisional(b)) return isProvisional(a) ? 1 : -1;
+  const key = (r: SortableRound) => (sort === "amount" ? r.amountUsdMillions : r.announcedOn);
   const ka = key(a);
   const kb = key(b);
   if (ka !== kb) {
@@ -138,13 +160,16 @@ export function compareRounds(
 }
 
 /** True when a row falls strictly after the cursor in its order: the in-memory twin of the SQL keyset. */
-export function isAfterCursor(
-  cursor: RoundCursor,
-  row: { id: string; announcedOn: string | null; amountUsdMillions: string | null },
-): boolean {
-  const at =
+export function isAfterCursor(cursor: RoundCursor, row: SortableRound): boolean {
+  const at: SortableRound =
     cursor.sort === "amount"
-      ? { id: cursor.id, announcedOn: null, amountUsdMillions: cursor.usdMillions }
-      : { id: cursor.id, announcedOn: cursor.announced, amountUsdMillions: null };
+      ? {
+          id: cursor.id,
+          announcedOn: null,
+          amountUsdMillions: cursor.usdMillions,
+          disposition: cursor.provisional ? "flagged" : "publish",
+          certainty: "announced",
+        }
+      : { id: cursor.id, announcedOn: cursor.announced, amountUsdMillions: null, disposition: "publish", certainty: "announced" };
   return compareRounds(cursor.sort, at, row) < 0;
 }
