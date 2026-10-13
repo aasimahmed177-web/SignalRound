@@ -47,6 +47,8 @@ Every environment variable, in one table; [`.env.example`](../.env.example) has 
 | `SCHEDULE_TICK_ON_START` | optional | `1` ticks once as the in-process schedule arms, instead of waiting for the next hour |
 | `CONTACT_EMAIL` | optional | The contact address `/privacy`, `/terms`, and `/support` print; unset, they show only the GitHub issues link |
 | `NEXT_PUBLIC_FAVICON_FALLBACK` | optional | `off` skips the browser favicon lookup |
+| `NEXT_PUBLIC_POSTHOG_KEY` | optional | A PostHog project key turns on product analytics ([deploy.md](deploy.md#product-analytics)); unset, none of it loads |
+| `NEXT_PUBLIC_POSTHOG_HOST` | optional | The PostHog host `/ingest` forwards to; default `https://us.i.posthog.com` |
 | `TEST_DATABASE_URL` | optional | Run the tests against a real Postgres |
 | `PG_BIN` | optional | The bin directory of the PostgreSQL client `pnpm backup-db` runs (psql, pg_dump, pg_restore), such as `/opt/homebrew/opt/postgresql@18/bin`; default the ones on `PATH`. Its major must match the server's |
 | `SNAPSHOT_RETENTION_DAYS` | optional | Days `pnpm prune-page-snapshots` keeps stored page snapshots; default 90 |

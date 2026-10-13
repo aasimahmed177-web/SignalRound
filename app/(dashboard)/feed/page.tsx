@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { PillSkeleton, TableSkeleton } from "@/components/ui/skeletons";
 import { isLanding, isPublicDemo, seesReview, viewer } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { cachedDemoStats, cachedFeedPage, cachedPresets, cachedSectors, cachedTrendingOn } from "@/lib/cached";
 import { db } from "@/lib/db";
 import { feedCertainty } from "@/lib/feed-certainty";
@@ -284,7 +285,12 @@ export default function FeedPage({ searchParams }: PageProps<"/feed">) {
             </Suspense>
             {demo && (
               <Button asChild variant="outline" size="sm">
-                <a href="https://github.com/firecrawl/fireround#deploy" target="_blank" rel="noreferrer">
+                <a
+                  href="https://github.com/firecrawl/fireround#deploy"
+                  target="_blank"
+                  rel="noreferrer"
+                  {...trackClick("fireround_deploy_clicked", { location: "feed_header" })}
+                >
                   Deploy your own <ArrowUpRight className="size-3.5" />
                 </a>
               </Button>

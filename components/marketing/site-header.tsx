@@ -5,6 +5,7 @@ import { GitHubMark } from "@/components/marketing/marks";
 import { container, gutter } from "@/components/marketing/section";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { isLanding, LANDING_PATH } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { REPO_URL } from "@/lib/landing";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +51,13 @@ export function SiteHeader({ anchorBase = "" }: { anchorBase?: string }) {
           ))}
         </nav>
         <div className="flex items-center gap-1 sm:gap-2">
-          <a href={REPO_URL} target="_blank" rel="noreferrer" className={cn(navLink, "hidden items-center gap-2 sm:inline-flex")}>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(navLink, "hidden items-center gap-2 sm:inline-flex")}
+            {...trackClick("fireround_github_clicked", { location: "header" })}
+          >
             <GitHubMark />
             <span>GitHub</span>
           </a>

@@ -8,6 +8,7 @@ allowBuilds:
   esbuild: true
   "@swc/core": true
   "@electric-sql/pglite": true
+  core-js: false
 
 # Advisories the parents still pin: workflow's @workflow/core holds nanoid 5.1.6, devalue 5.9.2, and
 # its world-local undici 7.28.0; @workflow/nest's build-time downloader holds http-cache-semantics 4.2.0.

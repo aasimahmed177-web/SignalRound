@@ -28,6 +28,7 @@ import { Verified } from "@/components/feed/verified";
 import { HistoryMark } from "@/components/history-mark";
 import { InvestorLogo } from "@/components/investor-logo";
 import { PricingPlans } from "@/components/pricing-plans";
+import { TrackView } from "@/components/product-analytics";
 import { RelativeCheck, RelativeDay } from "@/components/relative-day";
 import { JsonLd } from "@/components/seo/json-ld";
 import { IntentLink } from "@/components/shell/intent-link";
@@ -38,6 +39,7 @@ import { Dot } from "@/components/ui/dot";
 import { HeaderCardSkeleton, ListSkeleton, PanelSkeleton, SkeletonLine, StatRowSkeleton, TableSkeleton } from "@/components/ui/skeletons";
 import { Panel, Stat } from "@/components/ui/stat";
 import { seesReview, viewer } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { cachedCompanyView } from "@/lib/cached";
 import { inFeed, readCompanyView } from "@/lib/company";
 import { companyFacts, factChips, LINKEDIN_TITLE } from "@/lib/company-facts";
@@ -446,6 +448,7 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
     <>
       {/* Crawlers are never admins, so the structured data keeps to the feed's rounds whoever renders it. */}
       <JsonLd data={companyJsonLd(page, siteOrigin())} />
+      <TrackView event="fireround_company_viewed" properties={{ company: company.id, stage: latest?.stage ?? "none" }} />
       <PageHeader
         section={SECTION}
         title={company.name}
@@ -799,7 +802,13 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
                             items={entries.map(({ primary: s, also }) => (
                               <li key={s.url}>
                                 {/* The title leads; the publisher and day sit at the right edge, under the title on a phone. */}
-                                <a href={s.url} target="_blank" rel="noreferrer" className="group flex items-start gap-2 text-body-small">
+                                <a
+                                  href={s.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="group flex items-start gap-2 text-body-small"
+                                  {...trackClick("fireround_source_clicked", { location: "company", source_host: hostLabel(s.host) })}
+                                >
                                   <ExternalLink className="mt-1 size-3 shrink-0 text-muted-foreground" aria-hidden />
                                   <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
                                     <span className="min-w-0 break-words">

@@ -5,6 +5,7 @@ import { CodeFrame, CodeLines } from "@/components/marketing/code";
 import { CopyButton } from "@/components/marketing/copy-button";
 import { container, gutter, textLink } from "@/components/marketing/section";
 import { isLanding, isPublicDemo, LANDING_PATH } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { API_ENDPOINTS } from "@/lib/api-docs";
 import { mcpConfig } from "@/lib/landing";
 import { siteOrigin } from "@/lib/origin";
@@ -48,7 +49,13 @@ export default function ApiReferencePage() {
             {LIMITS.api.limit} requests a minute per IP, and CORS is open, so a browser app can call it directly.
           </p>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2">
-            <a href="/api/v1/openapi.json" target="_blank" rel="noreferrer" className={cn(textLink, "text-label-small")}>
+            <a
+              href="/api/v1/openapi.json"
+              target="_blank"
+              rel="noreferrer"
+              className={cn(textLink, "text-label-small")}
+              {...trackClick("fireround_api_docs_opened", { location: "docs", target: "openapi" })}
+            >
               OpenAPI spec <ArrowUpRight className="size-3.5 opacity-70" aria-hidden />
             </a>
             <a href="#mcp" className={cn(textLink, "text-label-small")}>
@@ -107,7 +114,7 @@ export default function ApiReferencePage() {
                     Returns <code className={code}>{e.returns}</code>
                   </p>
                 </div>
-                <CodeFrame label="Request" action={<CopyButton text={example} />} className="self-start">
+                <CodeFrame label="Request" action={<CopyButton text={example} snippet={`api_${e.id}`} />} className="self-start">
                   <CodeLines code={example} lang="shell" />
                 </CodeFrame>
               </section>
@@ -135,7 +142,7 @@ export default function ApiReferencePage() {
                 .
               </p>
             </div>
-            <CodeFrame label="MCP client config" action={<CopyButton text={mcp} />} className="self-start">
+            <CodeFrame label="MCP client config" action={<CopyButton text={mcp} snippet="mcp_config" />} className="self-start">
               <CodeLines code={mcp} lang="json" label="MCP client config" />
             </CodeFrame>
           </section>

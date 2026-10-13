@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { CardListSkeleton, PresetChipsSkeleton, SectionHeadingSkeleton } from "@/components/ui/skeletons";
 import { Tag } from "@/components/ui/tag";
 import { seesReview, viewer } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { cachedNews, cachedPresets } from "@/lib/cached";
 import { db } from "@/lib/db";
 import { grouped, hostLabel, laneLabel, stageOf, usd } from "@/lib/format";
@@ -92,7 +93,13 @@ function CardMeta({
 function Article({ it, readOnly }: { it: NewsItem; readOnly: boolean }) {
   return (
     <div className="px-5 py-4">
-      <a href={it.url} target="_blank" rel="noreferrer" className="group flex items-start gap-2">
+      <a
+        href={it.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex items-start gap-2"
+        {...trackClick("fireround_source_clicked", { location: "news", source_host: hostLabel(it.host) })}
+      >
         <span className="line-clamp-2 min-w-0 flex-1 text-label-medium [overflow-wrap:anywhere] group-hover:underline">
           {it.title ?? it.url}
         </span>
@@ -116,7 +123,13 @@ function Article({ it, readOnly }: { it: NewsItem; readOnly: boolean }) {
 function StoryCard({ s, readOnly }: { s: Extract<NewsEntry, { kind: "story" }>; readOnly: boolean }) {
   return (
     <div className="px-5 py-4">
-      <a href={s.primary.url} target="_blank" rel="noreferrer" className="group flex items-start gap-2">
+      <a
+        href={s.primary.url}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex items-start gap-2"
+        {...trackClick("fireround_source_clicked", { location: "news", source_host: hostLabel(s.primary.host) })}
+      >
         <span className="line-clamp-2 min-w-0 flex-1 text-label-medium [overflow-wrap:anywhere] group-hover:underline">
           {s.primary.title ?? s.primary.url}
         </span>
@@ -138,6 +151,7 @@ function StoryCard({ s, readOnly }: { s: Extract<NewsEntry, { kind: "story" }>; 
               target="_blank"
               rel="noreferrer"
               className="tap relative inline-flex min-h-6 items-center hover:text-foreground hover:underline"
+              {...trackClick("fireround_source_clicked", { location: "news", source_host: hostLabel(a.host) })}
             >
               {hostLabel(a.host)}
             </a>

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { ProductAnalytics } from "@/components/product-analytics";
 import { Toaster } from "@/components/ui/sonner";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { siteOrigin } from "@/lib/origin";
@@ -56,6 +57,9 @@ export const metadata: Metadata = {
  */
 const VERCEL_INSIGHTS = process.env.VERCEL === "1" && process.env.NODE_ENV === "production";
 
+/** PostHog product analytics, only with NEXT_PUBLIC_POSTHOG_KEY set (lib/analytics.ts); a clone without it loads none of it. */
+const PRODUCT_ANALYTICS = Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${geistMono.variable} h-full`}>
@@ -70,6 +74,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <SpeedInsights />
           </>
         )}
+        {PRODUCT_ANALYTICS && <ProductAnalytics />}
       </body>
     </html>
   );

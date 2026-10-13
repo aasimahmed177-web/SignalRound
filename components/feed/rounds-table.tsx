@@ -21,6 +21,7 @@ import { RelativeDay } from "@/components/relative-day";
 import { IntentLink } from "@/components/shell/intent-link";
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/tag";
+import { track } from "@/lib/analytics";
 import { type BuzzScale, EMPTY_SCALE } from "@/lib/buzz";
 import { factChips, LINKEDIN_TITLE } from "@/lib/company-facts";
 import { foldCopies } from "@/lib/fold-copies";
@@ -247,7 +248,13 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
           less="Show fewer sources"
           items={foldCopies(r.sources).map(({ primary: s, also }) => (
             <li key={s.url}>
-              <a href={s.url} target="_blank" rel="noreferrer" className="group flex items-start gap-2 text-body-small">
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => track("fireround_source_clicked", { location: "feed", source_host: hostLabel(s.host) })}
+                className="group flex items-start gap-2 text-body-small"
+              >
                 <ExternalLink className="mt-1 size-3 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 break-words">
                   <span className="group-hover:underline">{s.title ?? s.url}</span>
@@ -260,7 +267,13 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
                   {also.map((a, i) => (
                     <Fragment key={a.url}>
                       {i > 0 && ", "}
-                      <a href={a.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => track("fireround_source_clicked", { location: "feed", source_host: hostLabel(a.host) })}
+                        className="hover:text-foreground hover:underline"
+                      >
                         {hostLabel(a.host)}
                       </a>
                     </Fragment>
@@ -521,11 +534,15 @@ export function RoundsTable({
       });
     });
   const onSort = (value: string) => {
-    if (value !== sort) setSort({ sort: value, cursor: null, page: null });
+    if (value === sort) return;
+    setSort({ sort: value, cursor: null, page: null });
+    track("fireround_feed_filtered", { filter: "sort", value: value || "newest" });
   };
   // Buzz is not an order over the whole store: its header opens the Trending view, which ranks by it.
   const openTrending = () => {
-    if (!trendingView) setSort({ view: "trending", sort: null, cursor: null, page: null });
+    if (trendingView) return;
+    setSort({ view: "trending", sort: null, cursor: null, page: null });
+    track("fireround_feed_filtered", { filter: "view", value: "trending" });
   };
   const rowSecondLine = (r: FeedRow) => capitalizeFirst(r.company.description) ?? r.company.domain ?? r.stage_as_written;
 

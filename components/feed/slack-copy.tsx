@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
  */
 export function SlackCopy({ command, className }: { command: string; className?: string }) {
   const copy = async () => {
+    track("fireround_code_copied", { snippet: "slack_command" });
     try {
       await navigator.clipboard.writeText(command);
       toast.success("Copied the Slack command", {

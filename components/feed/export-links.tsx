@@ -4,6 +4,7 @@ import { STAGES } from "@fireround/core/client";
 import { Download } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 
 /** The feed's URL params in the read API's vocabulary; anything the API would 400 on stays behind. */
 function exportQuery(sp: URLSearchParams): URLSearchParams {
@@ -30,12 +31,14 @@ export function ExportLinks() {
     <>
       <Button asChild variant="outline" size="sm">
         {/* No limit: the CSV is the whole filtered set; the JSON link is the API's largest page. */}
-        <a href={`${base}&format=csv`}>
+        <a href={`${base}&format=csv`} onClick={() => track("fireround_export_clicked", { format: "csv" })}>
           <Download className="size-3.5" /> CSV
         </a>
       </Button>
       <Button asChild variant="outline" size="sm">
-        <a href={`${base}&limit=200`}>JSON</a>
+        <a href={`${base}&limit=200`} onClick={() => track("fireround_export_clicked", { format: "json" })}>
+          JSON
+        </a>
       </Button>
     </>
   );

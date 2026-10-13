@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { type AnalyticsEvents, track } from "@/lib/analytics";
 import { stageLabel } from "@/lib/format";
 import type { PresetOption } from "@/lib/presets";
 import { defaultFeedView, toFeedView } from "@/lib/round-sort";
@@ -50,6 +51,27 @@ const params = {
 type FilterPatch = Partial<
   Record<"q" | "stage" | "status" | "certainty" | "sector" | "min" | "sort" | "preset" | "since" | "until" | "source" | "history", string>
 >;
+
+/** The product analytics name for each filter the controls set; a date range, a publisher, and history come only from links. */
+const FILTER_NAMES: Partial<Record<keyof FilterPatch, AnalyticsEvents["fireround_feed_filtered"]["filter"]>> = {
+  q: "search",
+  stage: "stage",
+  status: "unread",
+  certainty: "certainty",
+  sector: "sector",
+  min: "amount",
+  sort: "sort",
+  preset: "preset",
+};
+
+/** One event per change: the filter and, for a choice from a list, what was chosen. A search sends no text. */
+function trackFilter(patch: FilterPatch): void {
+  const keys = Object.keys(patch) as Array<keyof FilterPatch>;
+  const filter = keys.length > 1 ? "clear_all" : keys[0] && FILTER_NAMES[keys[0]];
+  if (!filter) return;
+  const value = filter === "search" || filter === "clear_all" ? undefined : patch[keys[0]] || (filter === "sort" ? "newest" : "any");
+  track("fireround_feed_filtered", { filter, value });
+}
 
 /**
  * The Latest view's orders: "" is newest announced first and "amount" largest first (the table's
@@ -126,13 +148,17 @@ export function FeedFilters({
 }) {
   const [f, setFilters] = useQueryStates(params, { shallow: false });
   // Any filter change starts the list from page one; page 4 of the old set means nothing in the new one.
-  const setF = (patch: FilterPatch) => setFilters({ ...patch, page: null, cursor: null });
+  const setF = (patch: FilterPatch) => {
+    setFilters({ ...patch, page: null, cursor: null });
+    trackFilter(patch);
+  };
   const search = useUrlSearch(f.q, (q) => setF({ q }));
 
   const stages = f.stage ? f.stage.split(",") : [];
   const toggleStage = (s: string) => {
     const next = stages.includes(s) ? stages.filter((x) => x !== s) : [...stages, s];
-    setF({ stage: next.join(",") });
+    setFilters({ stage: next.join(","), page: null, cursor: null });
+    track("fireround_feed_filtered", { filter: "stage", value: s });
   };
   const any = f.q || f.stage || f.status || f.certainty || f.sector || f.min || f.preset || f.since || f.until || f.source;
   // The same rule the page reads (lib/round-sort.ts): a search or filter opens Latest, so typing a

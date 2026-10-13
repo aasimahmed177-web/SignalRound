@@ -1,6 +1,7 @@
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
 import { withWorkflow } from "workflow/next";
+import { posthogHosts } from "./lib/analytics";
 
 /**
  * The Content-Security-Policy, the "without nonces" shape from Next's CSP guide. A nonce needs every
@@ -31,6 +32,14 @@ function contentSecurityPolicy(): string {
   return directives.join("; ");
 }
 
+/**
+ * PostHog product analytics, only when NEXT_PUBLIC_POSTHOG_KEY is set (lib/analytics.ts). The
+ * browser sends to /ingest on this origin, which rewrites to PostHog, so the CSP's connect-src
+ * 'self' covers it and a blocklist that drops third-party analytics hosts does not drop these.
+ * Without the key there is no rewrite, and /ingest is a 404 like any unknown path.
+ */
+const posthog = process.env.NEXT_PUBLIC_POSTHOG_KEY ? posthogHosts(process.env.NEXT_PUBLIC_POSTHOG_HOST) : null;
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   transpilePackages: ["@fireround/core"],
@@ -40,6 +49,18 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   // No X-Powered-By: the framework is in the public repo, but a header advertising it helps only a scanner.
   poweredByHeader: false,
+  ...(posthog && {
+    // PostHog posts to paths with a trailing slash (/e/), which Next's own redirect would bounce and a
+    // beacon sent as the page closes would not follow. So the redirect is ours: every other path
+    // still moves to its slash-less form, as Next does, and /ingest/ passes through untouched.
+    skipTrailingSlashRedirect: true,
+    redirects: async () => [{ source: "/:path((?!ingest/).+)/", destination: "/:path", permanent: true }],
+    rewrites: async () => [
+      { source: "/ingest/static/:path*", destination: `${posthog.assets}/static/:path*` },
+      { source: "/ingest/array/:path*", destination: `${posthog.assets}/array/:path*` },
+      { source: "/ingest/:path*", destination: `${posthog.api}/:path*` },
+    ],
+  }),
   // Baseline hardening on every response. Route handlers' own headers (feeds' cache-control, the
   // webhook's) merge with these. HSTS is ignored over plain http, so a self-hosted clone is unaffected.
   headers: async () => [

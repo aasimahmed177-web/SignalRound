@@ -9,6 +9,7 @@ import { RoundCheckMark } from "@/components/confidence";
 import { RoleTag } from "@/components/disposition-tag";
 import { HistoryMark } from "@/components/history-mark";
 import { InvestorLogo } from "@/components/investor-logo";
+import { TrackView } from "@/components/product-analytics";
 import { IntentLink } from "@/components/shell/intent-link";
 import { PageBody } from "@/components/shell/page-body";
 import { PageHeader } from "@/components/shell/page-header";
@@ -114,9 +115,12 @@ async function InvestorBody({ params }: { params: Promise<{ id: string }> }) {
   const leaning = [topStage && `at ${stageLabel(topStage.stage)}`, topSector && `in ${sectorLabel(topSector.sector)}`].filter(Boolean);
   const dated = rounds.filter((r) => r.announced_on);
   const [newest, oldest] = [dated[0], dated.at(-1)];
+  // A person's name never goes to analytics; a firm with a website is named by its slug.
+  const firm = investor.kind !== "person" && investor.domain ? investor.id.trim().replace(/\s+/g, "-") : undefined;
 
   return (
     <>
+      <TrackView event="fireround_investor_viewed" properties={{ investor_kind: investor.kind ?? "unknown", investor: firm }} />
       <PageHeader
         section={SECTION}
         title={investor.name}

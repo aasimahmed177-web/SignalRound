@@ -18,12 +18,14 @@ export const metadata: Metadata = {
  * What this instance stores, stated from the code: the Slack subscription row (lib/slack-subscriptions.ts),
  * the rate limiter's hashed keys (lib/rate-limit.ts), a company request's hashed requester
  * (lib/company-requests.ts), email digest targets when digests are configured (lib/digest.ts), the
- * host's request logs, and the cookieless Vercel analytics the root layout loads. Change a store
+ * host's request logs, the cookieless Vercel analytics the root layout loads, and PostHog product
+ * analytics when NEXT_PUBLIC_POSTHOG_KEY is set (lib/analytics.ts). Change a store
  * there, change this page.
  */
 export default function PrivacyPage() {
   const email = digestsConfigured();
   const requests = process.env.COMPANY_REQUESTS === "1";
+  const productAnalytics = Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
   return (
     <LegalPage
       eyebrow="Privacy"
@@ -37,6 +39,13 @@ export default function PrivacyPage() {
           measure page speed without cookies. Your light or dark theme choice stays in your browser&apos;s local storage and is never sent
           to us.
         </p>
+        {productAnalytics && (
+          <p>
+            We also use PostHog to see how the site is used: page views and a few named clicks, such as Deploy, Copy, or a source link. It
+            keeps a random ID in your browser&apos;s local storage, not a cookie, records no sessions, builds no profile of you, and sends
+            nothing when your browser asks not to be tracked.
+          </p>
+        )}
         <p>
           The one cookie we set ourselves is for Add to Slack: it carries your picks through Slack&apos;s screen, expires after{" "}
           {Math.round(SLACK_STATE_MAX_AGE / 60)} minutes, and is cleared when you come back.
@@ -95,6 +104,7 @@ export default function PrivacyPage() {
       <LegalSection id="processors" title="Who else handles it">
         <ul>
           <li>Vercel hosts the site and keeps the request logs and analytics.</li>
+          {productAnalytics && <li>PostHog receives the product analytics events.</li>}
           <li>PlanetScale hosts the database.</li>
           <li>Slack receives the posts for the channels you connect.</li>
           {email && <li>Resend sends the email digests.</li>}

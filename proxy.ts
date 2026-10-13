@@ -145,8 +145,9 @@ export const config = {
      * Match every request path except the ones starting with:
      * - api/webhooks, api/cron, api/mcp, api/digest (carry their own secrets; a digest's unsubscribe link is signed)
      * - feeds (per-token), .well-known (the workflow runtime)
+     * - ingest (the product analytics rewrite in next.config.ts, which carries no app data)
      * - _next, brand (static assets), icon.svg, opengraph-image, favicon.ico (metadata files)
      */
-    "/((?!api/webhooks|api/cron|api/mcp|api/digest|feeds|\\.well-known|_next|brand|icon\\.svg|opengraph-image|favicon\\.ico).*)",
+    "/((?!api/webhooks|api/cron|api/mcp|api/digest|feeds|ingest/|\\.well-known|_next|brand|icon\\.svg|opengraph-image|favicon\\.ico).*)",
   ],
 };

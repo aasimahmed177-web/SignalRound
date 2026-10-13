@@ -2,13 +2,25 @@
 
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 /**
  * Copies a snippet and says so for a moment. The label changes with the icon, and a polite live
- * region carries "Copied" to a screen reader, since the button itself keeps focus.
+ * region carries "Copied" to a screen reader, since the button itself keeps focus. `snippet` names
+ * the copy for product analytics.
  */
-export function CopyButton({ text, label = "Copy", className }: { text: string; label?: string; className?: string }) {
+export function CopyButton({
+  text,
+  label = "Copy",
+  snippet,
+  className,
+}: {
+  text: string;
+  label?: string;
+  snippet?: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -19,7 +31,10 @@ export function CopyButton({ text, label = "Copy", className }: { text: string; 
     <button
       type="button"
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => setCopied(true));
+        void navigator.clipboard?.writeText(text).then(() => {
+          setCopied(true);
+          if (snippet) track("fireround_code_copied", { snippet });
+        });
       }}
       className={cn(
         "tap relative inline-flex h-7 items-center gap-1.5 rounded-8 px-2 text-label-x-small text-muted-foreground outline-none transition-colors hover:bg-black-alpha-4 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",

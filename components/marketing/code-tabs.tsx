@@ -74,7 +74,7 @@ export function CodeTabs({ tabs, className }: { tabs: CodeTab[]; className?: str
             ))}
           </div>
         </div>
-        <CopyButton text={tabs[active]?.copy ?? ""} />
+        <CopyButton text={tabs[active]?.copy ?? ""} snippet={tabs[active]?.id} />
       </div>
       {tabs.map((t, i) => (
         <div key={t.id} role="tabpanel" id={`${base}-panel-${t.id}`} aria-labelledby={`${base}-tab-${t.id}`} hidden={i !== active}>

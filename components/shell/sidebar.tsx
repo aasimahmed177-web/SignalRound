@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { FlameMark } from "@/components/brand/flame-mark";
 import { openCommandPalette, useModKey } from "@/components/search/command-palette";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { track } from "@/lib/analytics";
 import { type NavItem, navIndex, navItemsFor } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -115,10 +116,16 @@ const footerLink =
 export function SidebarFooter({ signIn = false }: { signIn?: boolean }) {
   return (
     <div className="flex items-center gap-4 border-t border-border-faint px-4 py-3">
-      <Link href="/docs" className={footerLink}>
+      <Link href="/docs" className={footerLink} onClick={() => track("fireround_api_docs_opened", { location: "sidebar", target: "docs" })}>
         API
       </Link>
-      <a href="https://github.com/firecrawl/fireround" target="_blank" rel="noreferrer" className={footerLink}>
+      <a
+        href="https://github.com/firecrawl/fireround"
+        target="_blank"
+        rel="noreferrer"
+        className={footerLink}
+        onClick={() => track("fireround_github_clicked", { location: "sidebar" })}
+      >
         Open source
         <ArrowUpRight className="size-3.5" strokeWidth={1.75} aria-hidden />
       </a>

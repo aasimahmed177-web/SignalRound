@@ -5,6 +5,7 @@ import { Fragment, useId, useState } from "react";
 import { CopyButton } from "@/components/marketing/copy-button";
 import { CadencePicker, connectHref, PresetPill, StoredNote } from "@/components/slack/install-controls";
 import { AddToSlackLink } from "@/components/slack/slack-mark";
+import { track } from "@/lib/analytics";
 import type { PublicFeed } from "@/lib/public-feeds";
 import type { Cadence } from "@/lib/slack-subscriptions";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,7 @@ export function SlackSubscribe({
         <div className="space-y-3 border-b border-border-faint px-4 py-4">
           <CadencePicker value={cadence} onChange={setCadence} />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <AddToSlackLink href={connectHref(slug, cadence)} />
+            <AddToSlackLink href={connectHref(slug, cadence)} preset={slug} />
             <p className="min-w-0 flex-1 basis-48 text-body-small text-muted-foreground">
               Slack asks which channel to post in. Every message has a link to change or stop it.
             </p>
@@ -64,7 +65,12 @@ export function SlackSubscribe({
         <code data-slack-command className="min-w-0 flex-1 py-0.5 font-mono text-[13px] leading-6 [overflow-wrap:anywhere]">
           <span className="font-medium text-foreground">/feed subscribe</span> <span className="text-black-alpha-72">{feed.rss}</span>
         </code>
-        <CopyButton text={feed.slack} label="Copy" className="shrink-0 border border-border-muted text-foreground" />
+        <CopyButton
+          text={feed.slack}
+          label="Copy"
+          snippet="slack_command"
+          className="shrink-0 border border-border-muted text-foreground"
+        />
       </div>
       <div className="space-y-2 border-t border-border-faint px-4 py-3 text-body-small text-muted-foreground">
         {install ? (
@@ -79,17 +85,18 @@ export function SlackSubscribe({
           Or read it raw:{" "}
           {(
             [
-              ["RSS", feed.rss],
-              ["Atom", feed.atom],
-              ["JSON Feed", feed.json],
+              ["RSS", feed.rss, "rss"],
+              ["Atom", feed.atom, "atom"],
+              ["JSON Feed", feed.json, "json_feed"],
             ] as const
-          ).map(([label, href], i) => (
+          ).map(([label, href, channel], i) => (
             <Fragment key={label}>
               {i > 0 && " · "}
               <a
                 href={href}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => track("fireround_subscribe_clicked", { channel, preset: slug })}
                 className="inline-flex items-center gap-0.5 rounded-4 whitespace-nowrap text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
               >
                 {label}

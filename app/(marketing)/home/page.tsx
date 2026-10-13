@@ -25,6 +25,7 @@ import { SlackSubscribeSkeleton } from "@/components/marketing/slack-subscribe";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Tag } from "@/components/ui/tag";
 import { isLanding, isPublicDemo } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { digestsConfigured } from "@/lib/digest";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { ALEXANDRIA_URL, API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
@@ -55,6 +56,8 @@ export const metadata: Metadata = {
 };
 
 const SECTIONS = 4;
+
+const OPENAPI_PATH = "/api/v1/openapi.json";
 
 const docs = (path: string) => `https://docs.firecrawl.dev/features/${path}`;
 
@@ -238,7 +241,13 @@ function Hero() {
             <Link href="/feed" className={primaryButton}>
               Open the feed <ArrowRight className="size-4" aria-hidden />
             </Link>
-            <a href={DEPLOY_URL} target="_blank" rel="noreferrer" className={secondaryButton}>
+            <a
+              href={DEPLOY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={secondaryButton}
+              {...trackClick("fireround_deploy_clicked", { location: "hero" })}
+            >
               <VercelMark />
               Deploy your own
             </a>
@@ -342,7 +351,11 @@ function Product() {
                     {cta}
                   </a>
                 ) : (
-                  <Link href={f.href} className={cn(textLink, "text-label-small")}>
+                  <Link
+                    href={f.href}
+                    className={cn(textLink, "text-label-small")}
+                    {...(f.href === "/docs" ? trackClick("fireround_api_docs_opened", { location: "product", target: "docs" }) : {})}
+                  >
                     {cta}
                   </Link>
                 )}
@@ -375,10 +388,20 @@ function Product() {
             </p>
           </div>
           <div className="flex shrink-0 gap-5">
-            <Link href="/docs" className={cn(textLink, "text-label-small")}>
+            <Link
+              href="/docs"
+              className={cn(textLink, "text-label-small")}
+              {...trackClick("fireround_api_docs_opened", { location: "api", target: "docs" })}
+            >
               All endpoints <ArrowRight className="size-3.5" aria-hidden />
             </Link>
-            <a href="/api/v1/openapi.json" target="_blank" rel="noreferrer" className={cn(textLink, "text-label-small")}>
+            <a
+              href={OPENAPI_PATH}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(textLink, "text-label-small")}
+              {...trackClick("fireround_api_docs_opened", { location: "api", target: "openapi" })}
+            >
               OpenAPI <ArrowUpRight className="size-3.5 opacity-70" aria-hidden />
             </a>
           </div>
@@ -466,11 +489,23 @@ function SelfHost() {
             and cron runs the sweeps. It runs on your own Firecrawl API key, and you choose how often it looks.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href={DEPLOY_URL} target="_blank" rel="noreferrer" className={primaryButton}>
+            <a
+              href={DEPLOY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={primaryButton}
+              {...trackClick("fireround_deploy_clicked", { location: "self_host" })}
+            >
               <VercelMark />
               Deploy to Vercel
             </a>
-            <a href={REPO_URL} target="_blank" rel="noreferrer" className={secondaryButton}>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={secondaryButton}
+              {...trackClick("fireround_github_clicked", { location: "self_host" })}
+            >
               <GitHubMark />
               Read the README
             </a>
@@ -491,10 +526,10 @@ function SelfHost() {
           </dl>
         </div>
         <div className="min-w-0 space-y-4 self-start">
-          <CodeFrame label="Terminal" action={<CopyButton text={QUICK_START} />}>
+          <CodeFrame label="Terminal" action={<CopyButton text={QUICK_START} snippet="quick_start" />}>
             <CodeLines code={QUICK_START} lang="shell" />
           </CodeFrame>
-          <CodeFrame label=".env" action={<CopyButton text={ENV_EXAMPLE} />}>
+          <CodeFrame label=".env" action={<CopyButton text={ENV_EXAMPLE} snippet="env" />}>
             <CodeLines code={ENV_EXAMPLE} lang="shell" />
           </CodeFrame>
           <p className="text-body-small text-muted-foreground">
@@ -523,7 +558,13 @@ function Closing() {
           <Link href="/feed" className={primaryButton}>
             Open the feed <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <a href={REPO_URL} target="_blank" rel="noreferrer" className={secondaryButton}>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            className={secondaryButton}
+            {...trackClick("fireround_github_clicked", { location: "closing" })}
+          >
             <GitHubMark />
             View on GitHub
           </a>

@@ -1,3 +1,4 @@
+import { trackClick } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 /** Slack's four-colour mark, as it appears on Slack's own "Add to Slack" button. */
@@ -30,11 +31,12 @@ export function SlackMark({ className }: { className?: string }) {
  * Link: the route answers with a redirect to slack.com, so it must be a full navigation and never
  * prefetched.
  */
-export function AddToSlackLink({ href, className }: { href: string; className?: string }) {
+export function AddToSlackLink({ href, preset, className }: { href: string; preset?: string; className?: string }) {
   return (
     <a
       href={href}
       data-add-to-slack
+      {...(preset ? trackClick("fireround_subscribe_clicked", { channel: "slack", preset }) : {})}
       className={cn(
         "inline-flex h-10 shrink-0 items-center justify-center gap-2.5 rounded-8 border border-[#dddddd] bg-white px-4 text-[15px] font-semibold whitespace-nowrap text-[#1d1c1d] shadow-xs transition-colors hover:bg-[#f8f8f8] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:border-transparent dark:bg-[#4a154b] dark:text-white dark:hover:bg-[#611f64]",
         className,

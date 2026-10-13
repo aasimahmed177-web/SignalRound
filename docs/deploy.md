@@ -14,6 +14,10 @@ Research runs inline in a server action for up to five minutes (`maxDuration = 3
 
 Vercel Web Analytics and Speed Insights (cookieless) report once you enable them in the project's Analytics and Speed Insights tabs; their scripts load only on a Vercel production build, so a clone hosted anywhere else makes no analytics calls.
 
+### Product analytics
+
+PostHog product analytics is off unless you set `NEXT_PUBLIC_POSTHOG_KEY` (and, for EU Cloud or your own PostHog, `NEXT_PUBLIC_POSTHOG_HOST`); both are read at build, so redeploy after setting them. With the key, posthog-js loads once the page is idle and sends page views, page leaves, and a short list of named `fireround_*` events (Deploy, GitHub, API reference, and OpenAPI clicks, copied snippets, subscribe and export links, feed filters, source clicks, company and investor views) through `/ingest` on the site's own origin, which `next.config.ts` rewrites to PostHog. It sets no cookie, records no sessions, autocaptures nothing, honours Do Not Track, and creates no person profiles; every event carries `app=fireround`. Without the key there is no `/ingest` rewrite and nothing loads or sends. The events and their properties are typed in `lib/analytics.ts`.
+
 ### Vercel Hobby
 
 The default schedule deploys on Hobby as it is: Hobby accepts only crons that run at most once a day (each at some minute of its hour), and with `FIREROUND_SCHEDULE` unset every route is daily. That covers the default Lite coverage, whose sweep runs Mondays at 06:00 UTC. Do not set `FIREROUND_SCHEDULE=frequent` on Hobby: Vercel refuses a deployment with sub-daily crons, and the refusal may not show in the dashboard.

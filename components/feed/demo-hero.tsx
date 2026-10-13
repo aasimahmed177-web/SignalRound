@@ -4,6 +4,7 @@ import { SlackCopy } from "@/components/feed/slack-copy";
 import { SlackSubscribePopover } from "@/components/feed/slack-subscribe-popover";
 import { RelativeCheck } from "@/components/relative-day";
 import { isLanding, LANDING_PATH } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { cachedPresets } from "@/lib/cached";
 import { grouped, usd } from "@/lib/format";
 import { publicOrigin } from "@/lib/origin";
@@ -19,14 +20,31 @@ function Figure({ children }: { children: React.ReactNode }) {
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
-const FEEDS = [
-  { label: "RSS", href: (slug: string) => `/feeds/public/${slug}.rss` },
-  { label: "Atom", href: (slug: string) => `/feeds/public/${slug}.atom` },
-  { label: "JSON", href: (slug: string) => `/feeds/public/${slug}.json` },
-  { label: "API", href: () => "/docs" },
+/** `track` gives a link its product analytics attributes (lib/analytics.ts). */
+const FEEDS: Array<{ label: string; href: (slug: string) => string; track?: (slug: string) => Record<string, string> }> = [
+  {
+    label: "RSS",
+    href: (slug) => `/feeds/public/${slug}.rss`,
+    track: (preset) => trackClick("fireround_subscribe_clicked", { channel: "rss", preset }),
+  },
+  {
+    label: "Atom",
+    href: (slug) => `/feeds/public/${slug}.atom`,
+    track: (preset) => trackClick("fireround_subscribe_clicked", { channel: "atom", preset }),
+  },
+  {
+    label: "JSON",
+    href: (slug) => `/feeds/public/${slug}.json`,
+    track: (preset) => trackClick("fireround_subscribe_clicked", { channel: "json_feed", preset }),
+  },
+  { label: "API", href: () => "/docs", track: () => trackClick("fireround_api_docs_opened", { location: "feed_hero", target: "docs" }) },
   // The endpoint answers only JSON-RPC POSTs; a reader who clicks wants the client config, which the landing page's MCP tab shows.
   { label: "MCP", href: () => `${isLanding() ? "/" : LANDING_PATH}#mcp` },
-  { label: "OpenAPI", href: () => "/api/v1/openapi.json" },
+  {
+    label: "OpenAPI",
+    href: () => "/api/v1/openapi.json",
+    track: () => trackClick("fireround_api_docs_opened", { location: "feed_hero", target: "openapi" }),
+  },
 ];
 
 /**
@@ -77,7 +95,7 @@ export async function DemoHero({ stats, preset, house }: { stats: DemoStats; pre
             {FEEDS.map((f) => (
               <Fragment key={f.label}>
                 {" · "}
-                <a href={f.href(slug)} className="whitespace-nowrap text-foreground hover:underline">
+                <a href={f.href(slug)} className="whitespace-nowrap text-foreground hover:underline" {...f.track?.(slug)}>
                   {f.label}
                 </a>
               </Fragment>

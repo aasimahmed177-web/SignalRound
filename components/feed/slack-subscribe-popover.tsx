@@ -47,7 +47,7 @@ export function SlackSubscribePopover({ feeds, preset, className }: { feeds: Pub
           <PresetPill presets={feeds} value={slug} onChange={setSlug} />
         </div>
         <CadencePicker value={cadence} onChange={setCadence} />
-        <AddToSlackLink href={connectHref(slug, cadence)} className="w-full" />
+        <AddToSlackLink href={connectHref(slug, cadence)} preset={slug} className="w-full" />
         <StoredNote />
         <div className="space-y-1.5 border-t border-border-faint pt-3">
           <p className="text-label-small text-muted-foreground">No app? Paste this in any channel.</p>
@@ -55,7 +55,12 @@ export function SlackSubscribePopover({ feeds, preset, className }: { feeds: Pub
             <code className="min-w-0 flex-1 font-mono text-[12px] leading-5 [overflow-wrap:anywhere]">
               <span className="font-medium text-foreground">/feed subscribe</span> <span className="text-black-alpha-72">{feed.rss}</span>
             </code>
-            <CopyButton text={feed.slack} label="Copy" className="shrink-0 border border-border-muted text-foreground" />
+            <CopyButton
+              text={feed.slack}
+              label="Copy"
+              snippet="slack_command"
+              className="shrink-0 border border-border-muted text-foreground"
+            />
           </div>
         </div>
       </PopoverContent>

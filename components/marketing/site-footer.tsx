@@ -5,10 +5,12 @@ import { DataNotice } from "@/components/feed/data-notice";
 import { container, gutter } from "@/components/marketing/section";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { isPublicDemo } from "@/lib/access";
+import { trackClick } from "@/lib/analytics";
 import { REPO_URL } from "@/lib/landing";
 import { cn } from "@/lib/utils";
 
-type FooterLink = { href: string; label: string; external?: boolean };
+/** `track` is trackClick()'s attributes, for the links product analytics counts. */
+type FooterLink = { href: string; label: string; external?: boolean; track?: Record<string, string> };
 
 /** The public feed URL only answers in demo mode (a private instance mints tokens), so the link follows the mode. */
 const columns = (demo: boolean): Array<{ title: string; links: FooterLink[] }> => [
@@ -25,16 +27,25 @@ const columns = (demo: boolean): Array<{ title: string; links: FooterLink[] }> =
   {
     title: "Developers",
     links: [
-      { href: "/docs", label: "API reference" },
+      { href: "/docs", label: "API reference", track: trackClick("fireround_api_docs_opened", { location: "footer", target: "docs" }) },
       { href: "#mcp", label: "MCP server" },
-      ...(demo ? [{ href: "/feeds/public/all.rss", label: "RSS feed", external: true }] : []),
+      ...(demo
+        ? [
+            {
+              href: "/feeds/public/all.rss",
+              label: "RSS feed",
+              external: true,
+              track: trackClick("fireround_subscribe_clicked", { channel: "rss", preset: "all" }),
+            },
+          ]
+        : []),
       { href: "https://docs.firecrawl.dev", label: "Firecrawl docs", external: true },
     ],
   },
   {
     title: "Project",
     links: [
-      { href: REPO_URL, label: "GitHub", external: true },
+      { href: REPO_URL, label: "GitHub", external: true, track: trackClick("fireround_github_clicked", { location: "footer" }) },
       { href: `${REPO_URL}/blob/main/docs/how-it-works.md`, label: "How it works", external: true },
       { href: `${REPO_URL}/blob/main/docs/data-quality.md`, label: "Data quality", external: true },
       { href: `${REPO_URL}/blob/main/LICENSE`, label: "MIT license", external: true },
@@ -76,7 +87,13 @@ export function SiteFooter({ anchorBase = "" }: { anchorBase?: string }) {
               {col.links.map((l) => (
                 <li key={l.label}>
                   {l.external ? (
-                    <a href={l.href} target={l.href.startsWith("http") ? "_blank" : undefined} rel="noreferrer" className={link}>
+                    <a
+                      href={l.href}
+                      target={l.href.startsWith("http") ? "_blank" : undefined}
+                      rel="noreferrer"
+                      className={link}
+                      {...l.track}
+                    >
                       {l.label}
                       {l.href.startsWith("http") && <ArrowUpRight className="size-3 opacity-60" aria-hidden />}
                     </a>
@@ -85,7 +102,7 @@ export function SiteFooter({ anchorBase = "" }: { anchorBase?: string }) {
                       {l.label}
                     </a>
                   ) : (
-                    <Link href={l.href} className={link}>
+                    <Link href={l.href} className={link} {...l.track}>
                       {l.label}
                     </Link>
                   )}

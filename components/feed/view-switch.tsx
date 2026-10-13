@@ -3,6 +3,7 @@
 import { Clock, TrendingUp } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { type KeyboardEvent, useRef } from "react";
+import { track } from "@/lib/analytics";
 import { FEED_VIEW_PANEL, type FeedView, toFeedView, viewTabId } from "@/lib/round-sort";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ export function ViewSwitch({ className, fallback = "latest" }: { className?: str
   const go = (next: FeedView) => {
     if (next === view) return;
     set({ view: next === fallback ? null : next, sort: null, page: null, cursor: null });
+    track("fireround_feed_filtered", { filter: "view", value: next });
   };
   const onKey = (e: KeyboardEvent) => {
     const at = VIEWS.findIndex((v) => v.value === view);
