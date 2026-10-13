@@ -980,6 +980,21 @@ describe("rule 9: a lead of another round is not this round's lead", () => {
     expect(out.dropped).toEqual(["Gamma Ventures"]);
   });
 
+  test("a lead taken on as a step reads the same for the other-round check: one that stepped up to lead its previous round is out", () => {
+    const evidence = "Acme raised a $12 million Series A led by Beta Capital. Gamma Ventures stepped up to lead its previous round.";
+    expect(leadOfAnotherRound(evidence, "Gamma Ventures", SERIES_A)).toBe(true);
+    const out = cleanFor(["Beta Capital", "Gamma Ventures"], [], evidence, {
+      stage: "series_a",
+      stage_as_written: "Series A",
+      amount_as_written: "$12 million",
+    });
+    expect(out.lead_investors).toEqual(["Beta Capital"]);
+    expect(out.dropped).toEqual(["Gamma Ventures"]);
+    expect(
+      leadOfAnotherRound("Gamma Ventures stepped up to lead, and our $20 million Series A came together.", "Gamma Ventures", SERIES_A),
+    ).toBe(false);
+  });
+
   test("yazen: a previous lead investor the round's participation clause names is a participant", () => {
     const evidence =
       "Yazen has secured new funding in a partnership led by European growth investor Verdane, with participation from previous lead investor Evli Growth Partners (EGP). Yazen raises $50M led by Verdane.";
@@ -1434,8 +1449,54 @@ describe("statedRole: a lead only where a sentence says so", () => {
     ["Acme Growth", "The round was led by new investment from Acme Growth."],
     ["Acme Capital", "Die Finanzierungsrunde wurde angeführt von Acme Capital."],
     ["Acme Capital", "Le tour de table est mené par Acme Capital."],
+    [
+      "Eclipse Capital",
+      "As they have so many times for us over the seven years of the company, Eclipse stood up to lead, and our $445M Series D quickly came together.",
+    ],
+    ["Acme Ventures", "When others held back, Acme Ventures stepped up to lead, and the round closed in weeks."],
+    ["Eclipse Capital", "Oxide raises $445M Series D; Eclipse leads financing"],
+    ["Acme Ventures", "Acme Ventures came in to lead, joined by Beta Partners."],
+    ["Acme Ventures", "After months of talks, Acme Ventures agreed to lead."],
+    [
+      "Insight Partners",
+      "The company announced the financing on October 2, with Insight Partners leading the round and participation from Chalfen Ventures.",
+    ],
   ])("%s reads as a lead in: %s", (name, sentence) => {
     expect(role(name, sentence)).toBe("lead");
+  });
+
+  test.each([
+    ["Cook Medical", "Zenflow raised $40 million, with Cook Medical also coming on board to lead US distribution."],
+    ["Acme Ventures", "Acme Ventures agreed to lead US distribution for the device."],
+  ])("taking the lead of something other than a round is no lead: %s", (name, sentence) => {
+    expect(role(name, sentence)).not.toBe("lead");
+  });
+
+  test("nuance: names a semicolon sets after the lead list, which say they participated, are participants", () => {
+    const quote =
+      "Nuance has raised $10 million in a seed round led by Accel to hire more, Upstarts can exclusively report; South Park Commons and Lightspeed Venture Partners also participated.";
+    expect(role("Accel", quote)).toBe("lead");
+    expect(role("South Park Commons", quote)).toBe("participant");
+    expect(role("Lightspeed Venture Partners", quote)).toBe("participant");
+    expect(role("AMD Ventures", "New investors Atreides Management and AMD Ventures also joined the round.")).toBe("participant");
+  });
+
+  test("hestus, ultimarii, neogrowth: participation beside the lead stays participation", () => {
+    const hestus =
+      "The company announced the financing on October 2, with Insight Partners leading the round and participation from Chalfen Ventures, Rock Yard Ventures, Garage Capital, and other investors.";
+    expect(role("Chalfen Ventures", hestus)).toBe("participant");
+    expect(
+      role(
+        "Mistral Venture Partners",
+        "Ultimarii raised its Series A in a round led by BDC's Industrial Innovation Venture Fund, with participation from Mistral Venture Partners.",
+      ),
+    ).toBe("participant");
+    expect(
+      role(
+        "LeapFrog Investments",
+        "NeoGrowth has raised Rs 85 crore investment led by FMO, the Dutch entrepreneurial development bank, with participation from LeapFrog Investments.",
+      ),
+    ).toBe("participant");
   });
 
   test("participation set apart from the lead stays participation", () => {

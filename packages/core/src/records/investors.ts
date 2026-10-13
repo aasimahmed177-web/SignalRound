@@ -1176,15 +1176,23 @@ const LEADER_IN =
 const AS_LEAD =
   "(?:(?:joining|joins|joined|acting|serving|serves|served) )?as (?:the |a |an |its )?(?:anchor )?(?:co-?)?(?:(?:lead|anchor)(?: investors?| backers?|(?=\\s*(?:[,.;:)]|$|and\\b)))|leading (?:investors?|backers?))|as co-?leads|als (?:führende[mnr]?|Lead-?) ?Investor(?:en)?";
 
+/**
+ * A lead taken on as a step: "Eclipse stood up to lead, and our Series D came together", "Acme stepped
+ * up to lead the round", "came in to lead", "agreed to lead a €3 billion round". What follows is the
+ * clause's end or the round, so "agreed to lead US distribution" leads nothing.
+ */
+const STEPPED_UP_TO_LEAD =
+  "(?:(?:stood|stepped|stands|steps|standing|stepping) up|(?:came|comes|coming) in|(?:agreed|agrees|agreeing)) to (?:co-?)?lead(?=\\s*(?:[,.;:)]|$)|\\s+(?:and|a|an|the|this|its|their|our)\\b|\\s+[$€£¥₹\\d])";
+
 /** Verbs a lead's name precedes ("Acme Capital led the round", "with Acme leading"). */
 const LEAD_AFTER = new RegExp(
-  `\\b(?:leads|co-?leads|led|co-?led|lead(?= (?:a|an|the|this|its|[$€£¥₹]|\\d))|is (?:the |a )?lead investor|is leading|are leading|will lead|to (?:co-?)?lead|leading|co-?leading|spearheaded|anchored|headed|${AS_LEAD}|${LEADER_IN})\\b`,
+  `\\b(?:leads|co-?leads|led|co-?led|lead(?= (?:a|an|the|this|its|[$€£¥₹]|\\d))|is (?:the |a )?lead investor|is leading|are leading|will lead|${STEPPED_UP_TO_LEAD}|to (?:co-?)?lead|leading|co-?leading|spearheaded|anchored|headed|${AS_LEAD}|${LEADER_IN})\\b`,
   "gi",
 );
 
 /** Lead language as a whole: the verb forms here exclude the adjective in "a leading AI startup". */
 const LEAD_LANGUAGE = new RegExp(
-  `\\b(?:leads|co-?leads|co-?led|led(?:\\s+(?:a|an|the|this|its|their)\\b|(?=[,.;:]|$))|is (?:the |a )?lead investor|is leading|are leading|will lead|to (?:co-?)?lead (?:a|an|the|this|its)|(?:proud|excited|thrilled|pleased|delighted) to (?:co-?)?lead|leading the|co-?leading|spearheaded|anchored|${AS_LEAD}|${LEADER_IN})\\b`,
+  `\\b(?:leads|co-?leads|co-?led|led(?:\\s+(?:a|an|the|this|its|their)\\b|(?=[,.;:]|$))|is (?:the |a )?lead investor|is leading|are leading|will lead|${STEPPED_UP_TO_LEAD}|to (?:co-?)?lead (?:a|an|the|this|its)|(?:proud|excited|thrilled|pleased|delighted) to (?:co-?)?lead|leading the|co-?leading|spearheaded|anchored|${AS_LEAD}|${LEADER_IN})\\b`,
   "i",
 );
 
@@ -1194,7 +1202,7 @@ const PART_BEFORE =
 
 /** Verbs a participant's name precedes. */
 const PART_AFTER =
-  /\b(?:joined|joining|joins|participated|participating|participates|also invested|also backed|also took part|took part|invested|backed|contributed|supported|returned)\b/gi;
+  /\b(?:joined|joining|joins|participated|participating|participates|also invested|also backed|also took part|also participated|also joined|took part|invested|backed|contributed|supported|returned)\b/gi;
 
 /** Whether the evidence carries any lead language at all. */
 export function hasLeadLanguage(evidence: string): boolean {
@@ -1292,6 +1300,9 @@ function nearestMarker(
     (!relative || /^(?:co-?)?led (?:the|this) (?:round|financing|investment)/i.test(evidence.slice(following.index)))
       ? following
       : undefined;
+  // "led by Accel; South Park Commons and Lightspeed also participated": a clause after a semicolon
+  // that says what its own names did is not the lead list before it.
+  if (nearest?.kind === "lead" && verb?.kind === "participant" && evidence.slice(nearest.end, index).includes(";")) return verb;
   if (nearest?.kind !== "participant") return nearest ?? verb;
   // "with Acme leading the round": a lead verb right after the name outranks the "with" before it,
   // though not the adjective in "from Acme and Beta, leading investors in fintech".

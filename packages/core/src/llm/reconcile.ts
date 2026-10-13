@@ -12,8 +12,8 @@ import { mapLimit } from "../firecrawl/credits.ts";
 import { groundingCheck } from "../firecrawl/extract.ts";
 import { applyCorrection, samePage } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
-import { investorMentions, statedRole } from "../records/investors.ts";
-import { hostOf, parseAmount } from "../records/normalize.ts";
+import { investorMentions, type LeadRound, leadOfAnotherRound, statedRole } from "../records/investors.ts";
+import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import type { FeedRecord } from "../records/schema.ts";
 import { isFundingAggregatorUrl } from "../records/source-fit.ts";
@@ -155,19 +155,26 @@ export function readCoverage(record: FeedRecord, pages: SourceText[]): { readAll
 }
 
 /**
- * The verdict's leads that stand, and the names that join the participants instead. A lead stands
- * only on the page it cites saying so ("led by Acme", "Acme co-led", "lead investor Acme"); a page
- * that names the firm only as an investor ("a $75 million investment from Acme") or not at all makes
- * it a participant. A lead that cites no page read stands on any page read saying so.
+ * The verdict's leads that stand, and the names that join the participants instead. The page a lead
+ * cites decides when it says what the firm did: lead language on it ("led by Acme", "Acme co-led",
+ * "lead investor Acme") keeps the lead, and a page that names the firm only as an investor ("a $75
+ * million investment from Acme") makes it a participant. A cited page that gives the firm no role
+ * ("Acme stood by us again"), or a lead that cites no page read, stands on any page read that states
+ * it as this round's lead; a page that has it lead only an earlier or another round does not count.
  */
 export function statedLeads(
   leads: Reconciliation["lead_investors"],
   pages: SourceText[],
+  round: LeadRound,
 ): { leads: Reconciliation["lead_investors"]; participants: string[] } {
+  // A link or bold around a name ("with [Acme](https://acme.vc) leading the round") is read as its text.
+  const text = (p: SourceText) =>
+    `${p.title ?? ""}\n${p.markdown.slice(0, PAGE_CHARS)}`.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_]/g, "");
   const stated = (lead: Reconciliation["lead_investors"][number]) => {
     const cited = lead.source ? pages.filter((p) => samePage(p.url, lead.source as string)) : [];
-    const read = (cited.length ? cited : pages).map((p) => `${p.title ?? ""}\n${p.markdown.slice(0, PAGE_CHARS)}`);
-    return statedRole(lead.name, read) === "lead";
+    const said = statedRole(lead.name, cited.map(text));
+    if (said !== "unattributed") return said === "lead";
+    return pages.some((p) => statedRole(lead.name, [text(p)]) === "lead" && !leadOfAnotherRound(text(p), lead.name, round));
   };
   return { leads: leads.filter(stated), participants: leads.filter((l) => !stated(l)).map((l) => l.name) };
 }
@@ -177,7 +184,7 @@ export function statedLeads(
  * maps into a Correction and the shared applier does the rest. What is the reconciler's alone: every
  * field cites the page that stated it; the date comes graded (day, week, month), so only its day that
  * sharpens a list's stamp while citing the list is refused (the judge's wider echo guard does not
- * apply); an empty amount fills from the cited sentence; a lead its cited page does not call one
+ * apply); an empty amount fills from the cited sentence; a lead no page read states for this round
  * joins the participants (statedLeads); a record investor the lists leave out is unsupported when the
  * pages read say so (readCoverage); and the verification names the model and how many sources it saw.
  */
@@ -214,7 +221,13 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
   const total = checked("financing total", v.financing_total, true) ? v.financing_total : null;
   const headquarters = checked("headquarters", v.headquarters) ? stated(v.headquarters) : kept(null);
   const notes = /^sources agree\.?$/i.test(v.notes.trim()) ? null : v.notes;
-  const leads = opts.pages ? statedLeads(v.lead_investors, opts.pages) : { leads: v.lead_investors, participants: [] };
+  const read = stage.value ? classifyStage(stage.value).stage : "other";
+  const round = {
+    stage: read === "other" ? record.stage : read,
+    stage_as_written: read === "other" ? record.stage_as_written : stage.value,
+    amount_as_written: amount.value ?? record.amount.as_written,
+  };
+  const leads = opts.pages ? statedLeads(v.lead_investors, opts.pages, round) : { leads: v.lead_investors, participants: [] };
   const corrected = applyCorrection(
     record,
     {

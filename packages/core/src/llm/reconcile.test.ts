@@ -549,7 +549,8 @@ describe("the investor rule: only investors a source places in this round stay",
   });
 });
 
-describe("a lead stands only on the page it cites saying so", () => {
+describe("a lead stands on the page it cites saying so, or on a page read when the cited page gives it no role", () => {
+  const SERIES_A = { stage: "series_a", stage_as_written: "Series A", amount_as_written: "$41M" } as const;
   const RELEASE = "https://gimletlabs.ai/news/series-a";
   const COVERAGE = "https://siliconangle.com/2026/09/04/gimlet-labs-raises-41m/";
   const page = (url: string, markdown: string): SourceText => ({ url, host: new URL(url).hostname, markdown });
@@ -573,16 +574,17 @@ describe("a lead stands only on the page it cites saying so", () => {
       page(RELEASE, "Gimlet Labs closes its $41 million Series A with Maverick Silicon and Samsung Ventures."),
       page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Maverick Silicon and Samsung Ventures."),
     ];
-    expect(statedLeads(leadsOn(RELEASE).lead_investors, pages)).toEqual({ leads: [], participants: ["Maverick Silicon"] });
-    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages).participants).toEqual([]);
+    expect(statedLeads(leadsOn(RELEASE).lead_investors, pages, SERIES_A)).toEqual({ leads: [], participants: ["Maverick Silicon"] });
+    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages, SERIES_A).participants).toEqual([]);
   });
 
   test("a lead citing no page, or a page not read, stands on any page read that says it led", () => {
     const pages = [page(COVERAGE, "Maverick Silicon co-led the $41 million round alongside Samsung Ventures.")];
-    expect(statedLeads(leadsOn(null).lead_investors, pages).participants).toEqual([]);
-    expect(statedLeads(leadsOn("https://unread.example/gimlet").lead_investors, pages).participants).toEqual([]);
+    expect(statedLeads(leadsOn(null).lead_investors, pages, SERIES_A).participants).toEqual([]);
+    expect(statedLeads(leadsOn("https://unread.example/gimlet").lead_investors, pages, SERIES_A).participants).toEqual([]);
     expect(
-      statedLeads(leadsOn(null).lead_investors, [page(COVERAGE, "Gimlet Labs raised $41 million from Maverick Silicon.")]).participants,
+      statedLeads(leadsOn(null).lead_investors, [page(COVERAGE, "Gimlet Labs raised $41 million from Maverick Silicon.")], SERIES_A)
+        .participants,
     ).toEqual(["Maverick Silicon"]);
   });
 
@@ -590,7 +592,119 @@ describe("a lead stands only on the page it cites saying so", () => {
     const pages = [
       { ...page(COVERAGE, "Gimlet Labs raised $41 million."), title: "Gimlet Labs raises $41M Series A led by Maverick Silicon" },
     ];
-    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages).participants).toEqual([]);
+    expect(statedLeads(leadsOn(COVERAGE).lead_investors, pages, SERIES_A).participants).toEqual([]);
+  });
+
+  test("a cited page that gives the lead no role leaves it to the other pages read", () => {
+    const pages = [
+      page(RELEASE, "Maverick Silicon has backed Gimlet Labs since its first check."),
+      page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Maverick Silicon."),
+    ];
+    expect(statedLeads(leadsOn(RELEASE).lead_investors, pages, SERIES_A).participants).toEqual([]);
+    expect(statedLeads(leadsOn(RELEASE).lead_investors, [pages[0] as SourceText], SERIES_A).participants).toEqual(["Maverick Silicon"]);
+  });
+
+  test("a page that has the lead leading only an earlier round does not keep it", () => {
+    const pages = [
+      page(RELEASE, "Maverick Silicon has backed Gimlet Labs since its first check."),
+      page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Samsung Ventures. Maverick Silicon led its previous round."),
+    ];
+    expect(statedLeads(leadsOn(RELEASE).lead_investors, pages, SERIES_A).participants).toEqual(["Maverick Silicon"]);
+  });
+
+  test("oxide: the company's blog cited, the release read, Eclipse stays the lead", () => {
+    const BLOG = "https://oxide.computer/blog/our-series-d";
+    const WIRE = "https://www.prnewswire.com/news-releases/oxide-raises-445m-series-d-302903159.html";
+    const oxide = record({
+      company_key: "oxide computer",
+      company_name: "Oxide Computer",
+      stage: "series_d_plus",
+      stage_as_written: "Series D",
+      amount: { value: 445, currency: "USD", as_written: "$445 million", usd_millions: 445, fx_rate: 1, fx_date: null },
+      lead_investors: ["Eclipse Capital"],
+      other_investors: ["Riot Ventures"],
+      evidence_quotes: ["Oxide Computer Company today announced it has raised a $445 million Series D led by Eclipse."],
+      sources: [
+        { url: BLOG, host: "oxide.computer", title: "Our Series D" },
+        { url: WIRE, host: "prnewswire.com", title: "Oxide raises $445M Series D; Eclipse leads financing" },
+      ],
+    });
+    const blog = page(
+      BLOG,
+      "As they have so many times for us over the seven years of the company, Eclipse stood up to lead, and our $445M Series D quickly came together.",
+    );
+    const wire = {
+      ...page(
+        WIRE,
+        "Oxide Computer Company, the on-premises cloud computing company, today announced it has raised a $445 million Series D led by Eclipse, with participation from existing investors Riot Ventures.",
+      ),
+      title: "Oxide raises $445M Series D; Eclipse leads financing",
+    };
+    const verdict: Reconciliation = {
+      ...AGREES,
+      stage: { stated: true, value: "Series D", source: WIRE, quote: "Series D" },
+      amount: { stated: true, value: "$445 million", source: WIRE, quote: "raised a $445 million Series D" },
+      lead_investors: [{ name: "Eclipse Capital", source: BLOG }],
+      other_investors: [{ name: "Riot Ventures", source: WIRE }],
+      headquarters: { stated: false, value: null, source: null, quote: null },
+    };
+    const r = applyReconciliation(oxide, verdict, { ...OPTS, pages: [blog, wire] });
+    expect(r.lead_investors).toEqual(["Eclipse Capital"]);
+    expect(r.verification?.notes.join("; ")).not.toMatch(/not leads/);
+    const round = { stage: "series_d_plus", stage_as_written: "Series D", amount_as_written: "$445 million" } as const;
+    const silentBlog = page(BLOG, "Eclipse has been with us for seven years, and our $445M Series D quickly came together.");
+    expect(statedLeads(verdict.lead_investors, [silentBlog, wire], round)).toEqual({ leads: verdict.lead_investors, participants: [] });
+  });
+
+  test("tessolve: the cited release names its sole investor as the money's source, so another page's lead does not count", () => {
+    const CXO = "https://cxotoday.com/media-coverage/tessolve-secures-75-million-investment-from-vector-line-capital";
+    const ENTRACKR = "https://entrackr.com/snippets/tessolve-semiconductor-raises-75-mn-led-by-vector-line-capital";
+    const pages = [
+      page(CXO, "Tessolve Semiconductor today announced that it has secured a $75 million investment from Vector Line Capital."),
+      page(ENTRACKR, "Tessolve Semiconductor has raised $75 million in a funding round led by Vector Line Capital."),
+    ];
+    const round = { stage: "other", stage_as_written: "funding round", amount_as_written: "$75 million" } as const;
+    expect(statedLeads([{ name: "Vector Line Capital", source: CXO }], pages, round)).toEqual({
+      leads: [],
+      participants: ["Vector Line Capital"],
+    });
+  });
+
+  test("hestus: a lead the page links to reads as the name it links", () => {
+    const UNITE = "https://www.unite.ai/hestus-raises-7-4-million-seed-to-bring-ai-into-mechanical-engineering";
+    const pages = [
+      page(
+        UNITE,
+        "The San Mateo company announced the financing on October 2, with [Insight Partners](https://www.insightpartners.com/) leading the round and participation from [Chalfen Ventures](https://www.chalfenventures.com/), and other investors.",
+      ),
+    ];
+    const seed = { stage: "seed", stage_as_written: "Seed", amount_as_written: "$7.4M" } as const;
+    expect(statedLeads([{ name: "Insight Partners", source: UNITE }], pages, seed).participants).toEqual([]);
+    expect(statedLeads([{ name: "Chalfen Ventures", source: UNITE }], pages, seed).participants).toEqual(["Chalfen Ventures"]);
+  });
+
+  test.each([
+    [
+      "ultimarii",
+      "Mistral Venture Partners",
+      "Ultimarii raised its Series A in a round led by BDC's Industrial Innovation Venture Fund, with participation from Mistral Venture Partners.",
+      "Ultimarii closed a Series A co-led by BDC's Industrial Innovation Venture Fund and Mistral Venture Partners.",
+    ],
+    [
+      "neogrowth",
+      "LeapFrog Investments",
+      "NeoGrowth has raised Rs 85 crore investment led by FMO, the Dutch entrepreneurial development bank, with participation from LeapFrog Investments.",
+      "NeoGrowth has raised Rs 85 crore in a round led by existing investors FMO and LeapFrog Investments.",
+    ],
+    [
+      "nuance",
+      "Lightspeed Venture Partners",
+      "Nuance has raised $10 million in a seed round led by Accel; South Park Commons and Lightspeed Venture Partners also participated.",
+      "Nuance raised $10 million led by Accel and Lightspeed Venture Partners.",
+    ],
+  ])("%s: the cited page names %s a participant, so another page calling it a lead does not keep it", (_round, name, cited, other) => {
+    const pages = [page(RELEASE, cited), page(COVERAGE, other)];
+    expect(statedLeads([{ name, source: RELEASE }], pages, SERIES_A)).toEqual({ leads: [], participants: [name] });
   });
 
   test("without the pages read, the verdict's leads apply as given", () => {
