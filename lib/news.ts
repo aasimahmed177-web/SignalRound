@@ -15,6 +15,30 @@ const { sources, roundSources, fundingRounds, companies, roundInvestors, investo
  */
 export const FILING_HOSTS = ["sec.gov", "www.sec.gov"] as const;
 
+/**
+ * Social networks. A post there can report a round and stays on it as a source, and an X post is a
+ * Trending signal (lib/trending.ts), but a post is not an article, so News and the news API leave it out.
+ */
+export const SOCIAL_HOSTS = [
+  "x.com",
+  "twitter.com",
+  "instagram.com",
+  "facebook.com",
+  "linkedin.com",
+  "reddit.com",
+  "threads.net",
+  "threads.com",
+  "tiktok.com",
+  "youtube.com",
+  "bsky.app",
+] as const;
+
+/** Every host News leaves out: filings, and social networks under the subdomains they serve posts from. */
+export const NOT_NEWS_HOSTS: readonly string[] = [
+  ...FILING_HOSTS,
+  ...SOCIAL_HOSTS.flatMap((h) => ["", "www.", "m.", "mobile.", "old."].map((sub) => `${sub}${h}`)),
+];
+
 export interface NewsItem {
   id: string;
   url: string;
@@ -60,14 +84,14 @@ function clipQuote(quote: string | undefined): string | null {
 }
 
 /**
- * Every article page on record, filings aside: the set listStories scans, so /news knows when its
+ * Every article page on record, filings and social posts aside: the set listStories scans, so /news knows when its
  * window has covered it, and the landing page's "Articles read" quotes the same figure.
  */
 export async function countArticles(handle: Db): Promise<number> {
   const [row] = await handle
     .select({ n: sql<number>`count(*)::int` })
     .from(sources)
-    .where(notInArray(sources.host, [...FILING_HOSTS]));
+    .where(notInArray(sources.host, [...NOT_NEWS_HOSTS]));
   return row?.n ?? 0;
 }
 
@@ -84,7 +108,7 @@ export async function listNews(handle: Db, q: NewsQuery = {}): Promise<NewsItem[
       roundCount: sql<number>`(select count(*) from ${roundSources} rs where rs.source_id = ${sources.id})::int`,
     })
     .from(sources)
-    .where(notInArray(sources.host, [...FILING_HOSTS]))
+    .where(notInArray(sources.host, [...NOT_NEWS_HOSTS]))
     .orderBy(desc(sql`coalesce(${sources.publishedAt}::text, '')`), desc(sources.fetchedAt))
     .limit(q.limit ?? 60);
 

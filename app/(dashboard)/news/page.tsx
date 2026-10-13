@@ -192,7 +192,7 @@ async function NewsBody({ searchParams }: { searchParams: Promise<Search> }) {
   // story folds every copy of a round, and an offset page would split a story across two pages.
   const asked = Number.parseInt(one(search.show), 10);
   const show = Number.isFinite(asked) ? Math.min(MAX_SHOW, Math.max(PAGE, Math.ceil(asked / PAGE) * PAGE)) : PAGE;
-  // Every article page, filings aside, is the count: the same set listStories scans, so the button hides
+  // Every article page, filings and social posts aside, is the count: the same set listStories scans, so the button hides
   // once the window covers it. A visitor's
   // list is one shared cache entry a minute (lib/cached.ts); an admin reads it fresh.
   const { items, total } = seesReview(v)

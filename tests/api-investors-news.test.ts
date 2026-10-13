@@ -25,6 +25,11 @@ import { isoDaysAgo } from "./history-fixtures";
 
 const usd = (m: number, day: string) => ({ value: m, currency: "USD", as_written: `$${m}M`, usd_millions: m, fx_rate: 1, fx_date: day });
 const ROUNDUP = "https://news.example/weekly-funding-roundup";
+const SOCIAL_POSTS = [
+  "https://x.com/betaco/status/1",
+  "https://www.instagram.com/p/beta-raise",
+  "https://www.linkedin.com/posts/beta-raise",
+];
 
 beforeAll(async () => {
   const handle = await db();
@@ -71,7 +76,7 @@ beforeAll(async () => {
     usd: 10,
     sector: "ai",
     leads: ["Fund One"],
-    urls: ["https://wire.example/beta", ROUNDUP, "https://www.sec.gov/beta-form-d"],
+    urls: ["https://wire.example/beta", ROUNDUP, "https://www.sec.gov/beta-form-d", ...SOCIAL_POSTS],
   });
   await add("Gamma", { daysAgo: 40, usd: 50, sector: "fintech", leads: ["Fund Two"], urls: ["https://news.example/gamma"] });
   await add("Delta", {
@@ -306,12 +311,23 @@ describe("/api/v1/news", () => {
     expect(urls).not.toContain(ROUNDUP);
     expect(urls).toEqual(expect.arrayContaining(["https://news.example/alpha", "https://wire.example/beta"]));
     expect(urls).not.toContain("https://www.sec.gov/beta-form-d");
+    for (const post of SOCIAL_POSTS) expect(urls).not.toContain(post);
     for (const hidden of ["echo", "hidden"]) expect(urls).not.toContain(`https://news.example/${hidden}`);
     // A round still being raised is news, and says so.
     const delta = body.data.find((a) => a.url === "https://news.example/delta") as { rounds: Array<Record<string, unknown>> };
     expect(delta.rounds[0]).toMatchObject({ company: "Delta", certainty: "expected" });
     const alpha = body.data.find((a) => a.url === "https://news.example/alpha");
     expect(alpha).toMatchObject({ publisher: "news.example", excerpt: "Alpha raised $20M led by Fund One and Fund Two." });
+  });
+
+  test("a social post is a source on its round, kept in storage, but never a news item", async () => {
+    const handle = await db();
+    const stored = await handle.select({ url: schema.sources.url }).from(schema.sources);
+    expect(stored.map((r) => r.url)).toEqual(expect.arrayContaining(SOCIAL_POSTS));
+    const all = await get(newsGet, "/api/v1/news?limit=100");
+    expect(all.body.data.map((a) => a.url)).toEqual(expect.not.arrayContaining(SOCIAL_POSTS));
+    const beta = await get(newsGet, "/api/v1/news?q=beta");
+    expect(beta.body.data.map((a) => a.url)).toEqual(["https://wire.example/beta"]);
   });
 
   test("pages with a cursor, narrows by sector and since, and refuses a bad cursor", async () => {

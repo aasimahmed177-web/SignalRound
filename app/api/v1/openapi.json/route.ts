@@ -1012,7 +1012,7 @@ export function GET(request: Request) {
           operationId: "listNews",
           summary: "The latest funding news, newest first",
           description:
-            "The articles behind the rounds the feed lists: each with its title, publisher, day, and the rounds it reports (with amount, stage, certainty, and leads). A roundup reports several rounds; a single-round article carries the round's own sentence as its excerpt. Regulatory filings are not listed.",
+            "The articles behind the rounds the feed lists: each with its title, publisher, day, and the rounds it reports (with amount, stage, certainty, and leads). A roundup reports several rounds; a single-round article carries the round's own sentence as its excerpt. Regulatory filings and social posts (X, Instagram, LinkedIn and the like) are not listed.",
           parameters: [
             {
               name: "since",

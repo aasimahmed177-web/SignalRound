@@ -1,10 +1,12 @@
 // News lists articles: every source page with the rounds it reported, minus regulatory filings,
 // which stay on the record (the company page and the feed's expanded row) without being news.
 
+import { schema } from "@fireround/core/db";
+import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
-import { FILING_HOSTS, listNews, listStories } from "../lib/news";
+import { countArticles, FILING_HOSTS, listNews, listStories } from "../lib/news";
 import { listRounds, persistRecords } from "../lib/persist";
 import { record, testDb } from "./helpers";
 
@@ -52,6 +54,42 @@ describe("listNews", () => {
     // The filings are still on the records themselves.
     const acme = (await listRounds(db, { company: "Acme Robotics" })).rows[0];
     expect(acme.sources.map((s) => s.host).sort()).toEqual(["sec.gov", "techcrunch.com"]);
+  });
+
+  test("a post on X or another social network stays on its round but is not an article, so News leaves it out", async () => {
+    const db = await testDb();
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "Post Co",
+          sources: [
+            { url: "https://techcrunch.com/post-co-seed", host: "techcrunch.com", title: "Post Co raises $5M", published: "2026-09-02" },
+            { url: "https://x.com/postco/status/123", host: "x.com", title: "Post Co on X", published: "2026-09-02" },
+            { url: "https://twitter.com/postco/status/124", host: "twitter.com", title: "Post Co on X", published: "2026-09-02" },
+            {
+              url: "https://www.instagram.com/p/postco/",
+              host: "www.instagram.com",
+              title: "Post Co on Instagram",
+              published: "2026-09-02",
+            },
+            { url: "https://m.facebook.com/postco/posts/1", host: "m.facebook.com", title: "Post Co", published: "2026-09-02" },
+          ],
+          verification: { status: "confirmed", notes: [], url: "https://techcrunch.com/post-co-seed", sources_seen: 5 },
+        }),
+      ],
+      "series-a-b",
+      "run-1",
+    );
+
+    expect((await listNews(db)).map((n) => n.host)).toEqual(["techcrunch.com"]);
+    expect(await countArticles(db)).toBe(1);
+    // The posts are still sources on the round.
+    const onRound = await db
+      .select({ host: schema.sources.host })
+      .from(schema.roundSources)
+      .innerJoin(schema.sources, eq(schema.sources.id, schema.roundSources.sourceId));
+    expect(onRound.map((s) => s.host).sort()).toEqual(["m.facebook.com", "techcrunch.com", "twitter.com", "www.instagram.com", "x.com"]);
   });
 
   test("a one-round article carries that round's evidence as its excerpt, clipped on a word boundary", async () => {

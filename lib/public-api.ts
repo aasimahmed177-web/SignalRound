@@ -12,7 +12,7 @@ import { type CompanySort, likeTerm, listCompanies, listInvestors } from "./dire
 import { companyRedirect } from "./entity-exists.ts";
 import { getInvestor, investorTypeLabel } from "./investor.ts";
 import { companyHref, investorHref, investorIdFromParam, investorSlug } from "./links.ts";
-import { FILING_HOSTS } from "./news.ts";
+import { NOT_NEWS_HOSTS } from "./news.ts";
 import { siteOrigin } from "./origin.ts";
 import { caught } from "./stats.ts";
 
@@ -576,7 +576,7 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
       .where(
         and(
           sql`${sources.host} not in (${sql.join(
-            FILING_HOSTS.map((h) => sql`${h}`),
+            NOT_NEWS_HOSTS.map((h) => sql`${h}`),
             sql`, `,
           )})`,
           reports,
