@@ -127,6 +127,25 @@ describe("investors: one firm, one entry", () => {
     expect(normalizeInvestorKey("Capital")).toBe("capital");
   });
 
+  test("a one-letter name keeps its tail, and A* is A-Star", () => {
+    const same = (a: string, b: string) => expect(normalizeInvestorKey(a), `${a} vs ${b}`).toBe(normalizeInvestorKey(b));
+    const apart = (a: string, b: string) => expect(normalizeInvestorKey(a), `${a} vs ${b}`).not.toBe(normalizeInvestorKey(b));
+    expect(normalizeInvestorKey("A*")).toBe("a star");
+    expect(normalizeInvestorKey("A.Capital Ventures")).toBe("a capital");
+    expect(normalizeInvestorKey("B Capital Group")).toBe("b capital");
+    expect(normalizeInvestorKey("e.ventures")).toBe("e ventures");
+    same("A*", "A-Star");
+    same("A*", "A\\*");
+    same("A* Capital", "A* Partners");
+    same("A.Capital Ventures", "A Capital");
+    same("B Capital", "B Capital Group");
+    same("E Ventures", "e.ventures");
+    apart("A*", "A.Capital Ventures");
+    apart("A Capital", "B Capital");
+    apart("E Ventures", "E Capital");
+    expect(normalizeInvestorKey("HV Capital")).toBe("hv");
+  });
+
   test("resolveRounds merges investor spellings across sources and shows the longer one", () => {
     const { kept } = resolveRounds(
       [

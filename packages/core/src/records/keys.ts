@@ -58,12 +58,14 @@ export function normalizeInvestorKey(name: string): string {
   // tail like "Inc." ("Wells Fargo & Co" keyed as "wells fargo and").
   const head = (name.split(/\s+[\u2013\u2014-]\s+|\s*[:(]\s*/)[0] ?? name)
     .replace(/['\u2019]s\b/gi, "")
-    .replace(/\s*(?:&|\band)\s*(?:co|company)\.?\s*$/i, "");
+    .replace(/\s*(?:&|\band)\s*(?:co|company)\.?\s*$/i, "")
+    .replace(/^\s*([a-z0-9])\s*\\?\*/i, "$1 star");
   let key = foldKey(head, LEGAL_SUFFIX_TAIL);
   for (;;) {
     if (/^plus (?:partners|capital)$/.test(key)) return key;
     const next = key.replace(INVESTOR_GENERIC_TAIL, "");
-    if (next === key || !next) break;
+    // One letter is no name: "A.Capital", "B Capital" and "e.ventures" are three firms, not "a", "b" and "e".
+    if (next === key || next.length < 2) break;
     key = next;
   }
   return key;
