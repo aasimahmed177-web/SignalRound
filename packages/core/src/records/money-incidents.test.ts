@@ -10,7 +10,7 @@ import { hostOf } from "./normalize.ts";
 import { type ExtractedItem, resolveRounds } from "./resolve.ts";
 import type { ExtractedRound } from "./schema.ts";
 import { secondhandOnly } from "./source-fit.ts";
-import { namedNearby, pickValuation, unsupportedValuation, valuationSupport, withBasis } from "./valuation.ts";
+import { namedNearby, pickValuation, totalIsValuation, unsupportedValuation, valuationSupport, withBasis } from "./valuation.ts";
 
 const NOW = new Date("2026-09-27T12:00:00Z");
 function round(p: Partial<ExtractedRound> & { company_name: string; round_type_as_written: string }): ExtractedRound {
@@ -511,5 +511,40 @@ describe("a figure a valuation phrase governs is this round's valuation", () => 
         announced: "2026-09-25",
       }),
     ).not.toBeNull();
+  });
+});
+
+describe("a financing total is never the valuation its sentence states", () => {
+  test.each([
+    ["$1.9B", "at a $1.9B valuation"],
+    ["US$18bn", "valuing the company at US$18bn"],
+    ["USD 1.4 billion", "The fintech’s valuation now stands at USD 1.4 billion."],
+    ["$7.1 billion", "Clay raised a $115 million Series D at a $7.1 billion valuation on September 9, 2026."],
+    ["$800M", "$800M Valuation"],
+    ["$3.7 billion", "raises its valuation to $3.7 billion, up from $1.8 billion three months ago."],
+    ["Rs 35 crore", "The Dough Therapy raised Rs 5.25 crore in a seed funding round at a valuation of Rs 35 crore."],
+    ["€13.2 million (SEK 150 million)", "at a €13.2 million (SEK 150 million) valuation"],
+  ])("%s is a valuation", (total, quote) => {
+    expect(totalIsValuation(total, quote)).toBe(true);
+  });
+
+  test.each([
+    [
+      "roughly $835M",
+      "Oxide Computer announced a $445M Series D led by Eclipse at a $6B valuation, bringing total funding to roughly $835M.",
+    ],
+    [
+      "$500 million",
+      "SiMa.ai today announced $150 million in Series C financing, bringing the total capital raised to $500 million and valuing the company at $1.45 billion.",
+    ],
+    ["$300 million", "It brings total funding to $300 million at a $1.6 billion valuation, one year after our $70 million Series B."],
+    ["$185 million", "Total fundraising now stands at $185 million with a current valuation of $570 million."],
+    [
+      "$498.5 million",
+      "This most recent round of funding brings Databricks’ total amount raised to $498.5 million and raises the company’s valuation to $2.75 billion.",
+    ],
+    ["€411M ($468M)", "raised €411M ($468M) in funding, at €2.4 Billion ($2.7 Billion) valuation"],
+  ])("%s is money raised", (total, quote) => {
+    expect(totalIsValuation(total, quote)).toBe(false);
   });
 });

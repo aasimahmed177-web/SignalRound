@@ -174,6 +174,35 @@ export function valuationSupport(
   return null;
 }
 
+/** Words that make the figure after them money raised, not a valuation: "bringing total funding to", "has raised". */
+const RAISED_WORD =
+  /\b(?:total|to date|cumulative|in all|altogether|so far|bringing|brings|brought|raised|raising|funding|capital|financing)\b/gi;
+/** A valuation word right after a figure: "a $1.9B valuation", "$800M post-money valuation". */
+const VALUATION_AFTER = /^\s*(?:\([^)]*\)\s*)?(?:(?:pre|post)[\s-]?money\s+)?valuation\b/i;
+
+/**
+ * Whether the sentence a financing total stands on states that figure as a valuation: "at a $1.9B
+ * valuation", "valuing the company at US$18bn", "The fintech's valuation now stands at USD 1.4 billion".
+ * The words nearest before the figure decide, so "at a $6B valuation, bringing total funding to roughly
+ * $835M" keeps $835M as the total.
+ */
+export function totalIsValuation(total: string | null | undefined, quote: string | null | undefined): boolean {
+  const value = parseAmount(total).value;
+  if (value === null || !quote) return false;
+  const found = figures(quote);
+  const at = found.findIndex((f) => states(f, value));
+  if (at < 0) return false;
+  const stated = found[at];
+  const previous = found[at - 1];
+  const from = Math.max(previous ? previous.index + previous.text.length : 0, stated.index - 70);
+  const lead = quote.slice(from, stated.index);
+  if (VALUATION_AFTER.test(quote.slice(stated.index + stated.text.length))) return true;
+  if (VALUATION_BEFORE.test(lead)) return true;
+  const valuationAt = Math.max(-1, ...[...lead.matchAll(/valu|worth/gi)].map((m) => m.index ?? -1));
+  const raisedAt = Math.max(-1, ...[...lead.matchAll(RAISED_WORD)].map((m) => m.index ?? -1));
+  return valuationAt > raisedAt;
+}
+
 /** Text as the context check compares it: link text kept, markdown marks dropped, lowercase. */
 function plainText(markdown: string): string {
   return markdown

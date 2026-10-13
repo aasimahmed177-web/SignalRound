@@ -17,7 +17,7 @@ import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import type { FeedRecord } from "../records/schema.ts";
 import { isFundingAggregatorUrl } from "../records/source-fit.ts";
-import { namedNearby, roundContext, type ValuationClaim, valuationSupport, withBasis } from "../records/valuation.ts";
+import { namedNearby, roundContext, totalIsValuation, type ValuationClaim, valuationSupport, withBasis } from "../records/valuation.ts";
 import type { ReconcileModel } from "./model.ts";
 
 const Cited = z.object({
@@ -262,7 +262,7 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
   if (corrected.verification?.status !== "confirmed" && corrected.verification?.status !== "corrected") return corrected;
   const out: FeedRecord = { ...corrected };
   // A total the pages state beside the new money is kept with its sentence; it is never the amount or a valuation.
-  if (total?.stated && total.value && total.quote) {
+  if (total?.stated && total.value && total.quote && !totalIsValuation(total.value, total.quote)) {
     out.financing_total_as_written = total.value;
     out.financing_total_quote = total.quote;
   }

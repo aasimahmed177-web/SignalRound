@@ -122,6 +122,37 @@ describe("valuation quote grounding", () => {
   });
 });
 
+describe("financing total", () => {
+  test("a total its sentence states as the valuation is dropped; a running total beside a valuation stays", () => {
+    const atlas = "Atlas Atomics secures $400 million in a Series A round at a $1.9B valuation.";
+    const dropped = settleOnPage(
+      round({
+        company_name: "Atlas Atomics",
+        amount_as_written: "$400 million",
+        financing_total_as_written: "$1.9B",
+        financing_total_quote: atlas,
+        evidence_quote: atlas,
+      }),
+      atlas,
+    );
+    expect(dropped.financing_total_as_written).toBeNull();
+    expect(dropped.financing_total_quote).toBeNull();
+
+    const oxide = "Oxide Computer announced a $445M Series D led by Eclipse at a $6B valuation, bringing total funding to roughly $835M.";
+    const kept = settleOnPage(
+      round({
+        company_name: "Oxide Computer",
+        amount_as_written: "$445M",
+        financing_total_as_written: "roughly $835M",
+        financing_total_quote: oxide,
+        evidence_quote: oxide,
+      }),
+      oxide,
+    );
+    expect(kept.financing_total_as_written).toBe("roughly $835M");
+  });
+});
+
 describe("articleTitle", () => {
   test("the Open Graph title first, then the first H1, then the page title, then the fallback", () => {
     const md = "# Ollie Raises $7.5M Seed\n\nBody.";
