@@ -352,6 +352,7 @@ export function xRefusal(r: RoundRow, cfg: Thresholds, trendingRank: number | nu
   if (r.disposition !== "publish") return r.disposition;
   if (r.verification?.status !== "confirmed" && r.verification?.status !== "corrected")
     return `read-back ${r.verification?.status ?? "pending"}`;
+  if (!r.primary_source) return "no announcement from the company or a wire";
   if (r.lead_investors.length === 0 && r.amount.usd_millions === null && !r.amount.as_written) return "no lead investor and no amount";
   if (xRules(r, cfg, trendingRank).length === 0) return `under $${cfg.minUsdMillions}M and not in Trending's top ${cfg.trendingTop}`;
   if (!r.announced_on || r.announced_on < freshSince(now)) return `announced ${r.announced_on ?? "undated"}: not fresh`;

@@ -59,6 +59,7 @@ const spiko = (over: Partial<Parameters<typeof record>[0]> = {}) =>
     amount: usd(90),
     lead_investors: ["New Enterprise Associates"],
     announced_date: TODAY,
+    sources: [{ url: "https://www.businesswire.com/news/home/spiko", host: "businesswire.com", title: "Spiko raises $90M" }],
     ...over,
   });
 
@@ -326,6 +327,7 @@ describe("selection", () => {
     expect(xRules(small, c, 2)).toEqual(["trending"]);
     expect(xRefusal(small, { ...c, trendingTop: 0 }, 1, NOW)).not.toBeNull();
     expect(xRefusal({ ...r, certainty: "reported" } as RoundRow, c, null, NOW)).toMatch(/not announced/);
+    expect(xRefusal({ ...r, primary_source: null } as RoundRow, c, null, NOW)).toBe("no announcement from the company or a wire");
     expect(xRefusal({ ...r, disposition: "flagged" } as RoundRow, c, null, NOW)).toBe("flagged");
     expect(xRefusal({ ...r, verification: { status: "unverified", notes: [], url: null } } as RoundRow, c, null, NOW)).toMatch(/read-back/);
     expect(xRefusal({ ...r, history: true } as RoundRow, c, null, NOW)).toBe("history round");
@@ -582,6 +584,9 @@ describe("the run", () => {
     await db.execute(sql`create temp table copy as select * from funding_rounds where id = ${keepId}`);
     await db.execute(sql`update copy set id = ${dupId}, announced_on = ${yesterday}`);
     await db.execute(sql`insert into funding_rounds select * from copy`);
+    await db.execute(sql`create temp table copied_sources as select * from round_sources where round_id = ${keepId}`);
+    await db.execute(sql`update copied_sources set round_id = ${dupId}`);
+    await db.execute(sql`insert into round_sources select * from copied_sources`);
     let n = 0;
     const { calls, fetchImpl } = fakeX((m) =>
       m === "POST" ? new Response(JSON.stringify({ data: { id: `${++n}` } }), { status: 201 }) : new Response("{}", { status: 200 }),
