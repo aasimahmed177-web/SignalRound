@@ -553,6 +553,82 @@ describe("persistRecords", () => {
     expect(isSameRound({ stage: "seed", announcedOn: null }, { stage: "pre_seed", announcedOn: "2026-09-09" })).toBe(false);
   });
 
+  test("isSameRound: an undated reading never joins a row its own figures or series letter call another round", () => {
+    const ramp2025 = { stage: "other", announcedOn: "2025-11-01", datePrecision: "month", amountUsdMillions: 300 };
+    expect(isSameRound({ stage: "other", announcedOn: null, amountUsdMillions: 1850 }, ramp2025)).toBe(false);
+    expect(isSameRound({ stage: "other", announcedOn: null, amountUsdMillions: 320 }, ramp2025)).toBe(true);
+    expect(isSameRound({ stage: "other", announcedOn: null, amountUsdMillions: null }, ramp2025)).toBe(true);
+    const seriesD = { stage: "series_d_plus", stageAsWritten: "Series D", announcedOn: "2024-03-01", amountUsdMillions: 100 };
+    expect(isSameRound({ stage: "series_d_plus", stageAsWritten: "Series F", announcedOn: null, amountUsdMillions: 120 }, seriesD)).toBe(
+      false,
+    );
+    expect(isSameRound({ stage: "series_d_plus", stageAsWritten: "Series D", announcedOn: null, amountUsdMillions: 120 }, seriesD)).toBe(
+      true,
+    );
+  });
+
+  test("Ramp: an undated page on this year's round lands on it, never on the 2025 round it would overwrite", async () => {
+    const db = await testDb();
+    const usd = (v: number, as_written: string, day: string) => ({
+      value: v,
+      currency: "USD",
+      as_written,
+      usd_millions: v,
+      fx_rate: 1,
+      fx_date: day,
+    });
+    const earlier = record({
+      company_name: "Ramp",
+      company_domain: "ramp.com",
+      stage: "other",
+      stage_as_written: "funding round",
+      announced_date: "2025-11-01",
+      date_precision: "month",
+      amount: usd(300, "$300 million", "2025-11-01"),
+      lead_investors: ["Lightspeed Venture Partners"],
+      evidence_quotes: ["Ramp is now valued at $32B following a $300 million primary financing round."],
+      sources: [{ url: "https://ramp.com/blog/ramp-november-2025-valuation", host: "ramp.com", title: "Ramp at $32 billion" }],
+    });
+    const reported = record({
+      company_name: "Ramp",
+      company_domain: "ramp.com",
+      stage: "other",
+      stage_as_written: "funding round",
+      announced_date: "2026-10-09",
+      certainty: "reported",
+      amount: usd(1850, "$1.85 billion", "2026-10-09"),
+      lead_investors: ["Dragoneer Investment Group"],
+      evidence_quotes: ["Ramp raised about $1.85 billion, according to people familiar with the matter."],
+      sources: [
+        { url: "https://www.bloomberg.com/news/ramp-1-85-billion", host: "bloomberg.com", title: "Ramp hits $60 billion valuation" },
+      ],
+    });
+    await persistRecords(db, [earlier, reported], "growth", "run-1");
+    const undated = record({
+      company_name: "Ramp",
+      company_domain: "ramp.com",
+      stage: "other",
+      stage_as_written: "funding round",
+      announced_date: null,
+      amount: usd(1850, "$1.85 billion", "2026-10-13"),
+      valuation_as_written: "$60 billion",
+      lead_investors: ["Dragoneer Investment Group"],
+      evidence_quotes: ["Ramp has raised about $1.85 billion in new funding at a valuation of roughly $60 billion."],
+      sources: [
+        {
+          url: "https://www.citybiz.co/article/917242/ramp-raises-1-85b",
+          host: "citybiz.co",
+          title: "Ramp Raises $1.85B at $60B Valuation",
+        },
+      ],
+    });
+    const result = await persistRecords(db, [undated], "growth", "run-2");
+    expect(result.persistedIds).toEqual([reported.id]);
+    const rows = await db.select().from(schema.fundingRounds);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === earlier.id)).toMatchObject({ amountAsWritten: "$300 million", valuationAsWritten: null });
+  });
+
   test("isSameRound: two equity rounds at the same amount inside the stage window are one round whatever the labels", () => {
     // A company does not close two equal rounds a month apart; the labels disagree, the money agrees.
     expect(

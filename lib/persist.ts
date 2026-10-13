@@ -446,15 +446,24 @@ function isStagelessReReport(a: SameRoundFacts, b: SameRoundFacts, days: number)
 
 /**
  * Whether two records for the same company describe one round. Undated on either side is a
- * match when the stage agrees (the date is what a second source usually supplies), and never a
- * match across stages (there is nothing to anchor the week on). Dated readings are compared as the
+ * match when the stage agrees (the date is what a second source usually supplies) and the figures
+ * and series letters do not name another round, and never a match across stages (there is nothing
+ * to anchor the week on). Dated readings are compared as the
  * spans their precision allows. The same stage inside 45 days is one round, and so is a re-report
  * further out (isReReport). Two dated records whose stage labels disagree still match when both
  * are equity and their amounts agree within 10 percent of the larger inside the stage window: a
  * company does not close two equal rounds a month apart, so the surer reading names the stage.
  */
 export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
-  if (!a.announcedOn || !b.announcedOn) return a.stage === b.stage;
+  if (!a.announcedOn || !b.announcedOn) {
+    // An undated reading names no week, so the stage alone places it, unless the reading itself says it
+    // is another round: another series letter, or figures more than twice apart. Ramp's undated page
+    // on its $1.85 billion round landed on its $300 million round of 2025, both "other", and replaced it.
+    if (a.stage !== b.stage) return false;
+    const la = seriesLetter(a.stageAsWritten);
+    const lb = seriesLetter(b.stageAsWritten);
+    return !(la && lb && la !== lb) && !amountsFarApart(a, b);
+  }
   const days = daysApart(a.announcedOn, b.announcedOn);
   if (days <= (a.stage === b.stage ? SAME_STAGE_WINDOW_DAYS : CROSS_STAGE_WINDOW_DAYS) && financingTotalMatches(a, b)) return true;
   if (a.stage === b.stage) {
@@ -709,7 +718,9 @@ function matchingCertainty(stored: MergeRow, incoming: FeedRecord, identity: Rou
   if (!companyMatch(stored, identity)) return false;
   if (stored.certainty === "announced" && (incoming.certainty ?? "announced") === "announced") return isDuplicateRound(stored, identity);
   if (stored.certainty !== "announced" && incoming.certainty !== "announced") return isDuplicateRound(stored, identity);
-  if (stored.stage !== incoming.stage || daysApart(stored.announcedOn, incoming.announced_date) > 90) return false;
+  // An undated reading of a reported round is matched on its figures alone.
+  if (stored.stage !== incoming.stage || (incoming.announced_date && daysApart(stored.announcedOn, incoming.announced_date) > 90))
+    return false;
   const close = (a: number | null, b: number | null) =>
     a !== null && b !== null && a > 0 && b > 0 && Math.abs(a - b) <= 0.25 * Math.max(a, b);
   const amount = close(stored.amountUsdMillions, incoming.amount.usd_millions);
