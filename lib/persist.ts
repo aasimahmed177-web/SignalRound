@@ -1116,6 +1116,7 @@ export async function persistRecords(
     // the claims the row and this reading hold decide it (pickValuation), never the later or longer string.
     if (prev?.pinned && "valuation" in prev.pinned) {
       r.valuation_as_written = prev.pinned.valuation ?? null;
+      delete r.valuation_ruled_out;
     } else if (r.valuation_ruled_out) {
       r.valuation_claims = [];
     } else {

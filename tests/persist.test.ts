@@ -1595,6 +1595,21 @@ describe("money provenance, merges, and the visibility gate", () => {
     expect(row).toMatchObject({ valuationAsWritten: null, valuationClaims: null, disposition: "flagged" });
   });
 
+  test("a read-back that finds no valuation leaves a pinned one, and the published row, as they are", async () => {
+    const handle = await testDb();
+    await persistRecords(handle, [cyera({ valuation_as_written: "$12 billion", valuation_claims: [claim] })], "late", "run-1");
+    await checkedPublication(handle, cyera().id);
+    await handle.execute(sql`update funding_rounds set pinned = '{"valuation": "$12 billion"}'::jsonb`);
+    await persistRecords(
+      handle,
+      [cyera({ valuation_as_written: null, valuation_ruled_out: "no source states it for this round" })],
+      "late",
+      "run-2",
+    );
+    const [row] = await handle.select().from(schema.fundingRounds);
+    expect(row).toMatchObject({ valuationAsWritten: "$12 billion", disposition: "publish" });
+  });
+
   test("Factory: a round a Reddit post alone reports goes to Review, and joins the feed once a publication states it", async () => {
     const handle = await testDb();
     const REDDIT = "https://www.reddit.com/r/singularity/comments/1abc/factory_raises_200m_at_5b/";
