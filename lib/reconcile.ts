@@ -67,7 +67,8 @@ export async function reconcileGrownRows(
   const grown = grownRows(rows);
   if (grown.length === 0) return { reconciled: 0, credits: 0 };
   const result = await reconcileRecords(grown.map(recordFromRow), firecrawlReader(client), model, opts);
-  const byPreset = new Map<string, FeedRecord[]>();
+  // A history row is read back as history: its day comes from its pages, so no earliest-report search is owed.
+  const batches = new Map<string, { preset: string; history: boolean; records: FeedRecord[] }>();
   for (const [i, record] of result.records.entries()) {
     const row = grown[i];
     if (!row) continue;
@@ -77,9 +78,12 @@ export async function reconcileGrownRows(
       continue;
     }
     if (record.verification?.status === "skipped") continue;
-    byPreset.set(row.preset_slug, [...(byPreset.get(row.preset_slug) ?? []), record]);
+    const key = `${row.preset_slug}:${row.history}`;
+    const batch = batches.get(key) ?? { preset: row.preset_slug, history: row.history, records: [] };
+    batch.records.push(record);
+    batches.set(key, batch);
   }
-  for (const [preset, records] of byPreset)
-    await persistRecords(handle, records, preset, `reconcile:${new Date().toISOString().slice(0, 10)}`);
+  for (const { preset, history, records } of batches.values())
+    await persistRecords(handle, records, preset, `reconcile:${new Date().toISOString().slice(0, 10)}`, history ? { history } : {});
   return { reconciled: result.judged, credits: result.creditsEstimated };
 }

@@ -2,8 +2,8 @@
 // (the site mapped for its release, one search, the best pages extracted), newest first, up to a limit.
 // Sweeps corroborate what they write; this exists to bring a store built before a rule up to it.
 
-import { DEFAULT_TIERS, fetchRates, reconcileModel } from "@fireround/core";
-import { corroborateRecord, promoteCheckedRound } from "@/lib/corroborate";
+import { DEFAULT_TIERS, fetchRates } from "@fireround/core";
+import { corroborateModel, corroborateRecord, promoteCheckedRound } from "@/lib/corroborate";
 import { db } from "@/lib/db";
 import { enqueueDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
@@ -119,9 +119,7 @@ export async function corroborateStep(
     }
   }
   // A row that gained sources is read again with all of them in view, as in the sweep.
-  const configured = process.env.RECONCILE_MODEL_CORROBORATE ?? process.env.RECONCILE_MODEL;
-  const safeModel = configured && /^(?:openai\/)?gpt-(?:5\.6|6)-(?:luna|sol)$/.test(configured) ? configured : "openai/gpt-6-luna";
-  const model = reconcileModel({ ...process.env, RECONCILE_MODEL_CORROBORATE: safeModel }, "corroborate");
+  const model = corroborateModel();
   if (model && grew.length > 0) {
     const plan = await getCoverage(handle);
     if (plan.judge) {

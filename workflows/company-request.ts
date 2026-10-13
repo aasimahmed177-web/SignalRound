@@ -1,22 +1,19 @@
-import { type Enrichment, normalizeCompanyKey } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import type { CompanyRequestStatus, CompanyRequestStep, CompanyRequestTally } from "@fireround/core/db/schema";
-import { and, eq, or } from "drizzle-orm";
-import { cleanBrandName } from "@/lib/brand-name";
+import { eq } from "drizzle-orm";
 import { tallyMessage } from "@/lib/company-request-status";
 import { requestTally } from "@/lib/company-requests";
 import { db } from "@/lib/db";
 import { dealLanes } from "@/lib/durable";
-import { isVerified, readProfiles, saveProfiles } from "@/lib/enrich";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
 import { getFirecrawl } from "@/lib/firecrawl";
 import { firecrawlHistoryReader } from "@/lib/history";
 import { addTallies, emptyHistoryTally, type HistoryTally, tallyPromotion } from "@/lib/history-tally";
-import { fillRequestSector, queueFundingSearch, queueGapSearch, readBrand } from "@/lib/request-research";
+import { companyFromHomepage, fillRequestSector, queueFundingSearch, queueGapSearch, readBrand } from "@/lib/request-research";
 import { awaitDiveStep, finishDiveStep, startDiveStep } from "@/workflows/dossiers";
 import { processPrior, queueHistoryStep, recordCompanyStep, scheduleHistoryRetryStep } from "@/workflows/history";
 
-const { companies, companyAliases, companyRequests, enrichments } = schema;
+const { companyRequests } = schema;
 
 async function markRequest(
   id: string,
@@ -51,65 +48,17 @@ export async function researchHomepage(id: string): Promise<{ status: "verified"
   const handle = await db();
   const [request] = await handle.select().from(companyRequests).where(eq(companyRequests.id, id)).limit(1);
   if (!request) throw new Error("Request not found");
-  // A company is found by its domain, or by the domain as its id (the ids most stored companies carry).
-  const [existing] = await handle
-    .select()
-    .from(companies)
-    .where(or(eq(companies.domain, request.domain), eq(companies.id, request.domain)))
-    .limit(1);
-  const companyId = existing?.id ?? request.domain;
-  // The sibling sites the homepage links are where the company publishes too (tldraw.dev for tldraw.com).
-  const saveSites = async (owner: string) => {
-    const sites = request.brand?.sites ?? [];
-    if (sites.length === 0) return;
-    await handle
-      .insert(companyAliases)
-      .values(
-        sites.map((site) => ({ companyId: owner, kind: "domain" as const, aliasKey: site, alias: site, sourceUrl: request.submittedUrl })),
-      )
-      .onConflictDoNothing();
-  };
-  if (existing) {
-    const [profile] = await handle
-      .select({ data: enrichments.data })
-      .from(enrichments)
-      .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")))
-      .limit(1);
-    if (profile && isVerified(profile.data as Enrichment) && (profile.data as Enrichment).profile) {
-      await saveSites(companyId);
-      return { status: "verified", companyId };
-    }
+  const identity = await companyFromHomepage(handle, getFirecrawl(), {
+    domain: request.domain,
+    url: request.submittedUrl,
+    sites: request.brand?.sites ?? [],
+  });
+  if (identity.status === "refused") return identity;
+  if (identity.fresh) {
+    await handle.update(companyRequests).set({ step: "profile", updatedAt: new Date() }).where(eq(companyRequests.id, id));
+    await invalidateEntityPages(handle, { companyIds: [identity.companyId] });
   }
-  const name = existing?.name ?? request.domain.split(".")[0];
-  const result = await readProfiles(
-    handle,
-    getFirecrawl(),
-    [{ id: companyId, name, website: request.submittedUrl, description: null, hq: null, sector: null }],
-    { pricingPage: false },
-  );
-  const verified = result.enrichments.find((enrichment) => isVerified(enrichment) && enrichment.profile);
-  if (!verified) return { status: "refused" };
-  // A homepage's brand name often carries its tagline ("Resend · Email for developers"); the company is named without it.
-  const brandName = verified.brand?.name ? cleanBrandName(verified.brand.name, request.domain) : null;
-  const companyName = brandName && brandName.length <= 80 ? brandName : name;
-  await handle.update(companyRequests).set({ step: "profile", updatedAt: new Date() }).where(eq(companyRequests.id, id));
-  if (!existing) {
-    await handle
-      .insert(companies)
-      .values({
-        id: companyId,
-        name: companyName,
-        nameKey: normalizeCompanyKey(companyName),
-        domain: request.domain,
-        website: request.submittedUrl,
-      })
-      .onConflictDoNothing();
-  }
-  await saveProfiles(handle, result);
-  const [owner] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.domain, request.domain)).limit(1);
-  await saveSites(owner?.id ?? companyId);
-  await invalidateEntityPages(handle, { companyIds: [owner?.id ?? companyId] });
-  return { status: "verified", companyId: owner?.id ?? companyId };
+  return { status: "verified", companyId: identity.companyId };
 }
 
 /** Run the existing durable agent steps without their usual fire-and-forget history hook. */

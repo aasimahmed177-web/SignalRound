@@ -9,6 +9,9 @@
 // "investors" (a round's leads and participants as its announcement states them, written as persist
 // writes a verified list), "hq" and "sector" (a company's headquarters, or its sector from the
 // vocabulary), "certainty" (a round shown as announced that its pages say is still being raised, pinned),
+// "valuation" (a valuation in the words of the page and sentence that state it, pinned),
+// "publish" (a flagged or review row a person checked against a page it cites, published as from the
+// review queue),
 // and "history_lead" (a missing earlier round queued on the history ledger with the page
 // that states it; the history pass reads and verifies it; `requeue` sends a lead that ended without a
 // source back to pending with a new page). Every fix but a merge cites the page it rests on, and

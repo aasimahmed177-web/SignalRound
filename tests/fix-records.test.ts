@@ -317,6 +317,111 @@ describe("applyRecordFixes", () => {
     expect((await read())?.certainty).toBe("expected");
   });
 
+  test("a valuation its announcement states is written in the page's words, kept as a claim, and pinned", async () => {
+    const handle = await testDb();
+    const brex = () =>
+      record({
+        id: "brex:series_c:2019-06-11",
+        company_name: "Brex",
+        company_key: "brex",
+        company_domain: "brex.com",
+        stage: "series_c",
+        stage_as_written: "Series C-2",
+        announced_date: "2019-06-11",
+        amount: { value: 100, currency: "USD", as_written: "$100 million", usd_millions: 100, fx_rate: 1, fx_date: "2019-06-11" },
+        sources: [
+          {
+            url: "https://www.brex.com/journal/press/series-c-2",
+            host: "brex.com",
+            title: "Brex raises $100 million Series C-2",
+            evidence: "Brex has raised $100 million in a Series C-2 round led by Kleiner Perkins.",
+          },
+        ],
+      });
+    await persistRecords(handle, [brex()], "growth", "run-1");
+    const fix: RecordFix = {
+      kind: "valuation",
+      round: "brex:series_c:2019-06-11",
+      from: null,
+      valuation: "$2.6 billion",
+      evidence: "https://www.brex.com/journal/press/series-c-2",
+      quote: "The round brings Brex to a valuation of $2.6 billion.",
+      note: "the announcement states the valuation",
+    };
+    const read = async () => (await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, fix.round)))[0];
+    expect(await applyRecordFixes(handle, [{ ...fix, quote: "Brex has raised $100 million." }], { apply: true })).toMatchObject({
+      refused: 1,
+    });
+    const dry = await applyRecordFixes(handle, [fix], { apply: false });
+    expect(dry.lines.join("\n")).toContain("valuation brex:series_c:2019-06-11: none -> $2.6 billion");
+    expect((await read())?.valuationAsWritten).toBeNull();
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 1, refused: 0 });
+    const row = await read();
+    expect(row).toMatchObject({ valuationAsWritten: "$2.6 billion", valuationDisclosed: true, pinned: { valuation: "$2.6 billion" } });
+    expect(row?.valuationClaims).toContainEqual(expect.objectContaining({ value: "$2.6 billion", url: fix.evidence, quote: fix.quote }));
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+    expect(
+      await applyRecordFixes(
+        handle,
+        [{ ...fix, from: "$3 billion", valuation: "$2.7 billion", quote: "Brex is valued at $2.7 billion." }],
+        { apply: true },
+      ),
+    ).toMatchObject({
+      refused: 1,
+    });
+    // A later reading with no valuation, or another one, leaves the pinned valuation as it is.
+    await persistRecords(handle, [brex()], "growth", "run-2");
+    expect((await read())?.valuationAsWritten).toBe("$2.6 billion");
+  });
+
+  test("a flagged row checked against a page it cites is published as a person would, with the check in its notes", async () => {
+    const handle = await testDb();
+    const release = "https://www.brex.com/journal/press/series-c-2";
+    await persistRecords(
+      handle,
+      [
+        record({
+          id: "brex:series_c:2019-06-11",
+          company_name: "Brex",
+          company_key: "brex",
+          company_domain: "brex.com",
+          stage: "series_c",
+          stage_as_written: "Series C-2",
+          announced_date: "2019-06-11",
+          amount: { value: 100, currency: "USD", as_written: "$100 million", usd_millions: 100, fx_rate: 1, fx_date: "2019-06-11" },
+          confidence: 0.61,
+          verification: { status: "confirmed", notes: [], url: release },
+          sources: [{ url: release, host: "brex.com", title: "Brex raises $100 million Series C-2" }],
+        }),
+      ],
+      "growth",
+      "run-1",
+      { history: true },
+    );
+    const read = async () =>
+      (await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, "brex:series_c:2019-06-11")))[0];
+    expect((await read())?.disposition).toBe("flagged");
+    const fix: RecordFix = {
+      kind: "publish",
+      round: "brex:series_c:2019-06-11",
+      from: "flagged",
+      evidence: release,
+      quote: "Brex has raised $100 million in a Series C-2 round.",
+      note: "the company's own release states the round",
+    };
+    expect(await applyRecordFixes(handle, [{ ...fix, quote: "Brex raised a Series C-2." }], { apply: true })).toMatchObject({ refused: 1 });
+    expect(await applyRecordFixes(handle, [{ ...fix, evidence: "https://news.example/brex-c2" }], { apply: true })).toMatchObject({
+      refused: 1,
+    });
+    expect(await applyRecordFixes(handle, [fix], { apply: false })).toMatchObject({ applied: 0, refused: 0 });
+    expect((await read())?.disposition).toBe("flagged");
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 1 });
+    const row = await read();
+    expect(row).toMatchObject({ disposition: "publish", audit: { status: "human" } });
+    expect((row?.verification as { notes: string[] } | undefined)?.notes.at(-1)).toContain("published by hand (brex.com)");
+    expect(await applyRecordFixes(handle, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+  });
+
   test("a round's syndicate is replaced from its announcement, a company's headquarters and sector move; a second apply skips", async () => {
     const handle = await testDb();
     const round = "positron:series_c:2026-09-11";

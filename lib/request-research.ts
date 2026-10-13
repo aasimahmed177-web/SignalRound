@@ -3,7 +3,7 @@
 // ledger as leads (origin search) while the Deep dive is still running. Neither decides anything: the
 // identity check gates the request, and every lead is verified by the lane like any other.
 
-import type { ExtractedItem, FundingLead, HistoryCandidate, KnownRound, Stage } from "@fireround/core";
+import type { Enrichment, ExtractedItem, FundingLead, HistoryCandidate, KnownRound, Stage } from "@fireround/core";
 import {
   brandFrom,
   canonicalUrl,
@@ -27,6 +27,7 @@ import type { CompanyRequestBrand } from "@fireround/core/db/schema";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { cleanBrandName, searchName } from "./brand-name.ts";
+import { isVerified, readProfiles, saveProfiles } from "./enrich.ts";
 import { classifyCandidates, type HistoryReader } from "./history.ts";
 import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
@@ -47,6 +48,66 @@ export async function readBrand(client: Pick<Firecrawl, "scrape">, url: string):
   } catch {
     return null;
   }
+}
+
+/**
+ * The company a homepage belongs to, through the identity check a request runs: a stored company (by
+ * its domain, or the domain as its id, the ids most stored companies carry) with a verified profile is
+ * taken as it is; otherwise the homepage is read, and only a verified profile adds the company (named
+ * by its brand without the tagline, "Resend · Email for developers") and saves the profile. `sites` are
+ * the sibling sites the homepage links, where the company publishes too (tldraw.dev for tldraw.com).
+ * `fresh` is true when the profile was read and saved now.
+ */
+export async function companyFromHomepage(
+  handle: Db,
+  client: Firecrawl,
+  site: { domain: string; url: string; sites: string[] },
+): Promise<{ status: "verified"; companyId: string; fresh: boolean } | { status: "refused" }> {
+  const [existing] = await handle
+    .select()
+    .from(companies)
+    .where(or(eq(companies.domain, site.domain), eq(companies.id, site.domain)))
+    .limit(1);
+  const companyId = existing?.id ?? site.domain;
+  const saveSites = async (owner: string) => {
+    if (site.sites.length === 0) return;
+    await handle
+      .insert(companyAliases)
+      .values(site.sites.map((s) => ({ companyId: owner, kind: "domain" as const, aliasKey: s, alias: s, sourceUrl: site.url })))
+      .onConflictDoNothing();
+  };
+  if (existing) {
+    const [profile] = await handle
+      .select({ data: enrichments.data })
+      .from(enrichments)
+      .where(and(eq(enrichments.companyId, companyId), eq(enrichments.kind, "profile")))
+      .limit(1);
+    if (profile && isVerified(profile.data as Enrichment) && (profile.data as Enrichment).profile) {
+      await saveSites(companyId);
+      return { status: "verified", companyId, fresh: false };
+    }
+  }
+  const name = existing?.name ?? site.domain.split(".")[0];
+  const result = await readProfiles(
+    handle,
+    client,
+    [{ id: companyId, name, website: site.url, description: null, hq: null, sector: null }],
+    { pricingPage: false },
+  );
+  const verified = result.enrichments.find((enrichment) => isVerified(enrichment) && enrichment.profile);
+  if (!verified) return { status: "refused" };
+  const brandName = verified.brand?.name ? cleanBrandName(verified.brand.name, site.domain) : null;
+  const companyName = brandName && brandName.length <= 80 ? brandName : name;
+  if (!existing) {
+    await handle
+      .insert(companies)
+      .values({ id: companyId, name: companyName, nameKey: normalizeCompanyKey(companyName), domain: site.domain, website: site.url })
+      .onConflictDoNothing();
+  }
+  await saveProfiles(handle, result);
+  const [owner] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.domain, site.domain)).limit(1);
+  await saveSites(owner?.id ?? companyId);
+  return { status: "verified", companyId: owner?.id ?? companyId, fresh: true };
 }
 
 /** The classifier's is_round below this: sure the result states no round of the company. Above SURE_ROUND: sure it does. */

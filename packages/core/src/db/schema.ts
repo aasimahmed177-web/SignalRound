@@ -189,7 +189,7 @@ export const fundingRounds = pgTable(
     /** The disposition a row asked for while the publication gate holds it in review for its audit. */
     pendingDisposition: dispositionEnum("pending_disposition"),
     /**
-     * Facts a person set by hand (`pnpm fix-records`: a redate's day, a restage's stage, a certainty) with the page
+     * Facts a person set by hand (`pnpm fix-records`: a redate's day, a restage's stage, a certainty, a valuation) with the page
      * that states them. No later reading, read-back, merge, or maintenance pass moves a pinned fact:
      * bluecore-energy's hand-checked Sep 8 was back at a trade republication's Sep 22 a day later.
      */

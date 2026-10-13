@@ -15,6 +15,7 @@ import {
   hostOf,
   jevClassifier,
   parseAmount,
+  reconcileModel,
   registrableDomain,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
@@ -121,6 +122,13 @@ export interface CorroborateRecordOptions extends CorroborationOptions {
   tiers?: Record<string, number>;
   /** Injected by tests; fetched otherwise. */
   rates?: Awaited<ReturnType<typeof fetchRates>> | null;
+}
+
+/** The read-back for rows corroboration grew: a pinned GPT-5.6 or GPT-6 luna or sol, else GPT-6 luna. */
+export function corroborateModel(env: Record<string, string | undefined> = process.env) {
+  const configured = env.RECONCILE_MODEL_CORROBORATE ?? env.RECONCILE_MODEL;
+  const safeModel = configured && /^(?:openai\/)?gpt-(?:5\.6|6)-(?:luna|sol)$/.test(configured) ? configured : "openai/gpt-6-luna";
+  return reconcileModel({ ...env, RECONCILE_MODEL_CORROBORATE: safeModel }, "corroborate");
 }
 
 /** The round was merged into another, or removed, after the lane picked it up: nothing left to corroborate. */

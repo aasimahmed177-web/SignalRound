@@ -44,9 +44,11 @@ import {
   type RoundMerge,
   type RoundRow,
   roundsForMerge,
+  setDisposition,
   survivorOrder,
   syncRoundInvestors,
 } from "./persist.ts";
+import { loadPublisherTiers } from "./rules.ts";
 
 const { companies, fundingRounds, historyPromotions, investors, roundInvestors, sources, roundSources, enrichments } = schema;
 
@@ -580,6 +582,34 @@ export type RecordFix =
       note: string;
     }
   /**
+   * A round's valuation as a page states it, in the page's own words ("$61.5 billion post-money"):
+   * one the readings missed, or one a weaker page worded for it. The quote must state the figure. Pinned,
+   * so no later reading moves it, and kept as a valuation claim with its page.
+   */
+  | {
+      kind: "valuation";
+      round: string;
+      from: string | null;
+      valuation: string;
+      evidence: string;
+      quote: string;
+      note: string;
+    }
+  /**
+   * A flagged or review row checked by hand against a page it already cites: a person's publish, as the
+   * review queue's (lib/persist.ts setDisposition). The quote must state the row's amount, and the read-back
+   * must have confirmed or corrected the row. A held row is published only when `hold` names its hold.
+   */
+  | {
+      kind: "publish";
+      round: string;
+      from: "flagged" | "review";
+      evidence: string;
+      quote: string;
+      note: string;
+      hold?: string;
+    }
+  /**
    * A company description that says nothing ("an artificial intelligence company") or is a headline,
    * replaced by one sentence the company's own page supports. A re-enrichment never replaces a
    * description the record already has, so a vague one stays until a fix like this.
@@ -958,6 +988,97 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       await handle
         .update(fundingRounds)
         .set({
+          verification: { ...verification, notes },
+          status: sql`CASE WHEN ${fundingRounds.status} = 'seen' AND NOT ${fundingRounds.history} THEN 'updated' ELSE ${fundingRounds.status} END`,
+          updatedAt: new Date(),
+        })
+        .where(eq(fundingRounds.id, fix.round));
+      out.applied++;
+      continue;
+    }
+
+    if (fix.kind === "publish") {
+      if (row.disposition === "publish") {
+        say(`skip publish ${fix.round}: already published`);
+        out.skipped++;
+        continue;
+      }
+      if (row.disposition !== fix.from) {
+        say(`refuse publish ${fix.round}: the row is ${row.disposition}, expected ${fix.from}`);
+        out.refused++;
+        continue;
+      }
+      if (verification.status !== "confirmed" && verification.status !== "corrected") {
+        say(`refuse publish ${fix.round}: the read-back left it ${verification.status}`);
+        out.refused++;
+        continue;
+      }
+      if (row.hold && row.hold !== fix.hold) {
+        say(`refuse publish ${fix.round}: held (${row.hold})`);
+        out.refused++;
+        continue;
+      }
+      if (!amountInEvidence(row.amountAsWritten, fix.quote)) {
+        say(`refuse publish ${fix.round}: the quote does not state ${row.amountAsWritten}`);
+        out.refused++;
+        continue;
+      }
+      const [cited] = await handle
+        .select({ url: roundSources.sourceId })
+        .from(roundSources)
+        .where(and(eq(roundSources.roundId, fix.round), eq(roundSources.sourceId, canonicalUrl(fix.evidence))));
+      if (!cited) {
+        say(`refuse publish ${fix.round}: ${fix.evidence} is not one of its sources`);
+        out.refused++;
+        continue;
+      }
+      const noteLine = `published by hand (${hostOf(fix.evidence)}): "${fix.quote}": ${fix.note}`;
+      say(`publish ${fix.round}: ${row.disposition} -> publish${row.hold ? `, hold lifted (${row.hold})` : ""}`);
+      say(`  evidence: ${fix.evidence}`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      await setDisposition(handle, fix.round, "publish");
+      const notes = verification.notes.includes(noteLine) ? verification.notes : [...verification.notes, noteLine];
+      await handle
+        .update(fundingRounds)
+        .set({ verification: { ...verification, notes }, updatedAt: new Date() })
+        .where(eq(fundingRounds.id, fix.round));
+      out.applied++;
+      continue;
+    }
+
+    if (fix.kind === "valuation") {
+      if (!amountInEvidence(fix.valuation, fix.quote)) {
+        say(`refuse valuation ${fix.round}: the quote does not state ${fix.valuation}`);
+        out.refused++;
+        continue;
+      }
+      if (row.valuationAsWritten === fix.valuation && row.pinned?.valuation === fix.valuation) {
+        say(`skip valuation ${fix.round}: already ${fix.valuation}, pinned`);
+        out.skipped++;
+        continue;
+      }
+      if (row.valuationAsWritten !== fix.valuation && row.valuationAsWritten !== fix.from) {
+        say(`refuse valuation ${fix.round}: valuation is ${row.valuationAsWritten ?? "none"}, expected ${fix.from ?? "none"}`);
+        out.refused++;
+        continue;
+      }
+      const noteLine = `valuation ${row.valuationAsWritten ?? "none"} read as ${fix.valuation} (${hostOf(fix.evidence)}): "${fix.quote}": ${fix.note}`;
+      say(`valuation ${fix.round}: ${row.valuationAsWritten ?? "none"} -> ${fix.valuation}`);
+      say(`  evidence: ${fix.evidence}`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      const tiers = await loadPublisherTiers();
+      const claim = { value: fix.valuation, quote: fix.quote, url: fix.evidence, tier: tiers[hostOf(fix.evidence)] ?? 0.3 };
+      const claims = (row.valuationClaims ?? []).filter((c) => !(c.url === claim.url && c.value === claim.value));
+      const notes = verification.notes.includes(noteLine) ? verification.notes : [...verification.notes, noteLine];
+      await handle
+        .update(fundingRounds)
+        .set({
+          valuationAsWritten: fix.valuation,
+          valuationDisclosed: true,
+          valuationClaims: [...claims, claim],
+          pinned: { ...(row.pinned ?? {}), valuation: fix.valuation },
           verification: { ...verification, notes },
           status: sql`CASE WHEN ${fundingRounds.status} = 'seen' AND NOT ${fundingRounds.history} THEN 'updated' ELSE ${fundingRounds.status} END`,
           updatedAt: new Date(),
