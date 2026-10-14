@@ -499,6 +499,46 @@ export function isGenericCompanyName(name: string): boolean {
   );
 }
 
+/** Words that open a sentence as a transition: "Meanwhile, Acme raised…" is Acme's news, not a company called Meanwhile. */
+const DISCOURSE_WORD =
+  /^(?:Meanwhile|However|Additionally|Also|Separately|Elsewhere|Similarly|Likewise|Moreover|Furthermore|Besides|Notably|Plus|Finally|Lastly|Overall|Instead|Indeed|Still|Thus|Today|Yesterday|Recently|Earlier|Later|Now|Next)$/;
+
+/** The noun a description of a company ends on: "a life insurance company", "a Phoenix startup". */
+const COMPANY_NOUN =
+  /\b(?:company|firm|startup|start-up|insurer|provider|platform|maker|developer|lender|bank|manufacturer|operator|marketplace|business)$/i;
+
+/**
+ * The name as the sentence bears it out. A transition word that opens a sentence with a comma ("Meanwhile, Acme
+ * raised", another name after the comma) is no name; one a description follows ("Meanwhile, the first life insurer
+ * licensed to operate entirely in Bitcoin, today announced", "Meanwhile, backed by OpenAI CEO Sam Altman, has
+ * raised"), one named mid-sentence ("Bitcoin insurtech Meanwhile raises"), and one with no comma ("Plus raised
+ * $200 million") keep their name. A name the sentence only
+ * describes ("Bitcoin Life Insurance Company" from "Meanwhile, a life insurance company offering premium and
+ * death coverage in Bitcoin, has secured $37.5 million") is no name: the subject that description belongs to
+ * is the company, and with no such subject there is none.
+ */
+export function nameInSentence(name: string, evidence: string | null | undefined): string {
+  const quote = (evidence ?? "").trim();
+  const trimmed = name.trim();
+  if (!trimmed || !quote) return name;
+  const appositiveSubject =
+    /^(\p{Lu}[\p{L}\p{N}.'’&-]*(?:\s+\p{Lu}[\p{L}\p{N}.'’&-]*){0,3}),\s+(?:a|an|the)\s(?:[^,]|,(?!\s)){1,200},\s/u.exec(quote)?.[1];
+  if (DISCOURSE_WORD.test(trimmed)) {
+    const transition = new RegExp(`(?:^|[.!?]\\s+)${trimmed},\\s+\\p{Lu}`, "u").test(quote);
+    const named = new RegExp(`[\\p{L}\\p{N}]\\s+${trimmed}\\b`, "u").test(quote);
+    return transition && !named ? "" : name;
+  }
+  if (!COMPANY_NOUN.test(trimmed) || quote.includes(trimmed)) return name;
+  const lower = quote.toLowerCase();
+  const tokens = trimmed.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const noun = tokens.at(-1) ?? "";
+  const described =
+    tokens.every((t) => new RegExp(`(?<![\\p{L}\\p{N}])${t}(?![\\p{L}\\p{N}])`, "u").test(lower)) &&
+    new RegExp(`\\b(?:a|an|the)\\s+(?:[\\p{L}-]+\\s+){0,4}?${noun}\\b`, "iu").test(quote);
+  if (!described) return name;
+  return appositiveSubject ?? "";
+}
+
 /**
  * A sentence subject naming two entities of one brand ("Acme Therapeutics and Acme Biopharma")
  * is the first; two different companies ("Procter & Gamble") stay one name.
@@ -773,7 +813,7 @@ const names = (list: string[] | undefined) =>
 export function cleanRound(r: ExtractedRound): ExtractedRound {
   const description = cleanText(r.company_description);
   const rawName = cleanHeadlineName(stripFurniture(cleanText(r.company_name)) ?? "");
-  const companyName = isGenericCompanyName(rawName) ? "" : firstOfTwoEntities(rawName);
+  const companyName = isGenericCompanyName(rawName) ? "" : nameInSentence(firstOfTwoEntities(rawName), r.evidence_quote);
   return {
     ...r,
     company_name: companyName,

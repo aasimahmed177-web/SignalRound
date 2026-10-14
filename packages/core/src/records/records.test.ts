@@ -45,6 +45,7 @@ import type { ExtractedItem } from "./resolve.ts";
 import {
   amountInEvidence,
   amountIsRoundTotal,
+  cleanRound,
   closedInMonth,
   dateFromWeekday,
   evidenceNamesAnotherCompany,
@@ -60,6 +61,7 @@ import {
   itemSource,
   mentionsPastPeriod,
   monthNamedIn,
+  nameInSentence,
   ownSiteAmongSources,
   reconcileInvestorLists,
   resolveRounds,
@@ -2127,6 +2129,41 @@ describe("company names and aliases", () => {
     expect(isGenericCompanyName("A Watch Company")).toBe(true);
     expect(isGenericCompanyName("a watch company")).toBe(true);
     expect(isGenericCompanyName("Indian watch company")).toBe(true);
+  });
+
+  test("a transition word or a description is no company name (Meanwhile, Oct 2026)", () => {
+    // KuCoin's headline called Meanwhile "Bitcoin Life Insurance Company"; its sentences open "Meanwhile, a ...".
+    const kucoin =
+      "Meanwhile, a life insurance company offering premium and death coverage in Bitcoin, has secured $37.5 million in new funding from existing investors.";
+    expect(nameInSentence("Bitcoin Life Insurance Company", kucoin)).toBe("Meanwhile");
+    expect(
+      nameInSentence(
+        "Bitcoin Life Insurance Company",
+        "Meanwhile, a company offering life insurance in Bitcoin, has raised $37.5 million in funding led by Bain Capital Crypto...",
+      ),
+    ).toBe("Meanwhile");
+    expect(
+      nameInSentence(
+        "Bitcoin Life Insurance Company",
+        "the first life insurance company fully operated in Bitcoin, has raised $37.5 million in Series B funding led by Bain Capital Crypto.",
+      ),
+    ).toBe("");
+    const release =
+      "Meanwhile, the first life insurer licensed to operate entirely in Bitcoin, today announced $37.5 million in new funding from its existing investors.";
+    expect(nameInSentence("Meanwhile", release)).toBe("Meanwhile");
+    expect(nameInSentence("Meanwhile", "Bitcoin insurtech Meanwhile raises $37.5M.")).toBe("Meanwhile");
+    expect(
+      nameInSentence("Meanwhile", "Meanwhile, backed by OpenAI CEO Sam Altman, has raised $37.5 million, The Block reported on Oct. 9."),
+    ).toBe("Meanwhile");
+    expect(nameInSentence("Meanwhile", "Meanwhile, Acme raised $10 million led by Index Ventures.")).toBe("");
+    expect(nameInSentence("Separately", "Separately, Acme raised $10 million led by Index Ventures.")).toBe("");
+    expect(nameInSentence("Plus", "Plus raised $200 million in Series D funding.")).toBe("Plus");
+    expect(nameInSentence("The Browser Company", "The Browser Company, the maker of Arc, raised $50 million.")).toBe("The Browser Company");
+    expect(nameInSentence("Acme Insurance Company", "The insurance company raised $5 million.")).toBe("Acme Insurance Company");
+    expect(
+      cleanRound(round({ company_name: "Bitcoin Life Insurance Company", round_type_as_written: "funding round", evidence_quote: kucoin }))
+        .company_name,
+    ).toBe("Meanwhile");
   });
 
   test("a two-entity subject of one brand is the first; an ampersand brand is one entity", () => {
