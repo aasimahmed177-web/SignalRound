@@ -35,6 +35,8 @@ Every `pnpm` script in `package.json`, one line each; the ones under `scripts/` 
 
 Each of these applies a rule that now runs on every new record to a store built before the rule existed. They live in `scripts/maintenance/`, apart from the scripts a running instance uses, and most print what they would change until given `--apply`.
 
+A maintenance write against a deployed store ends by asking the deployment to refresh its company and investor pages (`POST /api/cache/invalidate`). That call needs `CRON_SECRET` and `APP_ORIGIN` (the deployed site's origin) in the environment the script runs in, the same values the deployment uses; their `pnpm` entries read them from `.env`. Without them the script stops with an error after its write, and the write still stands: company and investor pages then show it on their own once their cache lapses, within about ten minutes on a page that is being visited and within an hour on a quiet one. The feed and front pages are not part of that call and refresh within a few minutes either way.
+
 | Script | What it does |
 |---|---|
 | `pnpm merge-duplicates` | Fold duplicate rounds, sources, and investor spellings; clear ungrounded amounts; move borrowed days to a surer source; publish verified rows left flagged |
