@@ -192,8 +192,9 @@ describe("one round under two company names", () => {
     expect(rows[0].id).toBe("ultraviolette-automotive:series_d_plus:2026-09-23");
     expect(rows[0].company.name).toBe("Ultraviolette Automotive");
     expect(rows[0].sources).toHaveLength(3);
-    // Even a confirmed reading waits for the earliest-report check.
-    expect(rows[0].disposition).toBe("review");
+    // The fixture's day is now weeks before the round was first seen, so it is history, reported later; a history
+    // row owes no earliest-report search, and the mark holds nothing, so the confirmed reading places it.
+    expect(rows[0]).toMatchObject({ history: true, disposition: "publish" });
     // The row remembers the other name, so a third run that says "Ultraviolette" finds it by key alone.
     const aliases = await db.execute(sql`select company_id, alias_key from company_aliases`);
     expect(aliases.rows).toEqual([{ company_id: "ultraviolette-automotive", alias_key: "ultraviolette" }]);

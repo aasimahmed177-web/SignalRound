@@ -2,7 +2,7 @@ import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
 import { expect, test, vi } from "vitest";
 import { enqueueDeliveries } from "../lib/delivery";
-import { repairLateHistory, repairReleaseDays } from "../lib/late-history";
+import { repairLateHistory, repairReleaseDays, settleReportedLater } from "../lib/late-history";
 import { listRounds, persistRecords, toFeedRow } from "../lib/persist";
 import { createTarget } from "../lib/settings";
 import { record, testDb } from "./helpers";
@@ -131,4 +131,53 @@ test("a round misdated far before its wire release goes back to the release's da
   expect(after).toMatchObject({ announcedOn: released, dateBasis: "stated", history: false, hold: null });
   expect(after.verification?.notes).toEqual(["held for review: earliest-report search pending"]);
   expect(await repairReleaseDays(db, true)).toEqual([]);
+});
+
+/** A round the reported-later mark sent to history while a first, weak reading had it in review. */
+async function frozen(db: Awaited<ReturnType<typeof testDb>>, name: string, notes: string[] = []) {
+  const round = record({ company_name: name, announced_date: day(1), date_basis: "stated", confidence: 0.4 });
+  await persistRecords(db, [round], "seed", "first");
+  await db
+    .update(schema.fundingRounds)
+    .set({ announcedOn: "2023-02-07", verification: { status: "confirmed", notes, url: null } })
+    .where(eq(schema.fundingRounds.id, round.id));
+  const [stored] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id));
+  expect(stored).toMatchObject({ disposition: "review", history: true, hold: expect.stringMatching(/^reported later:/) });
+  return round;
+}
+
+test("the reported-later mark holds nothing: a confirmed later reading places the history row, and owes no earliest-report search", async () => {
+  const db = await testDb();
+  const round = await frozen(db, "Coultreon Biopharma");
+  await persistRecords(
+    db,
+    [
+      {
+        ...round,
+        announced_date: "2023-02-07",
+        confidence: 0.95,
+        verification: { status: "confirmed", notes: [], url: round.sources[0].url },
+      },
+    ],
+    "seed",
+    "readback",
+  );
+  const [after] = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, round.id));
+  expect(after).toMatchObject({ disposition: "publish", history: true, hold: expect.stringMatching(/^reported later:/) });
+  expect(after.verification?.notes ?? []).not.toContain("held for review: earliest-report search pending");
+});
+
+test("rows the mark froze settle to what their facts give, unless a doubt of their own holds them; a dry run by default", async () => {
+  const db = await testDb();
+  const clean = await frozen(db, "Rain", ["held for review: earliest-report search pending"]);
+  const namesake = await frozen(db, "Maven Robotics", ["held for review: same-name company identity is unverified"]);
+  await db.update(schema.fundingRounds).set({ confidence: "0.95" }).where(sql`true`);
+  const changes = await settleReportedLater(db);
+  expect(changes).toEqual([{ id: clean.id, to: "publish" }]);
+  expect((await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, clean.id)))[0].disposition).toBe("review");
+  expect(await settleReportedLater(db, true)).toEqual(changes);
+  const rows = await db.select().from(schema.fundingRounds);
+  expect(rows.find((r) => r.id === clean.id)).toMatchObject({ disposition: "publish", verification: { notes: [] } });
+  expect(rows.find((r) => r.id === namesake.id)?.disposition).toBe("review");
+  expect(await settleReportedLater(db, true)).toEqual([]);
 });

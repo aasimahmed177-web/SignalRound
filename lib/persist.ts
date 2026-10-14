@@ -143,6 +143,9 @@ export function dispositionFor(
   return "publish";
 }
 
+/** A row no hold keeps where it is: none, or only the "reported later" mark the late-history trigger writes. */
+const unheld = sql`(${fundingRounds.hold} IS NULL OR ${fundingRounds.hold} LIKE 'reported later:%')`;
+
 export interface PersistSummary {
   inserted: number;
   updated: number;
@@ -1387,7 +1390,9 @@ export async function persistRecords(
       (!trusted
         ? "source fidelity is not independent confirmation; waiting for a primary source, established publication, or independent corroboration"
         : null) ??
-      (!options.history && prev?.freshnessCheckedOn !== r.announced_date ? "earliest-report search pending" : null);
+      // A history row, written by the history lane or moved there as reported later, owes no earliest-report
+      // search: its day is its own page's, and the search runs only on the feed's rows (round-verification.ts).
+      (!options.history && !prev?.history && prev?.freshnessCheckedOn !== r.announced_date ? "earliest-report search pending" : null);
     if (doubt) {
       const note = `held for review: ${doubt}`;
       const v = r.verification ?? { status: "unverified" as const, notes: [], url: null };
@@ -1534,22 +1539,23 @@ export async function persistRecords(
               }
             : {}),
           // A post-only reading never moves a row the pipeline or a person already placed, and no reading
-          // moves a held row: it waits for a person (lib/late-report.ts).
+          // moves a held row: it waits for a person (lib/late-report.ts). "Reported later" only marks a
+          // round its own page dates long before it was seen as history, not news; it holds nothing.
           disposition:
             options.startIn === "flagged"
               ? fundingRounds.disposition
               : options.startIn
-                ? sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} = 'review' THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
+                ? sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} = 'review' THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
                 : r.valuation_ruled_out || doubt
                   ? // A valuation taken off, a broken invariant, or secondhand sources move even a published row,
                     // except a doubt on a row a person placed when the reading keeps its company and amount: Ramp's
                     // hand-published Series C went back to review when a namesake doubt came with a new source.
-                    sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged', 'publish') AND NOT (${
+                    sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} IN ('review', 'flagged', 'publish') AND NOT (${
                       r.valuation_ruled_out
                         ? sql`false`
                         : sql`coalesce(${fundingRounds.audit}->>'status', '') = 'human' AND ${fundingRounds.disposition} IN ('publish', 'flagged') AND ${fundingRounds.companyId} = ${companyId} AND ${fundingRounds.amountUsdMillions} IS NOT DISTINCT FROM (${amountUsd})::numeric`
                     }) THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
-                  : sql`CASE WHEN ${fundingRounds.hold} IS NULL AND ${fundingRounds.disposition} IN ('review', 'flagged') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`,
+                  : sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} IN ('review', 'flagged') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`,
           // A reading that holds the row in review withdraws what it asked for at the publication gate.
           ...(disposition === "review" ? { pendingDisposition: null } : {}),
         })

@@ -1,8 +1,9 @@
-import { wireReleaseDay, yieldsToRelease } from "@fireround/core";
+import { type FeedRecord, wireReleaseDay, yieldsToRelease } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { NEWS_WINDOW_DAYS } from "./deliverable.ts";
+import { dispositionFor } from "./persist.ts";
 
 const { fundingRounds, roundSources, sources } = schema;
 
@@ -144,6 +145,57 @@ export async function repairReleaseDays(handle: Db, apply = false): Promise<Rele
           : {}),
       })
       .where(eq(fundingRounds.id, r.id));
+  }
+  return changes;
+}
+
+export interface ReportedLaterSettle {
+  id: string;
+  to: "publish" | "flagged";
+}
+
+const EARLIEST_REPORT = "held for review: earliest-report search pending";
+
+/**
+ * Settle the rows the "reported later" mark froze in review. Before it stopped holding rows (persist's
+ * `unheld`), a round its own page dates long before it was first seen went to history with the mark and
+ * stayed in review whatever later readings found. Each such row takes the disposition its stored facts
+ * give (dispositionFor), unless a doubt of its own still holds it (a namesake, secondhand or unconfirmed
+ * sources, a broken invariant) or the publication audit failed it. The earliest-report search a feed row
+ * waits for is not owed by a history row, so that note alone comes off. A dry run by default.
+ */
+export async function settleReportedLater(handle: Db, apply = false): Promise<ReportedLaterSettle[]> {
+  const rows = await handle
+    .select({
+      id: fundingRounds.id,
+      announcedOn: fundingRounds.announcedOn,
+      confidence: fundingRounds.confidence,
+      amountAsWritten: fundingRounds.amountAsWritten,
+      verification: fundingRounds.verification,
+      audit: fundingRounds.audit,
+    })
+    .from(fundingRounds)
+    .where(
+      and(eq(fundingRounds.disposition, "review"), eq(fundingRounds.history, true), sql`${fundingRounds.hold} LIKE 'reported later:%'`),
+    );
+  const changes: ReportedLaterSettle[] = [];
+  for (const r of rows) {
+    const notes = r.verification?.notes ?? [];
+    if (r.audit?.status === "fail" || notes.some((n) => n.startsWith("held for review:") && n !== EARLIEST_REPORT)) continue;
+    const to = dispositionFor({
+      undated: r.announcedOn === null,
+      confidence: Number(r.confidence),
+      amount: { as_written: r.amountAsWritten },
+      verification: (r.verification as FeedRecord["verification"]) ?? undefined,
+    });
+    if (to === "review") continue;
+    changes.push({ id: r.id, to });
+    if (!apply) continue;
+    const verification = r.verification && { ...r.verification, notes: notes.filter((n) => n !== EARLIEST_REPORT) };
+    await handle
+      .update(fundingRounds)
+      .set({ disposition: to, verification, updatedAt: new Date() })
+      .where(and(eq(fundingRounds.id, r.id), eq(fundingRounds.disposition, "review")));
   }
   return changes;
 }
