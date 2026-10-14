@@ -804,6 +804,140 @@ describe("re-reports and re-dated rows", () => {
     expect(row.announced_on).toBe("2026-06-09");
   });
 
+  test("Lime and Together AI: two rounds months apart, each from its own page, stay two", async () => {
+    const db = await testDb();
+    const lime = { company_name: "Lime", company_key: "lime", company_domain: "li.me", date_basis: "page" as const };
+    const together = {
+      company_name: "Together AI",
+      company_key: "together ai",
+      company_domain: "together.ai",
+      date_basis: "page" as const,
+    };
+    const pairs = [
+      // Lime's $335 million of July 2018 (GV led) and its $310 million Series D of February 2019 (GV among the
+      // leads): 212 days apart, figures 7.5% apart, no page in common.
+      [
+        record({
+          ...lime,
+          id: "lime:other:2018-07-09",
+          stage: "other",
+          stage_as_written: "funding round",
+          announced_date: "2018-07-09",
+          amount: usd(335, "2018-07-09"),
+          lead_investors: ["GV"],
+          other_investors: ["Andreessen Horowitz", "Fidelity", "IVP", "Uber"],
+          sources: [
+            {
+              url: "https://venturebeat.com/technology/lime-raises-335-million-including-from-uber-whose-app-will-now-offer-scooters",
+              host: "venturebeat.com",
+            },
+          ],
+        }),
+        record({
+          ...lime,
+          id: "lime:series_d_plus:2019-02-06",
+          stage: "series_d_plus",
+          stage_as_written: "Series D",
+          announced_date: "2019-02-06",
+          amount: usd(310, "2019-02-06"),
+          lead_investors: ["Bain Capital", "GV"],
+          other_investors: ["Andreessen Horowitz", "Fidelity", "IVP"],
+          sources: [
+            { url: "https://techcrunch.com/2019/02/06/lime-raises-310-million-series-d-round-led-by-bain-capital", host: "techcrunch.com" },
+          ],
+        }),
+      ],
+      // Together AI's $102.5 million Series A and its $106 million Series A2, 105 days apart.
+      [
+        record({
+          ...together,
+          id: "together:series_a:2023-11-29",
+          stage: "series_a",
+          stage_as_written: "Series A",
+          announced_date: "2023-11-29",
+          amount: usd(102.5, "2023-11-29"),
+          lead_investors: ["Kleiner Perkins"],
+          sources: [{ url: "https://www.together.ai/blog/series-a", host: "together.ai" }],
+        }),
+        record({
+          ...together,
+          id: "together:series_a:2024-03-13",
+          stage: "series_a",
+          stage_as_written: "Series A2",
+          announced_date: "2024-03-13",
+          amount: usd(106, "2024-03-13"),
+          lead_investors: ["Salesforce Ventures"],
+          sources: [{ url: "https://www.together.ai/blog/series-a2", host: "together.ai" }],
+        }),
+      ],
+    ];
+    for (const [first, second] of pairs) {
+      await persistRecords(db, [first], "growth", `run-${first.id}`);
+      expect((await persistRecords(db, [second], "growth", `run-${second.id}`)).inserted).toBe(1);
+    }
+    expect((await rows(db)).map((r) => r.id).sort()).toEqual([
+      "lime:other:2018-07-09",
+      "lime:series_d_plus:2019-02-06",
+      "together:series_a:2023-11-29",
+      "together:series_a:2024-03-13",
+    ]);
+    expect((await mergeDuplicateRounds(db)).merged).toBe(0);
+  });
+
+  test("Brex: an early report of the Series D-2 with the confirmation's figure and lead still joins it", async () => {
+    const db = await testDb();
+    const base = { company_name: "Brex", company_key: "brex", company_domain: "brex.com" };
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "brex:other:2021-10-26",
+          stage: "other",
+          stage_as_written: "funding round",
+          announced_date: "2021-10-26",
+          date_basis: "page",
+          amount: usd(300, "2021-10-26"),
+          lead_investors: ["Greenoaks"],
+          sources: [
+            {
+              url: "https://www.businessinsider.com/brex-raises-300-million-to-build-smb-product-suite-2021-10",
+              host: "businessinsider.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-1",
+    );
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "brex:series_d_plus:2022-01-11",
+          stage: "series_d_plus",
+          stage_as_written: "Series D-2",
+          announced_date: "2022-01-11",
+          date_basis: "url",
+          amount: usd(300, "2022-01-11"),
+          lead_investors: ["Greenoaks", "Technology Crossover Ventures"],
+          sources: [
+            {
+              url: "https://techcrunch.com/2022/01/11/brex-confirms-12-3b-valuation-hires-meta-exec-to-serve-as-its-chief-product-officer",
+              host: "techcrunch.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-2",
+    );
+    const [row, ...rest] = await rows(db);
+    expect(rest).toHaveLength(0);
+    expect(row.stage_as_written).toBe("Series D-2");
+  });
+
   test("Higharc: a monthly list's reading of a July release is one round, and the release's day stands", async () => {
     const db = await testDb();
     const base = {
@@ -1010,6 +1144,21 @@ describe("re-reports and re-dated rows", () => {
       isSameRound(r({ ...stated, sourceIds: ["https://a"] }), r({ ...stated, announcedOn: "2026-09-10", sourceIds: ["https://a"] })),
     ).toBe(true);
     expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-04-05" }))).toBe(true);
+    // Past 180 days, figures more than 5% apart from no shared page are two rounds; within 5%, or sharing a
+    // page, a late reading still joins. One currency compares as written, not through the dollar's move.
+    expect(isSameRound(r({}), r({ announcedOn: "2026-09-10", amountUsdMillions: 107 }))).toBe(false);
+    expect(isSameRound(r({}), r({ announcedOn: "2026-09-10", amountUsdMillions: 104 }))).toBe(true);
+    expect(isSameRound(r({}), r({ announcedOn: "2026-06-10", amountUsdMillions: 107 }))).toBe(true);
+    expect(
+      isSameRound(r({ sourceIds: ["https://a"] }), r({ announcedOn: "2026-09-10", amountUsdMillions: 107, sourceIds: ["https://a"] })),
+    ).toBe(true);
+    const euros = { amountValue: 130, amountCurrency: "EUR" };
+    expect(isSameRound(r({ ...euros, amountUsdMillions: 141 }), r({ ...euros, announcedOn: "2026-09-10", amountUsdMillions: 150 }))).toBe(
+      true,
+    );
+    // A tranche beside its plain series is its own raise past the 45-day window: Together AI's Series A2.
+    expect(isSameRound(r({ stageAsWritten: "Series B" }), r({ stageAsWritten: "Series B2", announcedOn: "2026-04-20" }))).toBe(false);
+    expect(isSameRound(r({ stageAsWritten: "Series B" }), r({ stageAsWritten: "Series B2", announcedOn: "2026-02-10" }))).toBe(true);
     // A monthly list's day is any day of its month: August 31 is 29 days from July 2, not 60.
     expect(
       isSameRound(

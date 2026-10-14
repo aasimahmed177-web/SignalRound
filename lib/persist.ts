@@ -439,6 +439,13 @@ export const REREPORT_CORROBORATED_WINDOW_DAYS = 3 * 365;
  * still joins its round (ICEYE's June Series F, back from September and October articles).
  */
 export const STATED_APART_DAYS = 90;
+/**
+ * Two rows this far apart whose figures differ by more than FIGURES_APART_SHARE, with no page in common,
+ * are two rounds: Lime's $335 million of July 2018 and its $310 million Series D of February 2019. A late
+ * page re-reporting a round repeats its figure, or cites the page the round came from.
+ */
+export const FIGURES_APART_DAYS = 180;
+export const FIGURES_APART_SHARE = 0.05;
 
 /** What isSameRound compares; the optional facts widen or narrow its windows when both sides carry them. */
 export interface SameRoundFacts {
@@ -510,13 +517,14 @@ function seriesLetter(written: string | undefined): string | null {
 /**
  * Whether two same-stage readings far apart are one round re-reported. The stage must be a named
  * one (other and undisclosed name nothing), both amounts must be known and agree within a tenth,
- * an extension is its own raise, and two different letters inside Series D+ ("Series D" and
+ * an extension or a tranche is its own raise (Together AI's $106 million Series A2, three months after
+ * its $102.5 million Series A), and two different letters inside Series D+ ("Series D" and
  * "Series E") are two rounds. Inside a year that is enough; up to three years the two must share a
  * page, or one must be dated only by a list, or share a lead (corroboratedPast).
  */
 function isReReport(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
   if (!EQUITY_LADDER.has(a.stage) || isStageless(a.stage as Stage)) return false;
-  if (Boolean(a.isExtension) !== Boolean(b.isExtension)) return false;
+  if (Boolean(a.isExtension) !== Boolean(b.isExtension) || tranche(a) !== tranche(b)) return false;
   const la = seriesLetter(a.stageAsWritten);
   const lb = seriesLetter(b.stageAsWritten);
   if (la && lb && la !== lb) return false;
@@ -600,6 +608,20 @@ function statedApart(a: SameRoundFacts, b: SameRoundFacts, days: number): boolea
 }
 
 /**
+ * Whether two dated readings more than FIGURES_APART_DAYS apart, sharing no page, state figures more than
+ * FIGURES_APART_SHARE apart. Figures in one currency compare as written, so a euro round re-reported a
+ * year on is not set apart by the dollar's move.
+ */
+function figuresApart(a: SameRoundFacts, b: SameRoundFacts): boolean {
+  if (readingGap(a, b) <= FIGURES_APART_DAYS) return false;
+  if ((a.sourceIds ?? []).some((s) => (b.sourceIds ?? []).includes(s))) return false;
+  const native = a.amountCurrency != null && a.amountCurrency === b.amountCurrency && a.amountValue != null && b.amountValue != null;
+  const x = (native ? a.amountValue : a.amountUsdMillions) ?? null;
+  const y = (native ? b.amountValue : b.amountUsdMillions) ?? null;
+  return x !== null && y !== null && x > 0 && y > 0 && Math.abs(x - y) > FIGURES_APART_SHARE * Math.max(x, y);
+}
+
+/**
  * Whether two records for the same company describe one round. Undated on either side is a
  * match when the stage agrees (the date is what a second source usually supplies) and the figures
  * and series letters do not name another round, and never a match across stages (there is nothing
@@ -621,7 +643,7 @@ export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
     return !(la && lb && la !== lb) && !amountsFarApart(a, b);
   }
   const days = daysApart(a.announcedOn, b.announcedOn);
-  if (statedApart(a, b, days)) return false;
+  if (statedApart(a, b, days) || figuresApart(a, b)) return false;
   if (days <= (a.stage === b.stage ? SAME_STAGE_WINDOW_DAYS : CROSS_STAGE_WINDOW_DAYS) && financingTotalMatches(a, b)) return true;
   if (separateCloses(a, b, days)) return false;
   if (a.stage === b.stage) {
