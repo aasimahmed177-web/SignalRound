@@ -3,7 +3,7 @@ import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { describe, expect, it } from "vitest";
-import { corroborateRecord } from "../lib/corroborate.ts";
+import { corroborateRecord, fragmentToFill } from "../lib/corroborate.ts";
 import { corroborateUnstated, corroborationTargets } from "../lib/intel.ts";
 import { listRounds, persistRecords } from "../lib/persist.ts";
 import { linksToDrop, pruneCorroborationSources, type StoredLink } from "../lib/prune-corroboration.ts";
@@ -170,6 +170,25 @@ describe("acceptCorroboration", () => {
       accept: false,
       reason: "round",
     });
+  });
+});
+
+describe("fragmentToFill", () => {
+  it("keeps each page's own day and leaves a page with none undated, never the fragment's day", () => {
+    // Collective X Health: a fragment dated October 1 wrote that day as the publish day of three PR Newswire pages released Oct 13.
+    const fragment = record({
+      company_name: "Collective X Health",
+      stage: "pre_seed",
+      announced_date: "2026-10-01",
+      sources: [
+        {
+          url: "https://www.prnewswire.com/news-releases/collective-x-health-launches-with-a-3-2-million-pre-seed-round-to-close-the-womens-health-data-gap-302907275.html",
+          host: "prnewswire.com",
+        },
+        { url: "https://insider.fitt.co/press-release/collective-x-health-launches", host: "insider.fitt.co", published: "2026-10-13" },
+      ],
+    });
+    expect(fragmentToFill(fragment).sources.map((s) => s.published)).toEqual([null, "2026-10-13"]);
   });
 });
 

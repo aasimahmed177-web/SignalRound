@@ -9,6 +9,7 @@ import { resolveRounds } from "../records/resolve.ts";
 import type { ExtractedRound } from "../records/schema.ts";
 import {
   articleTitle,
+  editStamp,
   extractRounds,
   groundingCheck,
   guessedYear,
@@ -715,5 +716,146 @@ describe("an undated page is not dated to its crawl", () => {
     expect(result.items[0]?.round.announced_date).toBeNull();
     expect(result.items[0]?.page_date).toBeUndefined();
     expect(result.items[0]?.source.published).toBe("2026-10-09");
+  });
+});
+
+describe("a page's own day, from the pages the feed audit found misdated", () => {
+  function page(doc: { markdown: string; page_date: string | null; rounds: ExtractedRound[]; metadata: Record<string, unknown> }) {
+    return {
+      scrape: async () => ({
+        markdown: doc.markdown,
+        json: { page_kind: "article", page_date: doc.page_date, rounds: doc.rounds },
+        metadata: doc.metadata,
+      }),
+    } as unknown as Firecrawl;
+  }
+  const day = (v: string | null | undefined) => (v ? new Date(v).toISOString().slice(0, 10) : v);
+  const resolvedDay = (items: Parameters<typeof resolveRounds>[0], now: Date) => {
+    const r = resolveRounds(items, {
+      stages: ["seed", "series_a", "series_b", "series_d_plus", "other"],
+      windowStart: new Date(now.getTime() - 30 * 86_400_000),
+      now,
+    }).kept[0];
+    return r && { date: r.announced_date, precision: r.date_precision };
+  };
+
+  test("editStamp: a printed day is the last edit when the modified time gives it and the published time another", () => {
+    const now = new Date("2026-10-14T06:53:55Z");
+    expect(editStamp("2026-09-06", "2026-06-03T05:30:52+00:00", "2026-09-06T09:51:42+00:00", now)).toBe("2026-09-06");
+    expect(editStamp("2026-10-09", "2026-10-09T06:01:08.000Z", "2026-10-09T06:01:08.668Z", now)).toBeNull();
+    expect(editStamp("2026-09-06", undefined, "2026-09-06T09:51:42+00:00", now)).toBeNull();
+    expect(editStamp("2026-09-06", "2026-06-03T05:30:52+00:00", undefined, now)).toBeNull();
+    expect(editStamp(null, "2026-06-03T05:30:52+00:00", "2026-09-06T09:51:42+00:00", now)).toBeNull();
+  });
+
+  test("Factorial's Series D post: the day under its headline is its last edit, and the page is June 3", async () => {
+    const now = new Date("2026-10-14T06:53:55Z");
+    const sentence = "We are announcing the closing of a $150 million Series D funding round led by General Catalyst.";
+    const result = await extractRounds(
+      page({
+        markdown: `[Inside Factorial](https://factorial.com/blog/inside-factorial/)
+
+# Factorial Raises $150M Series D, Reaches $2.5 Billion Valuation to Become One of the Most Valuable AI Scale-Ups in Europe
+
+September 6, 2026
+
+·
+
+6 min read
+
+${sentence}`,
+        page_date: "2026-09-06",
+        rounds: [
+          round({
+            company_name: "Factorial",
+            round_type_as_written: "Series D",
+            amount_as_written: "$150 million",
+            announced_date: "2026-09-06",
+            evidence_quote: sentence,
+          }),
+        ],
+        metadata: { "article:published_time": "2026-06-03T05:30:52+00:00", "article:modified_time": "2026-09-06T09:51:42+00:00" },
+      }),
+      [{ url: "https://factorial.com/blog/factorial-raises-150m-series-d-becoming-most-valuable-ai-scale-ups-europe/" }],
+      { now },
+    );
+    expect(result.items[0]?.round.announced_date).toBeNull();
+    expect(day(result.items[0]?.page_date)).toBe("2026-06-03");
+    expect(day(result.items[0]?.source.published)).toBe("2026-06-03");
+  });
+
+  test("Morningstar's copy of the Sava release is dated by its Open Graph time, not a sidebar byline's Oct 5", async () => {
+    const now = new Date("2026-10-10T01:01:04Z");
+    const sentence = "Ascensia led the Series B financing round and has made a strategic equity investment in Sava.";
+    const result = await extractRounds(
+      page({
+        markdown: `**Ascensia Announces Strategic Partnership with Sava for Innovative Microsensor Technology**
+
+Ascensia Diabetes Care, a global diabetes care company and subsidiary of PHC Holdings Corporation (TYO 6523), today announced a strategic partnership with venture-backed health technology startup Sava Technologies.
+
+${sentence}
+
+David Sekera, CFA and Susan DziubinskiOct 5, 2026`,
+        page_date: "2026-10-05",
+        rounds: [round({ company_name: "Sava", round_type_as_written: "Series B", announced_date: null, evidence_quote: sentence })],
+        metadata: { "og:article:published_time": "2026-10-09T00:42:00-05:00" },
+      }),
+      [
+        {
+          url: "https://www.morningstar.com/news/business-wire/20261008725757/ascensia-announces-strategic-partnership-with-sava-for-innovative-microsensor-technology",
+        },
+      ],
+      { now },
+    );
+    expect(day(result.items[0]?.page_date)).toBe("2026-10-09");
+    expect(day(result.items[0]?.source.published)).toBe("2026-10-09");
+  });
+
+  test("a PR Newswire release is dated by its own date tag", async () => {
+    const now = new Date("2026-10-13T18:04:27Z");
+    const sentence =
+      "Collective X Health (CX), a women's health and performance intelligence platform, announced today it has emerged from stealth with a $3.2 million oversubscribed pre-seed";
+    const result = await extractRounds(
+      page({
+        markdown: `SAN FRANCISCO, Oct. 13, 2026 /PRNewswire/ -- ${sentence}, co-led by Council Capital and Anthemis Female Innovators Lab Fund.`,
+        page_date: null,
+        rounds: [
+          round({ company_name: "Collective X Health", round_type_as_written: "pre-seed", announced_date: null, evidence_quote: sentence }),
+        ],
+        metadata: { date: "2026-10-13T13:00:00-04:00", Publisher: "Cision PR Newswire" },
+      }),
+      [
+        {
+          url: "https://www.prnewswire.com/news-releases/collective-x-health-launches-with-a-3-2-million-pre-seed-round-to-close-the-womens-health-data-gap-302907275.html",
+        },
+      ],
+      { now },
+    );
+    expect(day(result.items[0]?.source.published)).toBe("2026-10-13");
+  });
+
+  test("a republication that writes no day is not dated to the first of a month its sidebar names", async () => {
+    const now = new Date("2026-10-08T15:06:29Z");
+    const sentence =
+      "A generative audio startup run by people who came out of TikTok's AI and music divisions has raised $11 million to build models that write music and sound effects to match what happens on screen.";
+    const result = await extractRounds(
+      page({
+        markdown: `AI Audio Startup Sonilo, Founded by TikTok Veterans, Raises $11 Million in B Capital-Led Round (EXCLUSIVE)
+
+${sentence}
+
+- [What's New on Netflix in October 2026](https://variety.com/feature/whats-on-netflix)`,
+        page_date: "2026-10-01",
+        rounds: [
+          round({ company_name: "Sonilo", round_type_as_written: "funding round", announced_date: "2026-10-01", evidence_quote: sentence }),
+        ],
+        metadata: {},
+      }),
+      [{ url: "https://malaysia.news.yahoo.com/ai-audio-startup-sonilo-founded-130000619.html" }],
+      { now },
+    );
+    // The month the extractor gave the round stays a month; October 1 is no longer the page's day.
+    expect(result.items[0]?.page_date).toBeUndefined();
+    expect(resolvedDay(result.items, now)).toEqual({ date: "2026-10-01", precision: "month" });
   });
 });

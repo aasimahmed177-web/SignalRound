@@ -283,6 +283,24 @@ const MONTH_INDEX: Record<string, number> = {
 };
 
 /**
+ * Whether the sentence announces the round now and names `month` as the month it closed: "On Tuesday,
+ * Causa Prima announced a $20 million seed round that closed in September"; "Vest announced Wednesday that
+ * it had raised a $13 million seed round, which closed in July". The month is the close, not the
+ * announcement, so it does not date the round. Pure.
+ */
+export function closedInMonth(evidence: string | null | undefined, month: Date): boolean {
+  const m =
+    /\b(?:closed|completed|finali[sz]ed|wrapped up)\s+(?:in|during|earlier in|back in)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.exec(
+      evidence ?? "",
+    );
+  return (
+    Boolean(m?.[1]) &&
+    MONTH_INDEX[(m?.[1] ?? "").toLowerCase()] === month.getUTCMonth() &&
+    /\bannounc(?:ed|es|ing)\b|\btoday\b/i.test(evidence ?? "")
+  );
+}
+
+/**
  * Whether the sentence places the round in the past: a month and year before the window, "last year",
  * a season with "this" or "last", or "earlier this year". A profile or a follow-on story says "raised a
  * $3M seed this spring" or "announced closed in June 2025" and that round is history, not news.
@@ -1244,6 +1262,8 @@ interface StatedDate {
   /** The stated day once copied bylines are taken off: the round's own date, or null. */
   own: Date | null;
   firstOfMonth: boolean;
+  /** The first-of-month stamp is the month the round closed, which a sentence announcing it now names (closedInMonth). */
+  closeMonth: boolean;
   statedByPage: boolean;
   pageDate: Date | null;
   roundupPage: boolean;
@@ -1261,6 +1281,7 @@ function statedDate(item: ExtractedItem, round: ExtractedRound, sourced: Sourced
   const statedRaw = listedOnTimeline ? null : parseStatedDate(round.announced_date);
   const firstOfMonth =
     statedRaw !== null && statedRaw.getUTCDate() === 1 && !/\b(?:1st|first|\b1,|\b01\b)/i.test(round.evidence_quote ?? "");
+  const closeMonth = firstOfMonth && statedRaw !== null && closedInMonth(round.evidence_quote, statedRaw);
   const pageDate = parseStatedDate(item.page_date);
   const roundupPage = isListPage(source, pageKind, ctx.roundsPerPost.get(source.url) ?? 0) || isRecountPage(source);
   const pageOwnDay = pageDate ?? dateFromUrl(source.url) ?? parseDate(source.published, ctx.now);
@@ -1282,7 +1303,7 @@ function statedDate(item: ExtractedItem, round: ExtractedRound, sourced: Sourced
   // A list never states an announcement day: its items' days are the issue's, a column's, or invented
   // (a "169 VCs leading rounds" listicle gave each round a day). The list's day is an upper bound.
   const own = firstOfMonth || roundupPage || weekMarker ? null : statedRaw;
-  return { statedRaw, own, firstOfMonth, statedByPage, pageDate, roundupPage };
+  return { statedRaw, own, firstOfMonth, closeMonth, statedByPage, pageDate, roundupPage };
 }
 
 /** The rungs of the date ladder, each null when a surer rung above it answered. */
@@ -1326,7 +1347,7 @@ function precisionFor(rungs: DateRungs, announced: Date | null, roundupPage: boo
  */
 function dateRound(item: ExtractedItem, round: ExtractedRound, sourced: Sourced, ctx: PageContext): Dated | DropReason {
   const { source, onTimeline } = sourced;
-  const { statedRaw, own, firstOfMonth, statedByPage, pageDate, roundupPage } = statedDate(item, round, sourced, ctx);
+  const { statedRaw, own, firstOfMonth, closeMonth, statedByPage, pageDate, roundupPage } = statedDate(item, round, sourced, ctx);
   // A social post (an Instagram repost, a LinkedIn or Facebook post) carries no date of its own that a
   // reader can trust: only a day its text states dates the round.
   const socialPost = SOCIAL_POST_HOSTS.has(registrableDomain(source.url) ?? "");
@@ -1342,7 +1363,7 @@ function dateRound(item: ExtractedItem, round: ExtractedRound, sourced: Sourced,
   // as the month it points at.
   const monthlyTitle = MONTHLY_LIST.test(source.title ?? "");
   const listMonth = roundupPage || monthlyTitle ? monthNamedIn(source.title ?? "") : null;
-  const monthOnly = listMonth ?? (firstOfMonth ? statedRaw : null);
+  const monthOnly = listMonth ?? (firstOfMonth && !closeMonth ? statedRaw : null);
   const rungs: DateRungs = { own, byWeekday, monthOnly, pageDate: pageDay, fromUrl, fromResult };
   const announced = own ?? byWeekday ?? monthOnly ?? pageDay ?? fromUrl ?? fromResult;
   const precision = precisionFor(rungs, announced, roundupPage, monthlyTitle);

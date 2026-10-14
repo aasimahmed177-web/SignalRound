@@ -23,7 +23,7 @@ import {
   urlSlug,
 } from "../records/normalize.ts";
 import type { ExtractedItem } from "../records/resolve.ts";
-import { amountInEvidence, DEFAULT_TIMELINE_HOSTS } from "../records/resolve.ts";
+import { amountInEvidence, DEFAULT_TIMELINE_HOSTS, evidenceStatesDay } from "../records/resolve.ts";
 import type { ExtractedRound, PageKind, RoundSource } from "../records/schema.ts";
 import { ROUNDS_PAGE_PROMPT, RoundsPageLenient, roundsPageJsonSchema } from "../records/schema.ts";
 import { namedNearby, totalIsValuation, totalRepeatsAmount } from "../records/valuation.ts";
@@ -507,28 +507,45 @@ export function textWritesDay(markdown: string, day: Date): boolean {
  * date more than a day and a half after the scrape is no page's either: the extractor read BRIDGE's
  * QibiTech story, scraped on October 1, as published October 4, and the round dropped as out of window. Pure.
  */
-export function offClock(value: string | null | undefined, markdown: string | undefined, now: Date): string | null {
+export function offClock(
+  value: string | null | undefined,
+  markdown: string | undefined,
+  now: Date,
+  urlDay: Date | null = null,
+): string | null {
   if (!value) return null;
   if (markdown === undefined) return value;
   const day = parseDate(value, now);
   if (day && day.getTime() - now.getTime() > CLOCK_SLACK_MS) return null;
   if (!day || Math.abs(now.getTime() - day.getTime()) > CLOCK_SLACK_MS) return value;
+  // A day the page's URL carries too, give or take a day, is the page's: Morningstar's copy of a Business Wire
+  // release (/news/business-wire/20261008725757/) went up at 00:42 Central the next morning.
+  if (urlDay && Math.abs(urlDay.getTime() - day.getTime()) <= CLOCK_SLACK_MS) return value;
   return textWritesDay(markdown, day) ? value : null;
 }
 
 /**
- * A day the extractor answered is the page's only when the page writes it, or, for the first of a month,
- * writes that month (a round the page dates only to a month). Otherwise it is the extractor's own: a
+ * A day the extractor answered is the page's only when the page writes it, or, for a round's first of a
+ * month, writes that month (a round the page dates only to a month). Otherwise it is the extractor's own: a
  * byline it invented, a listing's day, a weekday it resolved against the wrong week. KONST's Series B
  * went out on PR Newswire on Oct 9; a republisher's page that writes no day came back dated Oct 6, and
  * the round sat three days before every page that carried it. It becomes no date, so the page's own
- * day, a weekday in the sentence, the URL, or the search result dates the round instead. Pure.
+ * day, a weekday in the sentence, the URL, or the search result dates the round instead. A page's own
+ * publish date is a day, never a month (`monthAlone: false`): a Yahoo republication of Variety's Sonilo
+ * story writes no day, its sidebar links "What's New on Netflix in October 2026", and the extractor's
+ * October 1 for the page was not its day. Pure.
  */
-export function writtenDay(value: string | null | undefined, markdown: string | undefined, now: Date): string | null {
+export function writtenDay(
+  value: string | null | undefined,
+  markdown: string | undefined,
+  now: Date,
+  opts: { monthAlone?: boolean } = {},
+): string | null {
   if (!value) return null;
   if (markdown === undefined) return value;
   const day = parseDate(value, now);
   if (!day || textWritesDay(markdown, day)) return value;
+  if (opts.monthAlone === false) return null;
   const [full, abbr] = MONTH_NAMES[day.getUTCMonth()] as [string, string];
   return day.getUTCDate() === 1 && new RegExp(`\\b(?:${full}|${abbr}\\.?)\\b`, "i").test(markdown) ? value : null;
 }
@@ -589,6 +606,34 @@ function metadataString(doc: { metadata?: Record<string, unknown> }, key: string
   return text(Array.isArray(value) ? value[0] : value);
 }
 
+/**
+ * The tags a page names its publication time with: Open Graph's (Morningstar writes it as
+ * og:article:published_time) and a wire's plain `date` (PR Newswire's releases carry no other).
+ */
+const PUBLISHED_KEYS = ["publishedTime", "article:published_time", "og:article:published_time", "date"];
+const MODIFIED_KEYS = ["modifiedTime", "article:modified_time", "og:article:modified_time"];
+
+function firstMetadata(doc: { metadata?: Record<string, unknown> }, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = metadataString(doc, key);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+/**
+ * The day under a headline that is the page's last edit, not its publication: the day its modified time
+ * gives, when its published time gives another. Factorial's Series D post prints "September 6, 2026", its
+ * article:modified_time; its article:published_time, like the PR Newswire release, is June 3. Null when
+ * the printed day is not such a stamp. Pure.
+ */
+export function editStamp(printed: string | null, published: string | undefined, modified: string | undefined, now: Date): string | null {
+  const day = (v: string | null | undefined) => parseDate(v, now)?.toISOString().slice(0, 10) ?? null;
+  const stamp = day(printed);
+  if (!stamp || !day(published) || stamp !== day(modified) || stamp === day(published)) return null;
+  return stamp;
+}
+
 /** A newsroom article's printed publication day immediately below its headline. */
 export function visibleArticleDate(markdown: string | undefined, ctx: DateContext = {}): string | null {
   if (!markdown) return null;
@@ -645,11 +690,13 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
       // CMS wrote it, so it is never a year read off a navigation menu, which the extractor has
       // done), else the dateline or byline the extractor read. The search result's date stays on
       // the source as the last rung.
-      const metadataPublished =
-        offClock(metadataString(doc, "publishedTime") ?? metadataString(doc, "article:published_time"), doc.markdown, now) ?? undefined;
+      const metadataPublished = offClock(firstMetadata(doc, PUBLISHED_KEYS), doc.markdown, now, dateFromUrl(t.url)) ?? undefined;
       // A numeric byline both orders could read ("08-10-2026") takes the one the page's other dates, or the clock, support.
       const pageDates = { agree: [parseDate(metadataPublished, now), dateFromUrl(t.url)], near: now };
-      const visible = offClock(visibleArticleDate(doc.markdown, pageDates), doc.markdown, now);
+      const printed = offClock(visibleArticleDate(doc.markdown, pageDates), doc.markdown, now);
+      // A printed day that is the page's last edit yields to its published time, and so does a round's day the extractor copied from it.
+      const edited = editStamp(printed, metadataPublished, firstMetadata(doc, MODIFIED_KEYS), now);
+      const visible = edited ? null : printed;
       // What the page says of its own day without the extractor: the year a guessed year is held to.
       const ownDay = parseDate(visible ?? metadataPublished, now) ?? dateFromUrl(t.url) ?? parseDate(t.published, now, pageDates);
       // A day the page does not write is the extractor's (writtenDay), as is the clock's (offClock), and
@@ -657,7 +704,13 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
       const rounds = await mapLimit(parsed.success ? parsed.data.rounds : [], 8, async (r) => ({
         ...r,
         announced_date: guessedYear(
-          writtenDay(offClock(r.announced_date, doc.markdown, now), doc.markdown, now),
+          writtenDay(
+            edited && parseDate(r.announced_date, now)?.toISOString().slice(0, 10) === edited && !evidenceStatesDay(r.evidence_quote)
+              ? null
+              : offClock(r.announced_date, doc.markdown, now),
+            doc.markdown,
+            now,
+          ),
           doc.markdown,
           ownDay,
           now,
@@ -684,7 +737,9 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
           visible ??
           metadataPublished ??
           guessedYear(
-            writtenDay(offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now), doc.markdown, now),
+            writtenDay(offClock(parsed.success ? parsed.data.page_date : null, doc.markdown, now), doc.markdown, now, {
+              monthAlone: false,
+            }),
             doc.markdown,
             ownDay,
             now,

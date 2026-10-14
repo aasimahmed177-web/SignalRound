@@ -105,11 +105,12 @@ export function fragmentToFill(fragment: FeedRecord, candidates: CorroborationCa
     headquarters: fragment.headquarters,
     sector: fragment.sector,
     evidence_quotes: fragment.evidence_quotes,
-    // Each page keeps its own day: an earlier release read beside today's coverage is not dated to the fragment's day.
+    // Each page keeps its own day, and a page with none stays undated: the fragment's day is the round's, and a
+    // month-dated fragment wrote its first as the publish day of Collective X Health's three PR Newswire pages.
     sources: fragment.sources.map((s) => ({
       url: s.url,
       title: s.title ?? null,
-      published: s.published ?? fragment.announced_date,
+      published: s.published ?? null,
       evidence: s.evidence ?? null,
       query: kinds.get(canonicalUrl(s.url)) === "news" ? "corroborate:news" : "corroborate",
     })),

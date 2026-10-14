@@ -45,6 +45,7 @@ import type { ExtractedItem } from "./resolve.ts";
 import {
   amountInEvidence,
   amountIsRoundTotal,
+  closedInMonth,
   dateFromWeekday,
   evidenceNamesAnotherCompany,
   evidenceNamesCompany,
@@ -1062,6 +1063,59 @@ describe("announced dates: precision and which day stands", () => {
     expect(dateFromWeekday("Acme said on Thursday it raised $5M.", page)?.toISOString().slice(0, 10)).toBe("2026-09-03");
     expect(dateFromWeekday("Acme raised $5M.", page)).toBeNull();
     expect(dateFromWeekday("Acme announced Tuesday.", null)).toBeNull();
+  });
+
+  test("a month the round closed in does not date a round the sentence announces now (Causa Prima, Vest)", () => {
+    const now = new Date("2026-10-13T12:00:00Z");
+    const opts = { stages: ["seed" as const], windowStart: new Date("2026-08-14T00:00:00Z"), now };
+    const read = (evidence: string, announced: string, pageDate: string, url: string, company = "Causa Prima") =>
+      resolveRounds(
+        [
+          {
+            ...item(
+              round({
+                company_name: company,
+                round_type_as_written: "seed",
+                announced_date: announced,
+                evidence_quote: evidence,
+              }),
+              url,
+            ),
+            page_date: pageDate,
+          },
+        ],
+        opts,
+      ).kept[0];
+    const fortune = read(
+      "On Tuesday, Delaware-based Causa Prima announced a $20 million seed round that closed in September.",
+      "2026-09-01",
+      "2026-10-13",
+      "https://fortune.com/2026/10/13/startup-causa-prima-20-million-billing-disputes-ai-agents",
+    );
+    expect([fortune?.announced_date, fortune?.date_precision]).toEqual(["2026-10-13", "day"]);
+    const yahoo = read(
+      "Causa Prima announced a $20 million seed round that closed in September.",
+      "2026-09-01",
+      "2026-10-13",
+      "https://finance.yahoo.com/technology/ai/articles/startup-causa-prima-raises-20-100000433.html",
+    );
+    expect([yahoo?.announced_date, yahoo?.date_precision]).toEqual(["2026-10-13", "day"]);
+    // "announced Wednesday" resolves against the page's day once the close month is set aside.
+    const vest = read(
+      "Vest announced Wednesday that it had raised a $13 million seed round, which closed in July.",
+      "2026-07-01",
+      "2026-10-08",
+      "https://fortune.com/2026/10/07/exclusive-portal-ventures-vest-13-million-proprietary-trading",
+      "Vest",
+    );
+    expect([vest?.announced_date, vest?.date_precision]).toEqual(["2026-10-07", "day"]);
+    // A month the sentence gives the round itself is still its month.
+    expect(
+      read("Causa Prima raised a $20 million seed round in September.", "2026-09-01", "2026-10-13", "https://example.com/a")
+        ?.date_precision,
+    ).toBe("month");
+    expect(closedInMonth("Acme announced a seed round that closed in September.", new Date("2026-08-01T12:00:00Z"))).toBe(false);
+    expect(closedInMonth("Acme's seed round closed in September.", new Date("2026-09-01T12:00:00Z"))).toBe(false);
   });
 
   test("a past period in the sentence is history", () => {
