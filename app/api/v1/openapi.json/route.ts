@@ -292,7 +292,7 @@ export function GET(request: Request) {
   const CompanyId = {
     type: "string",
     description:
-      "The company's id, the segment of its page's URL: its domain when known (\"ramp.com\"), else its name hyphenated. Pass it to /api/v1/companies/{id}, which also takes the company's domain (a URL of its site works too) or an earlier id",
+      'The company\'s id, the segment of its page\'s URL: its domain when known ("ramp.com"), else its name hyphenated. Pass it to /api/v1/companies/{id}, which also takes the company\'s domain (a URL of its site works too), an earlier id, or its name as written ("Hugging Face", "Alice & Bob", "TypeSafe AI")',
   };
   const CompanyRound = {
     allOf: [
@@ -701,7 +701,8 @@ export function GET(request: Request) {
           parameters: [{ name: "id", in: "path", required: true, schema: CompanyId }],
           responses: {
             "404": {
-              description: "No company with that id has a published round. The message names the closest matches, if any",
+              description:
+                "No company with a published round matches the id, domain or name, or the name belongs to more than one company. did_you_mean (and the message) names up to five companies to retry with: the namesakes, else names a typo or two away and what a search for the name finds",
               content: {
                 "application/json": { schema: { type: "object", properties: { error: { type: "string" }, did_you_mean: DidYouMean } } },
               },

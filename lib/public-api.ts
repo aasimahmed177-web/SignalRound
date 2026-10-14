@@ -3,11 +3,12 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import { investorKeyForMerge, isListPage, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
+import { investorKeyForMerge, isListPage, normalizeCompanyKey, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { getCompany } from "./company.ts";
+import { companySlug } from "./company-ids.ts";
 import { type CompanySort, likeTerm, listCompanies, listInvestors } from "./directory.ts";
 import { companyRedirect, investorRedirect } from "./entity-exists.ts";
 import { getInvestor, investorTypeLabel } from "./investor.ts";
@@ -16,7 +17,7 @@ import { NOT_NEWS_HOSTS } from "./news.ts";
 import { siteOrigin } from "./origin.ts";
 import { caught } from "./stats.ts";
 
-const { fundingRounds, companies, investors, roundInvestors, sources, roundSources } = schema;
+const { fundingRounds, companies, companyAliases, investors, roundInvestors, sources, roundSources } = schema;
 
 const DAY_MS = 86_400_000;
 
@@ -331,10 +332,62 @@ export function oneEditAway<T extends { edits: number }>(near: T[]): T | null {
   return one.length === 1 ? (one[0] ?? null) : null;
 }
 
+const looksLikeSite = (wanted: string) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(bareSite(wanted));
+
+/** A company name as an id would spell it: "Alice & Bob" is alice-and-bob, "Character.AI" character-ai. */
+const nameSlug = (name: string) => companySlug(name.replace(/&/g, " and "));
+
+/** A company's name key with "Lab" off its tail too, so "Thinking Machines" and "Thinking Machines Lab" meet. */
+const lookupKey = (name: string) => normalizeCompanyKey(name).replace(/ lab$/, "");
+
 /**
- * A profile by what was asked; else the one name a single edit away, read under that name and saying so
- * (matched_from, note); else the 404 body naming the near ones. A site (linear.app) names one page exactly,
- * so a miss on it is never read as a near name's profile (Liner) and only lists the near ones.
+ * The company a name asks for once no id, site or earlier id matched: the id its name would be spelled as
+ * ("hugging-face"), or the one company whose name or a name it is known by is the same once case,
+ * punctuation and a trailing Inc, AI, Labs, Technologies and the like are off both ("TypeSafe AI" for
+ * TypeSafe AI, "Black Forest" for Black Forest Labs). Only companies with a published round count. Two
+ * that answer are namesakes, and the one whose name is exactly what was asked wins ("Scale AI" over a
+ * "Scale"); otherwise the namesakes come back to choose from, never one of them picked. A site is a name
+ * here only when a company's name is that site as written ("Character.AI"). Null when none answers.
+ */
+async function companyByName(handle: Db, wanted: string): Promise<string | Array<{ id: string; name: string }> | null> {
+  const key = lookupKey(wanted);
+  if (!key) return null;
+  const keys = [key, `${key} lab`];
+  const slug = nameSlug(wanted);
+  const aliases = await handle
+    .select({ id: companyAliases.companyId, alias: companyAliases.alias })
+    .from(companyAliases)
+    .where(and(eq(companyAliases.kind, "name"), inArray(companyAliases.aliasKey, keys)));
+  const rows = await handle
+    .select({ id: companies.id, name: companies.name, rounds: sql<number>`count(*)::int` })
+    .from(companies)
+    .innerJoin(fundingRounds, eq(fundingRounds.companyId, companies.id))
+    .where(
+      and(
+        inArray(fundingRounds.disposition, ["publish", "flagged"]),
+        or(
+          eq(companies.id, slug),
+          inArray(companies.nameKey, keys),
+          aliases.length ? inArray(companies.id, [...new Set(aliases.map((a) => a.id))]) : undefined,
+        ),
+      ),
+    )
+    .groupBy(companies.id)
+    .orderBy(desc(sql`count(*)`), companies.id);
+  const names = (r: { id: string; name: string }) => [r.name, ...aliases.filter((a) => a.id === r.id).map((a) => a.alias)];
+  const site = looksLikeSite(wanted);
+  const asked = site ? rows.filter((r) => names(r).some((n) => n.toLowerCase() === wanted)) : rows;
+  const exact = asked.filter((r) => r.id === slug || names(r).some((n) => nameSlug(n) === slug));
+  const only = asked.length === 1 ? asked[0] : exact.length === 1 ? exact[0] : undefined;
+  if (only) return only.id;
+  return asked.length ? asked.slice(0, 5).map(({ id, name }) => ({ id, name })) : null;
+}
+
+/**
+ * A profile by what was asked; for a company, else by its name (companyByName); else the one name a single
+ * edit away, read under that name and saying so (matched_from, note); else the 404 body naming the near
+ * ones, and for a company what a search for it finds, up to five. A site (linear.app) names one page
+ * exactly, so a miss on it is never read as a near name's profile (Liner) and only lists the near ones.
  */
 async function profileOrNear<T extends { name: string }>(
   handle: Db,
@@ -345,22 +398,34 @@ async function profileOrNear<T extends { name: string }>(
 ) {
   const found = await read(wanted);
   if (found) return found;
+  const noun = kind === "companies" ? "company" : "investor";
+  const named = kind === "companies" ? await companyByName(handle, wanted) : null;
+  if (Array.isArray(named)) return notFound(`More than one company goes by "${wanted}"`, named);
+  const byName = named ? await read(named) : null;
+  if (byName) return byName;
   const near = await nearNames(handle, kind, wanted);
-  const meant = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(bareSite(wanted)) ? null : oneEditAway(near);
+  const meant = looksLikeSite(wanted) ? null : oneEditAway(near);
   const matched = meant ? await read(meant.id) : null;
-  if (matched) {
-    const noun = kind === "companies" ? "company" : "investor";
-    return { ...matched, matched_from: wanted, note: `No ${noun} goes by "${wanted}"; this is ${matched.name}, one edit away.` };
+  if (matched) return { ...matched, matched_from: wanted, note: `No ${noun} goes by "${wanted}"; this is ${matched.name}, one edit away.` };
+  const candidates = near.map(({ id, name }) => ({ id, name }));
+  if (kind === "companies") {
+    for (const q of new Set([wanted, lookupKey(wanted)].filter(Boolean))) {
+      const { rows } = await listCompanies(handle, { q, pageSize: 5 });
+      candidates.push(...rows.map(({ id, name }) => ({ id, name })));
+    }
   }
-  return notFound(
-    miss,
-    near.map(({ id, name }) => ({ id, name })),
-  );
+  return notFound(miss, candidates.filter((c, i) => candidates.findIndex((d) => d.id === c.id) === i).slice(0, 5));
 }
 
 /** A company's profile, or the one company a misspelled id plainly meant, or the 404 body naming the near ones. */
 export function companyProfileOrNear(handle: Db, wanted: string) {
-  return profileOrNear(handle, "companies", wanted, (id) => apiCompanyProfile(handle, id), "No company with that id has a published round");
+  return profileOrNear(
+    handle,
+    "companies",
+    wanted,
+    (id) => apiCompanyProfile(handle, id),
+    `No company matches "${wanted}" by id, domain or name; try its domain or a company search`,
+  );
 }
 
 /** An investor's profile, or the one investor a misspelled id plainly meant, or the 404 body naming the near ones. */

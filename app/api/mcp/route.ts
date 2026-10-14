@@ -204,7 +204,8 @@ const handler = createMcpHandler(
       "get_company",
       {
         title: "Get a company",
-        description: "Every round on record for one company, by domain or name. Pass company, or id as get_company_profile takes it.",
+        description:
+          "Every round on record for one company, by its id, domain or name as written (Hugging Face, Alice & Bob). Pass company, or id as get_company_profile takes it. A name that matches no company, or more than one, is an error naming the companies it could mean.",
         inputSchema: z.object({
           company: z.string().min(1).max(200).optional().describe("Domain (acme.com) or name"),
           id: z.string().min(1).max(200).optional().describe("The same as company, under get_company_profile's name"),
@@ -214,8 +215,15 @@ const handler = createMcpHandler(
       reader("get_company", async (args, handle) => {
         const company = args.company ?? args.id;
         if (!company) return refusal("Pass company: a domain (acme.com) or a name.");
-        const { rows } = await listRounds(handle, { company, limit: 50, includeReview: trusted });
-        return text({ company, rounds: rows.map(compactRound) });
+        const found = await companyProfileOrNear(handle, company.trim().toLowerCase());
+        if ("error" in found) {
+          const { rows } = trusted ? await listRounds(handle, { company, limit: 50, includeReview: true }) : { rows: [] };
+          if (rows.length) return text({ company, rounds: rows.map(compactRound) });
+          return { ...text({ company, rounds: [], ...found }), isError: true };
+        }
+        const { rows } = await listRounds(handle, { companyId: found.id, limit: 50, includeReview: trusted });
+        const { matched_from, note } = found as { matched_from?: string; note?: string };
+        return text({ company, id: found.id, matched_from, note, rounds: rows.map(compactRound) });
       }),
     );
 
@@ -301,7 +309,7 @@ const handler = createMcpHandler(
       {
         title: "Get a company profile",
         description:
-          "One company's funding: who it is, what it raised (announced and reported rounds), its valuation history (valuation_history: the latest stated valuation and every one before it, kept apart from what it raised), every round the feed lists for it, newest first, with leads, the official announcement, and its valuation where one is citable, and its investors, leads first. An id one edit from a single company reads that company, with matched_from and a note; any other miss is an error naming the nearest companies.",
+          "One company's funding: who it is, what it raised (announced and reported rounds), its valuation history (valuation_history: the latest stated valuation and every one before it, kept apart from what it raised), every round the feed lists for it, newest first, with leads, the official announcement, and its valuation where one is citable, and its investors, leads first. It takes the company's id, domain or name as written (Hugging Face, Alice & Bob). An id one edit from a single company reads that company, with matched_from and a note; any other miss, or a name more than one company goes by, is an error naming up to five companies to retry with.",
         inputSchema: z.object({
           id: z
             .string()
