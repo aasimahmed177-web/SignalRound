@@ -11,7 +11,22 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-const { investors, roundInvestors } = schema;
+const { investors, investorFolds, roundInvestors } = schema;
+
+/**
+ * Record that an investor id now lives on another row, so its old page and API id lead there: ids
+ * folded into the old one before follow it, and a row that comes back under the survivor's id is not
+ * left pointing at itself.
+ */
+export async function recordInvestorFold(handle: Db, fromId: string, intoId: string): Promise<void> {
+  if (fromId === intoId) return;
+  await handle.update(investorFolds).set({ intoId }).where(eq(investorFolds.intoId, fromId));
+  await handle
+    .insert(investorFolds)
+    .values({ fromId, intoId })
+    .onConflictDoUpdate({ target: investorFolds.fromId, set: { intoId, foldedAt: new Date() } });
+  await handle.delete(investorFolds).where(eq(investorFolds.fromId, intoId));
+}
 
 export interface InvestorRepairPlan {
   /** Rows that name nobody in particular: their links come off every round, and the row goes. */
@@ -214,6 +229,7 @@ export async function applyInvestorRepair(
     );
     await handle.delete(roundInvestors).where(eq(roundInvestors.investorId, m.id));
     await handle.delete(investors).where(eq(investors.id, m.id));
+    await recordInvestorFold(handle, m.id, m.into);
   }
   for (const r of plan.rename) {
     const site = r.domain ? { domain: r.domain, domainCheckedAt: new Date(), logoUrl: null, logoCheckedAt: null } : {};

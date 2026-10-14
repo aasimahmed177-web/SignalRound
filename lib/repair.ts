@@ -31,6 +31,7 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import type { HistoryPrior } from "@fireround/core/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { recordInvestorFold } from "./investor-repair.ts";
 import {
   applyRoundMerge,
   dispositionFor,
@@ -81,6 +82,7 @@ export async function rekeyInvestors(handle: Db): Promise<{ merged: number }> {
     );
     await handle.delete(roundInvestors).where(eq(roundInvestors.investorId, inv.id));
     await handle.delete(investors).where(eq(investors.id, inv.id));
+    await recordInvestorFold(handle, inv.id, key);
     merged++;
   }
   return { merged };

@@ -157,3 +157,19 @@ export async function companyRedirect(handle: Db, id: string): Promise<{ id: str
 export async function foldedInto(handle: Db, id: string): Promise<string | null> {
   return (await companyRedirect(handle, id))?.id ?? null;
 }
+
+/**
+ * Where an investor id that no longer exists now lives, or null: the row the investor repair folded it
+ * into (a spelling of the same firm), followed through later folds. A live id never redirects.
+ */
+export async function investorRedirect(handle: Db, id: string): Promise<string | null> {
+  const [live] = await handle.select({ id: schema.investors.id }).from(schema.investors).where(eq(schema.investors.id, id)).limit(1);
+  if (live) return null;
+  const [fold] = await handle
+    .select({ id: schema.investors.id })
+    .from(schema.investorFolds)
+    .innerJoin(schema.investors, eq(schema.investors.id, schema.investorFolds.intoId))
+    .where(eq(schema.investorFolds.fromId, id))
+    .limit(1);
+  return fold?.id ?? null;
+}

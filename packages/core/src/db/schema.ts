@@ -102,6 +102,17 @@ export const companyFolds = pgTable(
   (t) => [index("company_folds_into_idx").on(t.intoId)],
 );
 
+/** An investor id the repair folded into another firm's row, so its old page and API id still lead there. */
+export const investorFolds = pgTable(
+  "investor_folds",
+  {
+    fromId: text("from_id").primaryKey(),
+    intoId: text("into_id").notNull(),
+    foldedAt: timestamp("folded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("investor_folds_into_idx").on(t.intoId)],
+);
+
 /** Verified company-owned sections, discovered from the homepage or a mapped linked site. */
 export const companyNewsrooms = pgTable(
   "company_newsrooms",

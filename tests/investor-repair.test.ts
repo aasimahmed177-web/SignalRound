@@ -1,8 +1,12 @@
 // The investor directory brought under today's name hygiene (P1-12).
 import { schema } from "@fireround/core/db";
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { applyInvestorRepair, type InvestorDecision, planInvestorRepair } from "../lib/investor-repair";
+import { investorRedirect } from "../lib/entity-exists";
+import { applyInvestorRepair, type InvestorDecision, planInvestorRepair, recordInvestorFold } from "../lib/investor-repair";
 import { persistRecords } from "../lib/persist";
+import { apiInvestorProfile } from "../lib/public-api";
+import { rekeyInvestors } from "../lib/repair";
 import { record, testDb } from "./helpers";
 
 describe("repair-investors", () => {
@@ -116,5 +120,51 @@ describe("repair-investors", () => {
     expect(rows.has("the d e shaw")).toBe(false);
     const links = await db.select().from(roundInvestors);
     expect(links.filter((l) => l.investorId === "d e shaw")).toHaveLength(1);
+  });
+
+  test("a folded investor's old id leads to the firm's row, through later folds, and a live id never redirects", async () => {
+    const db = await testDb();
+    const round = record({ company_name: "Acme", lead_investors: ["Fund One"] });
+    await persistRecords(db, [round], "series-a-b", "run-1");
+    const { investors, roundInvestors } = schema;
+    await db.insert(investors).values([
+      { id: "kpcb", name: "KPCB" },
+      { id: "kleiner perkins ventures", name: "Kleiner Perkins Ventures" },
+      { id: "kleiner perkins", name: "Kleiner Perkins" },
+    ]);
+    await db.insert(roundInvestors).values([
+      { roundId: round.id, investorId: "kleiner perkins ventures", role: "lead" },
+      { roundId: round.id, investorId: "kleiner perkins", role: "participant" },
+    ]);
+    await applyInvestorRepair(db, await planInvestorRepair(db));
+    expect(await investorRedirect(db, "kleiner perkins ventures")).toBe("kleiner perkins");
+    expect(await investorRedirect(db, "kleiner perkins")).toBeNull();
+    expect(await investorRedirect(db, "nobody")).toBeNull();
+    // An API caller that kept the old id gets the firm's profile.
+    await db.update(schema.fundingRounds).set({ disposition: "publish" }).where(eq(schema.fundingRounds.id, round.id));
+    expect((await apiInvestorProfile(db, "kleiner-perkins"))?.id).toBe("kleiner-perkins");
+    expect((await apiInvestorProfile(db, "kleiner-perkins-ventures"))?.id).toBe("kleiner-perkins");
+
+    // The survivor folds on in turn: the first old id follows it.
+    await db.insert(investors).values({ id: "kp", name: "KP" });
+    await db.insert(roundInvestors).values({ roundId: round.id, investorId: "kp", role: "participant" });
+    await recordInvestorFold(db, "kleiner perkins", "kp");
+    await db.delete(roundInvestors).where(eq(roundInvestors.investorId, "kleiner perkins"));
+    await db.delete(investors).where(eq(investors.id, "kleiner perkins"));
+    expect(await investorRedirect(db, "kleiner perkins ventures")).toBe("kp");
+    expect(await investorRedirect(db, "kleiner perkins")).toBe("kp");
+    // A fold back onto an id that had folded away clears that id's own fold.
+    await recordInvestorFold(db, "kp", "kleiner perkins");
+    expect((await db.select().from(schema.investorFolds)).find((f) => f.fromId === "kleiner perkins")).toBeUndefined();
+  });
+
+  test("the re-key records each fold it makes", async () => {
+    const db = await testDb();
+    const round = record({ company_name: "Acme", lead_investors: ["Fund One"] });
+    await persistRecords(db, [round], "series-a-b", "run-1");
+    await db.insert(schema.investors).values({ id: "y combinator management", name: "Y Combinator Management" });
+    await db.insert(schema.roundInvestors).values({ roundId: round.id, investorId: "y combinator management", role: "participant" });
+    await rekeyInvestors(db);
+    expect(await investorRedirect(db, "y combinator management")).toBe("y combinator");
   });
 });

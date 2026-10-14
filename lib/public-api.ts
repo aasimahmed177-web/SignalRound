@@ -9,7 +9,7 @@ import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { getCompany } from "./company.ts";
 import { type CompanySort, likeTerm, listCompanies, listInvestors } from "./directory.ts";
-import { companyRedirect } from "./entity-exists.ts";
+import { companyRedirect, investorRedirect } from "./entity-exists.ts";
 import { getInvestor, investorTypeLabel } from "./investor.ts";
 import { companyHref, investorHref, investorIdFromParam, investorSlug } from "./links.ts";
 import { NOT_NEWS_HOSTS } from "./news.ts";
@@ -390,6 +390,10 @@ export async function apiInvestorProfile(handle: Db, wanted: string) {
   if (!page) {
     const id = await investorIdFor(handle, idOrSlug);
     if (id) page = await getInvestor(handle, id);
+  }
+  if (!page) {
+    const moved = await investorRedirect(handle, investorIdFromParam(idOrSlug));
+    if (moved) page = await getInvestor(handle, moved);
   }
   if (!page) return null;
   const origin = siteOrigin();

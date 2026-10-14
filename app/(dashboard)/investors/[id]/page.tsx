@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { CompanyLogo } from "@/components/company-logo";
@@ -20,6 +20,7 @@ import { BarList, Panel, Stat } from "@/components/ui/stat";
 import { seesReview, viewer } from "@/lib/access";
 import { cachedInvestor } from "@/lib/cached";
 import { db } from "@/lib/db";
+import { investorRedirect } from "@/lib/entity-exists";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { approxDate, precisionNote, reportedAmount, roundStageLabel, sectorLabel, stageLabel, usd } from "@/lib/format";
 import { getInvestor, investorTypeLabel } from "@/lib/investor";
@@ -86,7 +87,12 @@ async function InvestorBody({ params }: { params: Promise<{ id: string }> }) {
   // Every figure reads the feed's rounds; only a demo visitor gets a 404 for an investor the feed never
   // names. The visitor's page is one shared cache entry a minute (lib/cached.ts); an admin reads it fresh.
   const page = seesReview(v) ? await getInvestor(await db(), investorIdFromParam(id), true) : await cachedInvestor(investorIdFromParam(id));
-  if (!page) notFound();
+  if (!page) {
+    // A folded investor's old id (a link or an agent that kept it) moves for good to the firm's row.
+    const survivor = await investorRedirect(await db(), investorIdFromParam(id));
+    if (survivor) permanentRedirect(investorHref(survivor));
+    notFound();
+  }
   const { investor, rounds, totals, reach, co_investors, sectors, stages } = page;
   // The stat row: how many rounds and in which seat, the money, the latest, and the company it keeps.
   // A card that would read 0 or n/a gives its place to one that says something.

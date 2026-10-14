@@ -29,8 +29,8 @@ import { adminRefusal, frontDoor, homeRedirect, isAdminPath, isLanding, isPublic
 import { requestCompanyPath } from "@/lib/company-request-status";
 import { companyRequestFor } from "@/lib/company-requests";
 import { db } from "@/lib/db";
-import { companyRedirect, entityPath, entityVisible } from "@/lib/entity-exists";
-import { companyHref, legacyInvestorPath } from "@/lib/links";
+import { companyRedirect, entityPath, entityVisible, investorRedirect } from "@/lib/entity-exists";
+import { companyHref, investorHref, legacyInvestorPath } from "@/lib/links";
 
 /** No route lives here, so a rewrite under it is Next's own 404, status included. */
 const MISSING_PREFIX = "/_missing";
@@ -72,6 +72,12 @@ async function checkedEntity(
   if (survivor) {
     url.pathname = companyHref(survivor.id);
     return NextResponse.redirect(url, survivor.permanent ? 301 : 307);
+  }
+  // A folded investor's old id is a spelling of the same firm, so it moves for good.
+  const firm = entity.kind === "investors" ? await investorRedirect(await db(), entity.id).catch(() => null) : null;
+  if (firm) {
+    url.pathname = investorHref(firm);
+    return NextResponse.redirect(url, 301);
   }
   url.pathname = `${MISSING_PREFIX}${request.nextUrl.pathname}`;
   return NextResponse.rewrite(url);
