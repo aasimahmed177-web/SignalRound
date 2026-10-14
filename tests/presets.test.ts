@@ -37,7 +37,7 @@ describe("presets", () => {
     const presets = await listPresets(await testDb());
     const all = presets.flatMap((p) => p.stages);
     expect(new Set(all).size).toBe(all.length);
-    // "Pre-Series A" classifies as bridge; the Series A and B watchlist keeps it, and no other does.
+    // A bridge (and a pre-Series B or C) sits on the Series A and B watchlist, and no other.
     expect(presets.filter((p) => p.stages.includes("bridge")).map((p) => p.slug)).toEqual(["series-a-b"]);
     const banded = all.filter((s) => s !== "bridge");
     const band = STAGES.slice(0, STAGES.indexOf("growth") + 1);

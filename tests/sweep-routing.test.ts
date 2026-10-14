@@ -78,7 +78,7 @@ describe("a round of another preset's stage, read by this preset's sweep", () =>
         .get("series-a-b")
         ?.map((r) => r.stage)
         .sort(),
-    ).toEqual(["bridge", "series_a"]);
+    ).toEqual(["pre_a", "series_a"]);
   });
 
   test("a round announced before the three days is still dropped out of window, whatever preset would keep it", async () => {

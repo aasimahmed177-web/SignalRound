@@ -538,6 +538,23 @@ describe("stages", () => {
       expect(stageLabel(label), label).toBe(label);
   });
 
+  test("pre-Series A is pre_a and a pre-seed-and-seed round is seed, as the feed's own labels read", () => {
+    // Bower School of Entrepreneurship, Matter Machine, Ambi and Mosi Intelligence, 2026-10-12 and 13.
+    for (const label of ["Pre-Series A", "pre-Series A", "pre-Series A funding", "pre-series A funding round", "pre-Series A1"]) {
+      expect(classifyStage(label).stage, label).toBe("pre_a");
+    }
+    expect(classifyStage("pre-Series A extension")).toEqual({ stage: "pre_a", isExtension: true });
+    // A pre-Series B or C sits between two later rounds.
+    expect(classifyStage("Pre-Series B").stage).toBe("bridge");
+    expect(classifyStage("Pre-Series C").stage).toBe("bridge");
+    // Scuba, 2026-10-13: "pre-seed and seed".
+    for (const label of ["pre-seed and seed", "pre-seed and seed funding", "Pre-Seed, Seed", "pre-seed and seed rounds"]) {
+      expect(classifyStage(label).stage, label).toBe("seed");
+    }
+    expect(classifyStage("pre-seed").stage).toBe("pre_seed");
+    expect(classifyStage("Pre-Seed round").stage).toBe("pre_seed");
+  });
+
   test("maps labels onto the stage enum", () => {
     expect(classifyStage("Series A")).toEqual({ stage: "series_a", isExtension: false });
     expect(classifyStage("$40M Series A")).toEqual({ stage: "series_a", isExtension: false });
@@ -548,8 +565,8 @@ describe("stages", () => {
     expect(classifyStage("Series C")).toEqual({ stage: "series_c", isExtension: false });
     expect(classifyStage("Series E")).toEqual({ stage: "series_d_plus", isExtension: false });
     expect(classifyStage("Seed")).toEqual({ stage: "seed", isExtension: false });
-    // Pre-Series A is the bridge between seed and A, not a pre-seed.
-    expect(classifyStage("pre-Series A")).toEqual({ stage: "bridge", isExtension: false });
+    // Pre-Series A is the pre-A round: never a bridge, never a pre-seed.
+    expect(classifyStage("pre-Series A")).toEqual({ stage: "pre_a", isExtension: false });
     expect(classifyStage("Pre-A")).toEqual({ stage: "pre_a", isExtension: false });
     expect(classifyStage("Form D (SAFE)")).toEqual({ stage: "convertible", isExtension: false });
     expect(classifyStage("Venture debt facility")).toEqual({ stage: "debt", isExtension: false });

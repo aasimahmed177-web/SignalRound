@@ -107,9 +107,11 @@ export function classifyStage(label: string): StageClassification {
   // label stays on the record as stage_as_written, so the reader sees "Form D (equity)".
   if (/\bform d\b/.test(t)) return /\b(?:safe|simple agreement for future equity)\b/.test(t) ? done("convertible") : done("other");
 
+  // "Pre-seed and seed" names the seed round the money closed; a pre-seed alone is a pre-seed.
+  if (/\bpre[\s-]*seed\b/.test(t) && /(?<!pre[\s-]*)\bseed\b/.test(t)) return done("seed");
   if (/\bpre[\s-]*seed\b/.test(t) || /\bangel\b|天使|エンジェル|엔젤/.test(t)) return done("pre_seed");
-  if (/\bpre[\s-]*a\b/.test(t)) return done("pre_a");
-  // "Pre-Series A" is the bridge between seed and A, not a pre-seed.
+  // "Pre-Series A" is the pre-A round, never a bridge; a pre-Series B or C sits between two later rounds.
+  if (/\bpre[\s-]*a\b/.test(t) || /\bpre[\s-]*series[\s-]*a(?![a-z])/.test(t)) return done("pre_a");
   if (/\bpre[\s-]*series\b/.test(t)) return done("bridge");
   if (/\bseed\b|种子|種子|シード|시드/.test(t)) return done("seed");
   if (/\bbridge\b/.test(t)) return done("bridge");
