@@ -541,7 +541,9 @@ export function parseNewsCursor(raw: string): { day: string; url: string } | nul
  * source on each round they list, but not an article about any one company.
  */
 export async function apiNews(handle: Db, q: ApiNewsQuery) {
-  const day = sql<string>`coalesce(nullif(left(${sources.publishedAt}, 10), ''), to_char(${sources.fetchedAt} at time zone 'UTC', 'YYYY-MM-DD'))`;
+  // A page that states no day of its own is dated by the newest round it reports, never later than the
+  // day it was read: a profile or library page read today about a round from last month is not today's news.
+  const day = sql<string>`coalesce(nullif(left(${sources.publishedAt}, 10), ''), least(to_char(${sources.fetchedAt} at time zone 'UTC', 'YYYY-MM-DD'), (select max(r.announced_on) from round_sources rs join funding_rounds r on r.id = rs.round_id where rs.source_id = sources.id and r.disposition in ('publish', 'flagged') and r.history = false and r.certainty <> 'unconfirmed')))`;
   const roundConds = [
     sql`rs.source_id = ${sources.id}`,
     sql`r.disposition in ('publish', 'flagged')`,

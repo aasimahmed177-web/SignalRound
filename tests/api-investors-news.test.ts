@@ -343,6 +343,22 @@ describe("/api/v1/news", () => {
     expect((await get(newsGet, "/api/v1/news?since=10d")).body.data).toEqual(recent.body.data);
     expect((await get(newsGet, "/api/v1/news?cursor=nope")).status).toBe(400);
   });
+
+  test("a page with no day of its own, read today, is dated by the newest round it reports", async () => {
+    const handle = await db();
+    const [gamma] = await handle
+      .select({ id: schema.fundingRounds.id })
+      .from(schema.fundingRounds)
+      .innerJoin(schema.companies, eq(schema.companies.id, schema.fundingRounds.companyId))
+      .where(eq(schema.companies.name, "Gamma"));
+    const page = "https://library.example/companies/gamma";
+    await handle.insert(schema.sources).values({ id: page, url: page, host: "library.example", title: "Gamma: the startup library" });
+    await handle.insert(schema.roundSources).values({ roundId: gamma?.id as string, sourceId: page });
+    const recent = await get(newsGet, `/api/v1/news?since=${isoDaysAgo(10)}`);
+    expect(recent.body.data.map((a) => a.url)).not.toContain(page);
+    const all = await get(newsGet, "/api/v1/news?sector=fintech");
+    expect(all.body.data.find((a) => a.url === page)).toMatchObject({ published_on: isoDaysAgo(40) });
+  });
 });
 
 test("no payload carries a round id or operator detail, and the preflight answers", async () => {

@@ -1043,7 +1043,12 @@ export function GET(request: Request) {
                             title: { type: ["string", "null"] },
                             url: { type: "string" },
                             publisher: { type: "string", description: "The publisher's host, e.g. techcrunch.com" },
-                            published_on: { type: "string", format: "date", description: "The article's day, else the day it was read" },
+                            published_on: {
+                              type: "string",
+                              format: "date",
+                              description:
+                                "The article's own day; for a page that states none, the day of the newest round it reports, never later than the day it was read",
+                            },
                             excerpt: { type: ["string", "null"] },
                             rounds: {
                               type: "array",
