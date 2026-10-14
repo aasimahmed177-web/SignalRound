@@ -429,6 +429,13 @@ export const REREPORT_WINDOW_DAYS = 365;
  * Series A came back from dealbreaker.com in a September 2026 roundup, with the same leads and page.
  */
 export const REREPORT_CORROBORATED_WINDOW_DAYS = 3 * 365;
+/**
+ * Two rows each dated to a day the text states for its own round, more than this far apart and with no
+ * page in common, are two announcements: Databricks' $5 billion Series L of December 2025 and its
+ * $5 billion of August 2026. A late page that re-reports a round dates it by the page itself, so it
+ * still joins its round (ICEYE's June Series F, back from September and October articles).
+ */
+export const STATED_APART_DAYS = 90;
 
 /** What isSameRound compares; the optional facts widen or narrow its windows when both sides carry them. */
 export interface SameRoundFacts {
@@ -440,6 +447,8 @@ export interface SameRoundFacts {
   financingTotalAsWritten?: string | null;
   /** week or month: the day is a list's, so the round fell in the span before it. */
   datePrecision?: string;
+  /** stated: the text gives the round's own day; page, url, result: the day is borrowed. */
+  dateBasis?: string | null;
   stageAsWritten?: string;
   isExtension?: boolean;
   /** Canonical source URLs. */
@@ -580,6 +589,13 @@ function separateCloses(a: SameRoundFacts, b: SameRoundFacts, days: number): boo
   return a.datePrecision === "day" && b.datePrecision === "day" && days > CROSS_STAGE_WINDOW_DAYS && amountsDiffer(a, b);
 }
 
+/** Whether both readings carry a day their text states, more than STATED_APART_DAYS apart, from no shared page. */
+function statedApart(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
+  if (a.datePrecision !== "day" || b.datePrecision !== "day") return false;
+  if (a.dateBasis !== "stated" || b.dateBasis !== "stated" || days <= STATED_APART_DAYS) return false;
+  return !(a.sourceIds ?? []).some((s) => (b.sourceIds ?? []).includes(s));
+}
+
 /**
  * Whether two records for the same company describe one round. Undated on either side is a
  * match when the stage agrees (the date is what a second source usually supplies) and the figures
@@ -602,6 +618,7 @@ export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
     return !(la && lb && la !== lb) && !amountsFarApart(a, b);
   }
   const days = daysApart(a.announcedOn, b.announcedOn);
+  if (statedApart(a, b, days)) return false;
   if (days <= (a.stage === b.stage ? SAME_STAGE_WINDOW_DAYS : CROSS_STAGE_WINDOW_DAYS) && financingTotalMatches(a, b)) return true;
   if (separateCloses(a, b, days)) return false;
   if (a.stage === b.stage) {
@@ -662,6 +679,7 @@ export interface RoundIdentity extends CompanyIdentity {
   /** Canonical source URLs. */
   sourceIds: string[];
   datePrecision?: string;
+  dateBasis?: string | null;
   stageAsWritten?: string;
   isExtension?: boolean;
   /** Investor keys of the leads, so a late re-report with the same lead joins its round. */
@@ -852,6 +870,7 @@ function recordIdentity(r: FeedRecord): RoundIdentity {
     financingTotalAsWritten: r.financing_total_as_written ?? null,
     sourceIds: r.sources.map((s) => canonicalUrl(s.url)),
     datePrecision: r.date_precision,
+    dateBasis: r.date_basis ?? null,
     stageAsWritten: r.stage_as_written,
     isExtension: r.is_extension,
     leadKeys: r.lead_investors.map((n) => investorKeyForMerge(n)),

@@ -696,6 +696,114 @@ describe("re-reports and re-dated rows", () => {
     }
   });
 
+  test("Databricks: two equal rounds, each dated to the day its text states, eight months apart, stay two", async () => {
+    const db = await testDb();
+    const base = { company_name: "Databricks", company_key: "databricks", company_domain: "databricks.com", stage: "growth" as const };
+    const billions = (n: number, day: string) => ({ ...usd(n * 1000, day), as_written: `$${n} billion` });
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "databricks:growth:2026-07-16",
+          stage_as_written: "Series L",
+          announced_date: "2025-12-16",
+          date_basis: "stated",
+          amount: billions(5, "2025-12-16"),
+          sources: [
+            {
+              url: "https://www.reuters.com/business/databricks-valued-134-billion-latest-fundraise-cnbc-reports-2026-02-09",
+              host: "reuters.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-1",
+    );
+    const august = await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "databricks:growth:2026-08-13",
+          stage_as_written: "strategic funding round",
+          announced_date: "2026-08-13",
+          date_basis: "stated",
+          amount: billions(5, "2026-08-13"),
+          sources: [{ url: "https://www.cnbc.com/2026/08/13/databricks-funding-round-190-billion-valuation.html", host: "cnbc.com" }],
+        }),
+      ],
+      "growth",
+      "run-2",
+    );
+    expect(august.inserted).toBe(1);
+    expect((await rows(db)).map((r) => r.announced_on).sort()).toEqual(["2025-12-16", "2026-08-13"]);
+    expect((await mergeDuplicateRounds(db)).merged).toBe(0);
+  });
+
+  test("ICEYE: late articles dated by their own page still join the June Series F their text recalls", async () => {
+    const db = await testDb();
+    const base = {
+      company_name: "ICEYE",
+      company_key: "iceye",
+      company_domain: "iceye.com",
+      stage: "series_d_plus" as const,
+      stage_as_written: "Series F",
+    };
+    await persistRecords(
+      db,
+      [
+        record({
+          ...base,
+          id: "iceye:series_d_plus:2026-06-09",
+          announced_date: "2026-06-09",
+          date_basis: "stated",
+          amount: usd(520, "2026-06-09"),
+          sources: [
+            {
+              url: "https://www.iceye.com/newsroom/press-releases/iceye-leads-a-new-era-of-sovereign-intelligence-from-space-with-1b-funding-round",
+              host: "iceye.com",
+            },
+          ],
+        }),
+      ],
+      "growth",
+      "run-1",
+    );
+    // October's article, dated by its own page; September's, re-dated by its read-back to the day it recalls.
+    for (const [id, day, basis, stage, url] of [
+      [
+        "iceye:series_d_plus:2026-10-08",
+        "2026-10-08",
+        "page",
+        "series_d_plus",
+        "https://techfundingnews.com/iceye-450m-series-f-10b-valuation",
+      ],
+      ["iceye:growth:2026-09-29", "2026-06-09", "stated", "growth", "https://www.leadersedge.com/p-c/quantum-threatens-cryptography"],
+    ] as const) {
+      await persistRecords(
+        db,
+        [
+          record({
+            ...base,
+            id,
+            stage,
+            announced_date: day,
+            date_basis: basis,
+            amount: usd(520, day),
+            sources: [{ url, host: new URL(url).hostname }],
+          }),
+        ],
+        "growth",
+        `run-${id}`,
+      );
+    }
+    const [row, ...rest] = await rows(db);
+    expect(rest).toHaveLength(0);
+    expect(row.announced_on).toBe("2026-06-09");
+  });
+
   test("Higharc: a monthly list's reading of a July release is one round, and the release's day stands", async () => {
     const db = await testDb();
     const base = {
@@ -892,6 +1000,16 @@ describe("re-reports and re-dated rows", () => {
     expect(isSameRound(r({ sourceIds: ["https://a"] }), r({ announcedOn: "2027-09-10", sourceIds: ["https://a"] }))).toBe(true);
     expect(isSameRound(r({}), r({ announcedOn: "2027-09-10", datePrecision: "week" }))).toBe(true);
     expect(isSameRound(r({ leadKeys: ["tmv"] }), r({ announcedOn: "2029-09-10", leadKeys: ["tmv"] }))).toBe(false);
+    // Two days each stated by the text, more than 90 days apart, are two announcements unless a page is shared.
+    const stated = { datePrecision: "day", dateBasis: "stated" };
+    expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-09-10" }))).toBe(false);
+    expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-09-10", stage: "growth" }))).toBe(false);
+    expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-09-10", dateBasis: "page" }))).toBe(true);
+    expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-09-10", datePrecision: "week" }))).toBe(true);
+    expect(
+      isSameRound(r({ ...stated, sourceIds: ["https://a"] }), r({ ...stated, announcedOn: "2026-09-10", sourceIds: ["https://a"] })),
+    ).toBe(true);
+    expect(isSameRound(r(stated), r({ ...stated, announcedOn: "2026-04-05" }))).toBe(true);
     // A monthly list's day is any day of its month: August 31 is 29 days from July 2, not 60.
     expect(
       isSameRound(
