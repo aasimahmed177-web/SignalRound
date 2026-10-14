@@ -291,6 +291,8 @@ export interface FeedRecord {
   company_domain: string | null;
   company_website: string | null;
   company_description: string | null;
+  /** Other names the company is known by (a former name, the legal name), so a page that uses one reads as this company's. */
+  company_aliases?: string[];
   stage: Stage;
   /** Existing rows with no value predate certainty and are announced. */
   certainty?: RoundCertainty;

@@ -116,6 +116,8 @@ export interface HistorySubject {
   domain: string | null;
   website: string | null;
   aliasKeys: string[];
+  /** The company's other names as written ("Anysphere" for Cursor), for the read-back's company check. */
+  aliasNames: string[];
   /** Other sites the company publishes on (its homepage's links to a blog on another domain), stored as domain aliases. */
   sites: string[];
   presetSlug: string;
@@ -225,7 +227,7 @@ export async function historySubject(
   const [[company], aliasRows, presetRows, checked, [profile], quoteRows] = await Promise.all([
     handle.select().from(companies).where(eq(companies.id, companyId)).limit(1),
     handle
-      .select({ key: schema.companyAliases.aliasKey, kind: schema.companyAliases.kind })
+      .select({ key: schema.companyAliases.aliasKey, kind: schema.companyAliases.kind, alias: schema.companyAliases.alias })
       .from(schema.companyAliases)
       .where(and(eq(schema.companyAliases.companyId, companyId), inArray(schema.companyAliases.kind, ["name", "domain"]))),
     // The preset its newest feed round files under, so a preset-filtered page shows the company's whole history.
@@ -256,6 +258,7 @@ export async function historySubject(
     domain: company.domain,
     website: company.website,
     aliasKeys: aliasRows.filter((a) => a.kind === "name").map((a) => a.key),
+    aliasNames: aliasRows.filter((a) => a.kind === "name").map((a) => a.alias),
     sites: aliasRows.filter((a) => a.kind === "domain").map((a) => a.key),
     presetSlug: presetRows[0]?.preset ?? FALLBACK_PRESET,
     citedUrls: checked ? citedPriorUrls(checked.dossier, checked.citations) : {},
@@ -763,7 +766,10 @@ function releaseDateline(items: ExtractResult["items"]): string | null {
  * The record as the company's own: its key, name, and domain (the extraction's spelling never renames
  * the company, and a domain the extractor guessed never lands), with the id rebuilt on that key.
  */
-export function asCompanyRecord(record: FeedRecord, subject: Pick<HistorySubject, "name" | "nameKey" | "domain" | "website">): FeedRecord {
+export function asCompanyRecord(
+  record: FeedRecord,
+  subject: Pick<HistorySubject, "name" | "nameKey" | "domain" | "website"> & Partial<Pick<HistorySubject, "aliasNames">>,
+): FeedRecord {
   return {
     ...record,
     id: `${subject.nameKey.replace(/\s+/g, "-")}:${record.stage}:${record.announced_date ?? "undated"}`,
@@ -772,6 +778,7 @@ export function asCompanyRecord(record: FeedRecord, subject: Pick<HistorySubject
     company_domain: subject.domain,
     company_website: subject.website,
     company_description: null,
+    ...(subject.aliasNames?.length ? { company_aliases: subject.aliasNames } : {}),
   };
 }
 

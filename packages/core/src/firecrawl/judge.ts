@@ -30,7 +30,11 @@ export const Verdict = z.object({
     .describe(
       "About the record's round specifically (its stage and amount), not any round of the company. yes: this page reports that round as the news it announces. history: the page mentions that round as context or an earlier event (an earlier round recalled in a story about a new one, a profile, an acquisition story, a list of past deals). not_a_round: the page is not about a funding round for this company (a guide, an investor profile, a ranking, another company's news). unclear: cannot tell.",
     ),
-  company_matches: z.boolean().describe("true when the page's company is the record's company, not a namesake or a different entity"),
+  company_matches: z
+    .boolean()
+    .describe(
+      "true when the page's company is the record's company (under its name or one it is also known as), not a namesake or a different entity",
+    ),
   stage: FieldVerdict.describe("The round's label as the page gives it (Seed, Series A, Series B extension, pre-Series A)"),
   amount: FieldVerdict.describe(
     "The money raised in this round as the page states it, as written with its currency. A total raised to date, a series' running total, a valuation, a contract or partnership value, or a debt facility is not this amount: then stated is false and page_value is null. New money added to a round (an extension) is the new money; one financing announced split into tranches (a Series C and a Series C-1 together) is the financing's total.",
@@ -63,6 +67,7 @@ export const verdictJsonSchema = z.toJSONSchema(Verdict, { target: "draft-07", i
 export function judgePrompt(record: FeedRecord): string {
   const summary = {
     company: record.company_name,
+    ...(record.company_aliases?.length ? { also_known_as: record.company_aliases } : {}),
     stage: record.stage_as_written,
     amount: record.amount.as_written,
     announced_date: record.announced_date,

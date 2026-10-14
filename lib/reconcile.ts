@@ -5,6 +5,8 @@
 import type { FeedRecord, RateTable, ReconcileModel } from "@fireround/core";
 import { firecrawlReader, normalizeCompanyKey, reconcileRecords, registrableDomain } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
+import { schema } from "@fireround/core/db";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
 import { listRounds, persistRecords, type RoundRow, setDisposition } from "./persist.ts";
 
@@ -66,7 +68,18 @@ export async function reconcileGrownRows(
   const { rows } = await listRounds(handle, { ids, includeReview: true, limit: ids.length });
   const grown = grownRows(rows);
   if (grown.length === 0) return { reconciled: 0, credits: 0 };
-  const result = await reconcileRecords(grown.map(recordFromRow), firecrawlReader(client), model, opts);
+  // A renamed company's older pages use its former name; the read-back is told the names it also goes by.
+  const aliasRows = await handle
+    .select({ companyId: schema.companyAliases.companyId, alias: schema.companyAliases.alias })
+    .from(schema.companyAliases)
+    .where(
+      and(eq(schema.companyAliases.kind, "name"), inArray(schema.companyAliases.companyId, [...new Set(grown.map((r) => r.company.id))])),
+    );
+  const records = grown.map((row) => {
+    const aliases = aliasRows.filter((a) => a.companyId === row.company.id).map((a) => a.alias);
+    return aliases.length ? { ...recordFromRow(row), company_aliases: aliases } : recordFromRow(row);
+  });
+  const result = await reconcileRecords(records, firecrawlReader(client), model, opts);
   // A history row is read back as history: its day comes from its pages, so no earliest-report search is owed.
   const batches = new Map<string, { preset: string; history: boolean; records: FeedRecord[] }>();
   for (const [i, record] of result.records.entries()) {

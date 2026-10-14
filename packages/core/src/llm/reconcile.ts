@@ -47,7 +47,9 @@ export const Reconciliation = z.object({
     .describe(
       "Whether the sources announce this company's round as news: yes; history (recalled as background to another story); not_a_round (a grant, a product, an acquisition, a list); unclear.",
     ),
-  company_matches: z.boolean().describe("Whether the sources are about the company the record names, not a namesake."),
+  company_matches: z
+    .boolean()
+    .describe("Whether the sources are about the company the record names (under its name or one it is also known as), not a namesake."),
   stage: Cited.describe(
     "The round's label as the sources write it (Series A, seed, Series B extension). Prefer the company's release or the most specific source.",
   ),
@@ -118,6 +120,7 @@ export const MAX_SOURCES = 4;
 export function reconcilePrompt(record: FeedRecord, pages: SourceText[]): string {
   const summary = {
     company: record.company_name,
+    ...(record.company_aliases?.length ? { also_known_as: record.company_aliases } : {}),
     website: record.company_website ?? record.company_domain,
   };
   const sources = pages

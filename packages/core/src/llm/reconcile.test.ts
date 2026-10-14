@@ -820,6 +820,12 @@ describe("an honest read-back: blind, grounded, counting what it read", () => {
     for (const held of ["$41M", "Maverick Silicon", "2026-09-05", "$500 million", "Series A led by"]) expect(prompt).not.toContain(held);
   });
 
+  test("a renamed company's other names reach the prompt, so a page under its former name is its own", () => {
+    const prompt = reconcilePrompt(record({ company_name: "Cursor", company_aliases: ["Anysphere"] }), [page("Anysphere raised money.")]);
+    expect(prompt).toContain('"company":"Cursor","also_known_as":["Anysphere"]');
+    expect(reconcilePrompt(record(), [page("Gimlet Labs raised money.")])).not.toContain("also_known_as");
+  });
+
   test("a correction whose quote is not on the page it cites is not applied, and says so", () => {
     const verdict = {
       ...AGREES,
