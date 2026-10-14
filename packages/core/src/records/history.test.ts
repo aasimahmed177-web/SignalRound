@@ -577,6 +577,52 @@ describe("a history round's page must tie it to the company, not to a namesake",
     expect(matchPriorRound(lead, page, hadrian)).toEqual({ ok: false, reason: "untied" });
   });
 
+  test("a release's dateline city ties it when the reading names no headquarters: Eliyan's Series C on GlobeNewswire", () => {
+    const eliyan: HistoryCompany = {
+      name: "Eliyan",
+      nameKey: "eliyan",
+      domain: "eliyan.com",
+      description: "develops die-to-die, chip-to-chip, and rack-to-rack PHY technology",
+      sector: "ai",
+      headquarters: "Santa Clara, California, USA",
+    };
+    const lead = prior({ stage_as_written: "Funding round", amount_as_written: "$145M", announced_date: null, lead_investors: [] });
+    const page = rec({
+      company_key: "eliyan",
+      company_name: "Eliyan Corporation",
+      company_description:
+        "a leader in foundational connectivity technologies enabling next-generation AI compute, memory, and networking systems",
+      stage: "series_c",
+      stage_as_written: "Series C",
+      amount: usd(145, "$145 million"),
+      announced_date: "2026-07-29",
+      lead_investors: ["Seligman Ventures"],
+      sector: "semiconductors",
+      headquarters: null,
+      evidence_quotes: [
+        "Eliyan Corporation, a leader in foundational connectivity technologies enabling next-generation AI compute, memory, and networking systems, today announced it has completed its Series C with a total of $145 million at a $1 billion valuation.",
+      ],
+      sources: [
+        {
+          url: "https://www.globenewswire.com/news-release/2026/07/29/3335320/0/en/eliyan-achieves-unicorn-status-with-145-million-series-c-to-advance-electro-optical-interconnects-for-ai-infrastructure.html",
+          host: "globenewswire.com",
+          title: "Eliyan Achieves Unicorn Status with $145 Million Series C",
+        },
+      ],
+    });
+    expect(matchPriorRound(lead, page, eliyan)).toEqual({ ok: false, reason: "untied" });
+    // "Calif.", a state's abbreviation, or a country after the city: the city is what is compared.
+    for (const dateline of ["Santa Clara, Calif.", "SANTA CLARA, CA", "Santa Clara, USA", "Santa Clara, California"])
+      expect(matchPriorRound(lead, page, eliyan, dateline).ok).toBe(true);
+    expect(matchPriorRound(lead, page, { ...eliyan, headquarters: "Herndon, Virginia" }, "HERNDON, Va.").ok).toBe(true);
+    // A namesake's release from another city stays untied, and a headquarters the page gives is not overridden.
+    expect(matchPriorRound(lead, page, eliyan, "New York, USA")).toEqual({ ok: false, reason: "untied" });
+    expect(matchPriorRound(lead, { ...page, headquarters: "Austin, Texas" }, eliyan, "Santa Clara, Calif.")).toEqual({
+      ok: false,
+      reason: "untied",
+    });
+  });
+
   test("Hadrian's own pre-seed ties by its business; a page on its own site ties whatever it says", () => {
     const lead = prior({ stage_as_written: "pre-seed funding", amount_as_written: "€2.5m", announced_date: null, lead_investors: [] });
     const page = rec({

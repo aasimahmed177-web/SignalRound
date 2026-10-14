@@ -325,7 +325,10 @@ export function sameHistoryCompany(
  * among them, from hadrian.co, a host its own homepage check had already refused. A round is tied
  * when its page is on the company's own site, when the page gives the company's own domain, or when
  * the page's words about the company (its description, the round's sentences, the headline) share the
- * record's line of business, or the page places it in the record's sector or city. It is never tied when the page, the company it names, or the page a
+ * record's line of business, or the page places it in the record's sector or city. A release's dateline
+ * is where its issuer sent it from, so when the reading names no headquarters (the resolver sets one aside
+ * that is only the dateline's city) the `releaseDateline` city stands in: Eliyan's July 2026 Series C on
+ * GlobeNewswire, "Santa Clara, Calif.", for its Santa Clara headquarters. It is never tied when the page, the company it names, or the page a
  * lead pointed to sits on a host the company's homepage check refused. A record with no description
  * has no line of business to hold a page to, and its name alone ties it, as before.
  */
@@ -336,6 +339,7 @@ export function historySourceTie(
     "company_domain" | "company_website" | "company_description" | "evidence_quotes" | "sources" | "sector" | "headquarters"
   >,
   company: HistoryCompany,
+  releaseDateline: string | null = null,
 ): { ok: true; tie: "own_site" | "domain" | "business" | "unchecked" } | { ok: false; reason: "namesake" | "untied" } {
   const refused = (company.refusedHosts ?? []).filter((h) => !company.domain || !hostCovered(company.domain, [h]));
   const subjects = [record.company_domain, record.company_website, prior.source_url, ...record.sources.map((s) => s.url)];
@@ -359,7 +363,7 @@ export function historySourceTie(
     // The page's own reading of the company in the record's sector, or in its city, is the same
     // business told in other words (Slingshot's "mental health chatbot" for "a foundation model for psychology").
     (Boolean(record.sector) && record.sector !== "other" && record.sector === company.sector) ||
-    sameCity(record.headquarters, company.headquarters);
+    sameCity(record.headquarters ?? releaseDateline, company.headquarters);
   return shares ? { ok: true, tie: "business" } : { ok: false, reason: "untied" };
 }
 
@@ -396,9 +400,14 @@ const DATE_SLACK_STRONG_DAYS = 400;
  * dossier month or year. A page whose only round is another round (the Series B article that recalls the seed,
  * which the resolver drops as background) never matches. Pure: the tests pin it.
  */
-export function matchPriorRound(prior: PriorRound, record: FeedRecord, company: HistoryCompany): PriorMatch {
+export function matchPriorRound(
+  prior: PriorRound,
+  record: FeedRecord,
+  company: HistoryCompany,
+  releaseDateline: string | null = null,
+): PriorMatch {
   if (!sameHistoryCompany(company, record)) return { ok: false, reason: "company" };
-  const tie = historySourceTie(prior, record, company);
+  const tie = historySourceTie(prior, record, company, releaseDateline);
   if (!tie.ok) return tie;
   if (record.stage === "debt" || record.stage === "grant" || record.stage === "secondary") return { ok: false, reason: "stage" };
   if (!record.announced_date) return { ok: false, reason: "undated" };

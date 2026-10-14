@@ -683,6 +683,54 @@ describe("which history rounds the page-tie test holds", () => {
     expect(JSON.stringify(ledger.outcome)).toContain("refused: untied");
   });
 
+  test("the Eliyan case: a gap lead's wire release ties by its dateline's city, through the read-back too; a news story's does not", async () => {
+    const handle = await testDb();
+    const id = await company(handle, {
+      id: "eliyan.com",
+      name: "Eliyan",
+      domain: "eliyan.com",
+      description: "develops die-to-die, chip-to-chip, and rack-to-rack PHY technology",
+      sector: "ai",
+      hq: "Santa Clara, California, USA",
+      feedQuote: "Eliyan raised $60 million in a Series B.",
+    });
+    const url =
+      "https://www.globenewswire.com/news-release/2026/07/29/3335320/0/en/eliyan-achieves-unicorn-status-with-145-million-series-c-to-advance-electro-optical-interconnects-for-ai-infrastructure.html";
+    const release = (): ExtractedItem => ({
+      ...page(url, "Eliyan Achieves Unicorn Status with $145 Million Series C", {
+        company_name: "Eliyan Corporation",
+        company_description:
+          "a leader in foundational connectivity technologies enabling next-generation AI compute, memory, and networking systems",
+        round_type_as_written: "Series C",
+        amount_as_written: "$145 million",
+        announced_date: "2026-07-29",
+        lead_investors: ["Seligman Ventures"],
+        sector: "ai infrastructure",
+        evidence_quote:
+          "Eliyan Corporation, a leader in foundational connectivity technologies enabling next-generation AI compute, memory, and networking systems, today announced it has completed its Series C with a total of $145 million at a $1 billion valuation.",
+      }),
+      page_kind: "press_release",
+      dateline: "Santa Clara, Calif.",
+    });
+    const lead145 = {
+      stage_as_written: "Funding round",
+      amount_as_written: "$145M",
+      announced_date: null,
+      lead_investors: [],
+      source_url: url,
+    };
+    const key = await lead(handle, id, lead145, "gap");
+    const { reader: r } = reader({ pages: { [url]: [release()] } });
+    expect((await promotePrior(handle, r, id, key, "history:test")).status).toBe("promoted");
+
+    const story = "https://news.example/2026/07/29/eliyan-series-c";
+    const other = await lead(handle, id, { ...lead145, amount_as_written: "$145 million", source_url: story }, "gap");
+    const { reader: s } = reader({
+      pages: { [story]: [{ ...release(), source: { url: story, host: "news.example", title: "Eliyan" }, page_kind: "article" }] },
+    });
+    expect((await promotePrior(handle, s, id, other, "history:test")).status).toBe("no_source");
+  });
+
   test("the Heidi Health case: its checked dossier's Series A is promoted from a page that calls it GP administration medtech", async () => {
     const handle = await testDb();
     const prior: HistoryPrior = {

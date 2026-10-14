@@ -83,6 +83,7 @@ import {
   skippedOutcome,
 } from "./history-tally.ts";
 import { persistRecords, recordRun } from "./persist.ts";
+import { isWireUrl } from "./round-verification.ts";
 import { loadAliases, loadPublisherTiers } from "./rules.ts";
 
 export * from "./history-tally.ts";
@@ -746,6 +747,16 @@ export interface HistoryReading {
   url: string | null;
   tried: PageTry[];
   credits: number;
+  /** The dateline of the release the record was read on, which the read-back's match holds it to again. */
+  releaseDateline?: string | null;
+}
+
+/**
+ * The city a release's dateline gives (a wire's page, or one the extractor reads as a press release):
+ * where its issuer sent it from, which ties the page to a company headquartered there (historySourceTie).
+ */
+function releaseDateline(items: ExtractResult["items"]): string | null {
+  return items.find((i) => i.dateline && (i.page_kind === "press_release" || isWireUrl(i.source.url)))?.dateline ?? null;
 }
 
 /**
@@ -827,7 +838,8 @@ export async function readCandidates(
       tried.push({ url: c.url, result: "refused: undated round on the company's own site" });
       continue;
     }
-    const verdicts = resolved.kept.map((r) => ({ r, m: matchPriorRound(prior, r, identity) }));
+    const dateline = releaseDateline(extraction.items);
+    const verdicts = resolved.kept.map((r) => ({ r, m: matchPriorRound(prior, r, identity, dateline) }));
     const best = verdicts
       .filter((v): v is { r: FeedRecord; m: { ok: true; score: number; evidence: string[] } } => v.m.ok)
       .sort((a, b) => b.m.score - a.m.score)[0];
@@ -883,7 +895,7 @@ export async function readCandidates(
         credits += dated.credits;
         if (dated.record) record = withAnnouncementDay(record, asCompanyRecord(dated.record, subject));
       }
-      return { record, url: c.url, tried, credits };
+      return { record, url: c.url, tried, credits, releaseDateline: dateline };
     }
     const reasons = [...new Set(verdicts.map((v) => (v.m.ok ? "" : v.m.reason)).filter(Boolean))];
     tried.push({ url: c.url, result: `refused: ${reasons.join(", ")}` });
@@ -952,7 +964,7 @@ async function corroboration(
     const day = resolved.kept.find(
       (r) =>
         dates(r, extraction.items) &&
-        matchPriorRound(prior, r, identity).ok &&
+        matchPriorRound(prior, r, identity, releaseDateline(extraction.items)).ok &&
         matchPriorRound(
           {
             stage_as_written: found.stage_as_written,
@@ -962,6 +974,7 @@ async function corroboration(
           },
           r,
           identity,
+          releaseDateline(extraction.items),
         ).ok &&
         (!latest || Date.parse(r.announced_date ?? "") <= latest.getTime()),
     );
@@ -1104,7 +1117,12 @@ export async function finishPromotion(
     });
     return { ...base, sourced: true, credits, reason };
   }
-  const again = matchPriorRound(prior, asCompanyRecord(checked, subject), historyIdentity(tiedBy(subject, plan.origin)));
+  const again = matchPriorRound(
+    prior,
+    asCompanyRecord(checked, subject),
+    historyIdentity(tiedBy(subject, plan.origin)),
+    reading.releaseDateline ?? null,
+  );
   if (!again.ok) {
     const reason = `the read-back no longer matches the dossier (${again.reason})`;
     await writeLedger(handle, companyId, key, {
