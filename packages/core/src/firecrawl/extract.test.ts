@@ -13,6 +13,7 @@ import {
   extractRounds,
   groundingCheck,
   guessedYear,
+  investorAnnouncement,
   mentionsCompany,
   offClock,
   pageDateline,
@@ -896,5 +897,87 @@ ${sentence}
     // The month the extractor gave the round stays a month; October 1 is no longer the page's day.
     expect(result.items[0]?.page_date).toBeUndefined();
     expect(resolvedDay(result.items, now)).toEqual({ date: "2026-10-01", precision: "month" });
+  });
+});
+
+describe("an investor's own announcement", () => {
+  const NDUDE_RELEASE =
+    "Mumbai, Oct. 06, 2026: Healthcare and wellness focused investment firm, NDude Labs today announced it has invested and led $3 million in Series A financing for SuperMush, a wellness brand creating next-generation functional products built on research-backed ingredients, including nootropics, adaptogens and functional mushrooms.";
+
+  test("the portfolio company is the company and the announcer its investor, a lead when it led", () => {
+    expect(investorAnnouncement({ company_name: "NDude Labs", evidence_quote: NDUDE_RELEASE })).toEqual({
+      company: "SuperMush",
+      investor: "NDude Labs",
+      lead: true,
+    });
+    expect(
+      investorAnnouncement({
+        company_name: "NDude Labs",
+        evidence_quote:
+          "NDude Labs has invested approximately Rs 28 crore in US-based functional wellness brand SuperMush through a Series A funding round.",
+      }),
+    ).toEqual({ company: "SuperMush", investor: "NDude Labs", lead: false });
+    expect(
+      investorAnnouncement({
+        company_name: "Niveshaay",
+        evidence_quote: "Niveshaay leads Rs 75 Cr Series A round in fashion brand Theater.",
+      }),
+    ).toEqual({ company: "Theater", investor: "Niveshaay", lead: true });
+    expect(
+      investorAnnouncement({ company_name: "Creaegis", evidence_quote: "Creaegis Leads Ema’s $77M Series B for Enterprise AI Employees" }),
+    ).toEqual({ company: "Ema", investor: "Creaegis", lead: true });
+    expect(
+      investorAnnouncement({
+        company_name: "QIA",
+        evidence_quote:
+          "**[QIA](https://menastartupdigest.com/qia-invests-in-positron-ais-875m-series-c-at-5b-valuation/)** → **invested in Positron AI’s $875M Series C** · backed the US AI inference hardware company at a $5B valuation",
+      }),
+    ).toEqual({ company: "Positron AI", investor: "QIA", lead: false });
+  });
+
+  test("a company that raised from the investor stays the company", () => {
+    for (const evidence_quote of [
+      "SuperMush has raised $3 million in a series A round led by NDude Labs.",
+      "SuperMush, a US functional wellness brand, has raised $3 million in a Series A round led by NDude Labs",
+      "Wellness brand SuperMush secured $3 million in Series A funding from NDude Labs",
+    ]) {
+      expect(investorAnnouncement({ company_name: "SuperMush", evidence_quote }), evidence_quote).toBeNull();
+    }
+    expect(
+      investorAnnouncement({
+        company_name: "Acme",
+        evidence_quote: "Acme, led by founder Jane Doe, has raised $4 million in seed funding.",
+      }),
+    ).toBeNull();
+    expect(
+      investorAnnouncement({ company_name: "Acme", evidence_quote: "Acme has invested in its Series A team after raising $4 million." }),
+    ).toBeNull();
+  });
+
+  test("pageItems puts the round on the portfolio company, with the announcer as its lead", () => {
+    const url = "https://ndude.com/press/ndude-labs-invests-in-supermush-series-a";
+    const [item] = pageItems(
+      [
+        round({
+          company_name: "NDude Labs",
+          company_website: "https://ndude.com",
+          company_description: "a healthcare and wellness focused investment firm",
+          round_type_as_written: "Series A",
+          amount_as_written: "$3 million",
+          other_investors: ["SuperMush"],
+          evidence_quote: NDUDE_RELEASE,
+        }),
+      ],
+      { url, host: hostOf(url), title: "NDude Labs invests in SuperMush", published: "2026-10-06" },
+      `# NDude Labs invests in SuperMush\n\n${NDUDE_RELEASE}`,
+    );
+    expect(item.round).toMatchObject({
+      company_name: "SuperMush",
+      company_website: null,
+      company_description: null,
+      lead_investors: ["NDude Labs"],
+      other_investors: [],
+    });
+    expect(item.grounded).toBe(true);
   });
 });

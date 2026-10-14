@@ -59,7 +59,11 @@ export const FieldQuotes = z.object({
  * schema, enums for fixed values, "null if not stated" on every optional field.
  */
 export const ExtractedRound = z.object({
-  company_name: z.string().describe("The company that raised the round"),
+  company_name: z
+    .string()
+    .describe(
+      "The company that raised the round. On an investor's own announcement ('X invests in Y', 'X leads Y's Series A'), Y, never the investor X.",
+    ),
   company_website: nullableString.describe(
     "The company's own homepage URL if the page states or links it. Never the URL of this article. Null if not stated.",
   ),

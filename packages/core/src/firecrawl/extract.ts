@@ -464,6 +464,79 @@ export function companyPlace(round: Pick<ExtractedRound, "company_name" | "compa
   return found.length === 0 ? null : found.join("; ");
 }
 
+/** The words between an investor's name and its investing verb: "NDude Labs today announced it has invested". */
+const INVESTOR_VERB =
+  /^\s*(?:[→:|–—-]\s*)?(?:,[^,]{1,80},\s*)?(?:(?:today|recently|has|have|had|announced|announces|that|it|also|said|says|is|are|was)\s+)*(?:invest(?:s|ed)?|(?:co-)?le(?:d|ads)|backs|backed)\b(?!\s+by\b)/i;
+
+/** A company name's words: "SuperMush", "Acme Robotics", "Q&A Labs". */
+const NAME_WORD = /^[\p{Lu}\p{N}][\p{L}\p{N}&.'’-]*$|^&$/u;
+
+/** Words that open a round or a figure, never a company: "Series A", "Seed", "Rs 28 crore". */
+const NOT_A_NAME = /^(?:series|seed|pre-|round|funding|financing|investment|capital|rs|inr|usd|us\$|eur|gbp|\$|€|£|₹|\p{N})/iu;
+
+/**
+ * The portfolio company an investor's own announcement names, when the round's company is the
+ * investor: "NDude Labs has invested approximately Rs 28 crore in US-based functional wellness brand
+ * SuperMush", "X leads Y's Series A", "X invested and led $3 million in Series A financing for Y". The
+ * company is Y and the investor X, a lead when the sentence says it led. Null when the company is the
+ * sentence's subject only as the one raising ("SuperMush has raised $3 million ... led by NDude Labs"). Pure.
+ */
+export function investorAnnouncement(
+  round: Pick<ExtractedRound, "company_name" | "evidence_quote">,
+): { company: string; investor: string; lead: boolean } | null {
+  const investor = round.company_name.trim();
+  if (investor.length < 2) return null;
+  const quote = round.evidence_quote.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_]/g, "");
+  const at = quote.toLowerCase().indexOf(investor.toLowerCase());
+  if (at < 0) return null;
+  const tail = quote.slice(at + investor.length);
+  const verb = INVESTOR_VERB.exec(tail);
+  if (!verb) return null;
+  const rest = tail.slice(verb[0].length);
+  const lead = (target: string) => /\b(?:co-)?le(?:d|ads)\b/i.test(tail.slice(0, verb[0].length + rest.indexOf(target)));
+  const name = (words: string[]) => {
+    const run: string[] = [];
+    for (const w of [...words].reverse()) {
+      if (!NAME_WORD.test(w)) break;
+      run.unshift(w);
+    }
+    const company = run.join(" ").replace(/['’]s$/, "");
+    if (!company || NOT_A_NAME.test(company) || company.toLowerCase() === investor.toLowerCase()) return null;
+    return company;
+  };
+  const possessive = /^\s+(?:the\s+)?((?:[\p{Lu}\p{N}][\p{L}\p{N}&.-]*\s+){0,3}[\p{Lu}\p{N}][\p{L}\p{N}&.-]*)['’]s\b/u.exec(rest);
+  if (possessive) {
+    const company = name(possessive[1].split(/\s+/));
+    if (company) return { company, investor, lead: lead(possessive[1]) };
+  }
+  const phrases =
+    /\b(?:in|into|for)\s+([^,.;:()]+?)(?=\s*(?:[,.;:()]|$)|\s+(?:through|to|as|with|via|alongside|led|at|after|from|which|that|and|in|on|its|this)\b)/g;
+  for (const m of rest.matchAll(phrases)) {
+    const company = name(
+      m[1]
+        .split(/['’]s\b/)[0]
+        .trim()
+        .split(/\s+/),
+    );
+    if (company) return { company, investor, lead: lead(m[1]) };
+  }
+  return null;
+}
+
+/** The round on the portfolio company an investor announced: the investor moves to the investors, and the investor's website and description go. Pure. */
+export function portfolioRound(round: ExtractedRound, announced: { company: string; investor: string; lead: boolean }): ExtractedRound {
+  const key = (n: string) => n.trim().toLowerCase();
+  const others = (names: string[]) => names.filter((n) => ![key(announced.company), key(announced.investor)].includes(key(n)));
+  return {
+    ...round,
+    company_name: announced.company,
+    company_website: null,
+    company_description: null,
+    lead_investors: announced.lead ? [announced.investor, ...others(round.lead_investors)] : others(round.lead_investors),
+    other_investors: announced.lead ? others(round.other_investors) : [announced.investor, ...others(round.other_investors)],
+  };
+}
+
 export function pageItems(
   extracted: ExtractedRound[],
   source: RoundSource,
@@ -471,7 +544,9 @@ export function pageItems(
   page: PageReading = { page_kind: null, page_date: null },
 ): ExtractedItem[] {
   // A website the page never names is a guess, and a guess at a namesake's domain is worse than none.
-  const rounds = extracted.map((round) => {
+  const rounds = extracted.map((read) => {
+    const announced = investorAnnouncement(read);
+    const round = announced ? portfolioRound(read, announced) : read;
     if (markdown === undefined) return { ...round, company_website: null };
     const settled = settleOnPage(round, markdown);
     return settled.company_website && !websiteOnPage(settled.company_website, markdown) ? { ...settled, company_website: null } : settled;
