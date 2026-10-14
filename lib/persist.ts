@@ -48,7 +48,7 @@ import { knownRounds } from "./known-rounds.ts";
 import { holdLateReports } from "./late-report.ts";
 import { citableValuation, publicLane, publicNotes, publicVerifier, type RoundValuation } from "./public-view.ts";
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
-import { companyAccounts, identitySettled, isWireUrl, visibilityEvidence } from "./round-verification.ts";
+import { companyAccounts, identitySettled, isWireUrl, ownAnnouncement, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
 import { dedupeSources, orderSources, type PrimarySource, primarySourceOf, WIRE_DOMAINS } from "./source-order.ts";
 import { valuationDisclosed } from "./valuation-disclosure.ts";
@@ -983,6 +983,13 @@ export interface MergeRow extends RoundIdentity {
 }
 
 /** The facts fix-records pins on a row: a redate's day, a restage's stage, a valuation (null pins it blank), a certainty. */
+/** A row's pins without its certainty, which the company's own release has superseded; null when nothing else was pinned. */
+function unpinnedCertainty(pinned: Pinned | null): Pinned | null {
+  if (!pinned) return null;
+  const { certainty: _superseded, ...rest } = pinned;
+  return Object.keys(rest).length ? rest : null;
+}
+
 export interface Pinned {
   announced_on?: string;
   stage?: string;
@@ -1298,11 +1305,20 @@ export async function persistRecords(
       [],
       tiers,
     );
+    // The company's own release upgrades a reported round, one a person pinned as reported included:
+    // Scanntech stayed "reported" beside its own October 13 release.
+    const released =
+      prev?.certainty === "reported" &&
+      sourceCertainty.some(
+        (s) => s.certainty === "announced" && ownAnnouncement(s.source, { name: r.company_name, domain: r.company_domain }),
+      );
+    if (released) r.certainty = "announced";
     if (prev && prev.certainty !== "announced" && (r.certainty ?? "announced") === "announced" && !closes) r.certainty = prev.certainty;
     if (prev) r.evidence_quotes = [...new Set([...prev.evidence, ...r.evidence_quotes])];
+    const unpin = released && prev?.pinned?.certainty === "reported";
     const upgrade = Boolean(
       prev &&
-        !prev.pinned?.certainty &&
+        (!prev.pinned?.certainty || unpin) &&
         prev.certainty !== "announced" &&
         r.certainty === "announced" &&
         matchingCertainty(prev, r, recordIdentity(r)),
@@ -1318,7 +1334,7 @@ export async function persistRecords(
     // Nor does a low-tier "closed" stand against an established outlet's "reportedly raising" (FieldAI, 2026-10-02).
     if (r.certainty === "announced" && !closes && doubtedBy) r.certainty = doubtedBy;
     // A certainty a person pinned stands whatever this reading says (fix-records).
-    if (prev?.pinned?.certainty) r.certainty = prev.pinned.certainty;
+    if (prev?.pinned?.certainty && !unpin) r.certainty = prev.pinned.certainty;
     if (upgrade && reportedOn) {
       const note = `Reported before its announcement on ${reportedOn}`;
       const verification = r.verification ?? { status: "unverified" as const, notes: [], url: null };
@@ -1584,6 +1600,7 @@ export async function persistRecords(
                 ? r.announced_date
                 : sql`CASE WHEN ${rankSql(fundingRounds.datePrecision)} > ${DATE_PRECISION_RANK[r.date_precision]} THEN ${fundingRounds.announcedOn} ELSE ${r.announced_date} END`,
           certainty: r.certainty ?? "announced",
+          ...(unpin ? { pinned: unpinnedCertainty(prev?.pinned ?? null) } : {}),
           reportedOn: sql`coalesce(${fundingRounds.reportedOn}, ${reportedOn})`,
           dateBasis:
             r.announced_date === null

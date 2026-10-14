@@ -1,4 +1,5 @@
 import {
+  assertedRoundCertainty,
   companySite,
   DEFAULT_TIERS,
   hostOf,
@@ -40,6 +41,20 @@ const WIRES = new Set([
 ]);
 export function isWireUrl(url: string): boolean {
   return WIRES.has(registrableDomain(url) ?? "");
+}
+
+/**
+ * Whether a page is the company announcing the round itself: a page on its own site or a wire release
+ * whose sentence names the company and closes the round ("Scanntech today announced a $180 million
+ * Series F investment"). Its word outranks any report of the round, a person's pinned "reported" included.
+ */
+export function ownAnnouncement(
+  source: { url: string; evidence?: string | null },
+  company: { name: string; domain: string | null },
+): boolean {
+  const domain = registrableDomain(source.url);
+  if (!domain || (domain !== company.domain && !WIRES.has(domain))) return false;
+  return Boolean(source.evidence && namesCompany(source.evidence, company.name) && assertedRoundCertainty(source.evidence) === "announced");
 }
 
 /**

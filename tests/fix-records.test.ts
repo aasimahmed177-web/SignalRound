@@ -319,6 +319,67 @@ describe("applyRecordFixes", () => {
     expect((await read())?.certainty).toBe("expected");
   });
 
+  test("the company's own release lifts a round a person pinned as reported to announced (Scanntech, 2026-10-13)", async () => {
+    const handle = await testDb();
+    const scanntech = () =>
+      record({
+        id: "scanntech:growth:2026-10-09",
+        company_name: "Scanntech",
+        company_key: "scanntech",
+        company_domain: "scanntech.com",
+        stage: "growth",
+        stage_as_written: "Series F",
+        announced_date: "2026-10-09",
+        certainty: "announced",
+        amount: { value: 180, currency: "USD", as_written: "$180 million", usd_millions: 180, fx_rate: 1, fx_date: "2026-10-09" },
+        sources: [
+          {
+            url: "https://techstartups.com/2026/10/09/startup-funding-news-today-october-9-2026-arena-bloomx-ocean-scanntech-more",
+            host: "techstartups.com",
+            title: "Startup Funding News Today, October 9, 2026",
+            evidence: "Scanntech secured approximately $180 million in a growth equity transaction led by L Catterton.",
+          },
+        ],
+      });
+    await persistRecords(handle, [scanntech()], "growth", "run-1");
+    const read = async () =>
+      (await handle.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.id, "scanntech:growth:2026-10-09")))[0];
+    const pin: RecordFix = {
+      kind: "certainty",
+      round: "scanntech:growth:2026-10-09",
+      from: "announced",
+      certainty: "reported",
+      evidence: "https://www.bloomberglinea.com/english/scanntech-klym-parfin-rocketfy-and-scouter",
+      quote:
+        "Scanntech, a retail data intelligence and analytics technology company, received a $180 million investment, according to people familiar with the deal",
+      note: "only reported so far",
+    };
+    expect(await applyRecordFixes(handle, [pin], { apply: true })).toMatchObject({ applied: 1 });
+    expect(await read()).toMatchObject({ certainty: "reported", pinned: { certainty: "reported" } });
+
+    // A roundup's "secured" is no announcement: the pin holds.
+    await persistRecords(handle, [scanntech()], "growth", "run-2");
+    expect((await read())?.certainty).toBe("reported");
+
+    const release = scanntech();
+    release.sources = [
+      {
+        url: "https://www.prnewswire.com/news-releases/scanntech-a-leading-latin-american-retail-intelligence-platform-announces-180-million-series-f-financing-302907182.html",
+        host: "prnewswire.com",
+        title: "Scanntech, a Leading Latin American Retail Intelligence Platform, Announces $180 Million Series F Financing",
+        evidence: "Scanntech today announced a $180 million Series F investment led by L Catterton.",
+      },
+    ];
+    await persistRecords(handle, [release], "growth", "run-3");
+    const row = await read();
+    expect(row?.certainty).toBe("announced");
+    expect(row?.pinned?.certainty).toBeUndefined();
+    expect((row?.verification as { notes: string[] } | undefined)?.notes).toContain("Reported before its announcement on 2026-10-09");
+    // Later readings no longer have a pin to put it back.
+    await persistRecords(handle, [scanntech()], "growth", "run-4");
+    expect((await read())?.certainty).toBe("announced");
+  });
+
   test("a valuation its announcement states is written in the page's words, kept as a claim, and pinned", async () => {
     const handle = await testDb();
     const brex = () =>

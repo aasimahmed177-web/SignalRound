@@ -10,6 +10,7 @@ import {
   evidenceComplete,
   finishRoundVerification,
   nextVerification,
+  ownAnnouncement,
   seedRoundVerification,
 } from "../lib/round-verification.ts";
 import { record, testDb } from "./helpers.ts";
@@ -181,5 +182,36 @@ describe("round verification schedule", () => {
     const verification = { status: "confirmed", notes: ["Verification conflict: amount $95M vs $170M"], url: null };
     expect(openVerificationConflict({ disposition: "flagged", verification })).toBe(true);
     expect(openVerificationConflict({ disposition: "publish", verification })).toBe(false);
+  });
+});
+
+describe("ownAnnouncement", () => {
+  const scanntech = { name: "Scanntech", domain: "scanntech.com" };
+  const release =
+    "https://www.prnewswire.com/news-releases/scanntech-a-leading-latin-american-retail-intelligence-platform-announces-180-million-series-f-financing-302907182.html";
+
+  test("the company's wire release or own site, closing the round in its own name", () => {
+    expect(
+      ownAnnouncement(
+        { url: release, evidence: "Scanntech today announced a $180 million Series F investment led by L Catterton." },
+        scanntech,
+      ),
+    ).toBe(true);
+    expect(
+      ownAnnouncement({ url: "https://scanntech.com/news/series-f", evidence: "Scanntech raised $180 million in a Series F." }, scanntech),
+    ).toBe(true);
+  });
+
+  test("not a newsroom's report, a syndicated copy, a release about another company, or a release of talks", () => {
+    const closes = "Scanntech secured approximately $180 million in a growth equity transaction led by L Catterton.";
+    expect(ownAnnouncement({ url: "https://techstartups.com/2026/10/09/startup-funding-news-today", evidence: closes }, scanntech)).toBe(
+      false,
+    );
+    expect(
+      ownAnnouncement({ url: "https://finance.yahoo.com/small-business/articles/scanntech-141000503.html", evidence: closes }, scanntech),
+    ).toBe(false);
+    expect(ownAnnouncement({ url: release, evidence: "Acme today announced a $10 million seed round." }, scanntech)).toBe(false);
+    expect(ownAnnouncement({ url: release, evidence: "Scanntech is in talks to raise $180 million." }, scanntech)).toBe(false);
+    expect(ownAnnouncement({ url: release, evidence: null }, scanntech)).toBe(false);
   });
 });
