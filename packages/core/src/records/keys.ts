@@ -79,6 +79,23 @@ const INVESTOR_GENERIC_TAIL =
   /\s+(holdings?|ventures?|venture\s+partners|venture\s+capital|capital|partners|management|group|fund|investments?|vc|lp|llp|llc|accelerator|program|programme)$/;
 
 /**
+ * Investing arms named as their parent plus a vehicle word or a strategy, where the parent invests on its own. Each is
+ * its own investor, as NVentures is not NVIDIA: the tail stays on ("Bain Capital Ventures" is not Bain Capital, "Google
+ * Ventures" is GV and not Google), and the one-firm rules in investors.ts never fold an arm into its parent or a
+ * sibling ("Bain Capital Crypto"). An arm publishers name either way stays keyed as its parent ("Qualcomm Ventures" is
+ * Qualcomm, "Point72 Ventures" is Point72).
+ */
+export const INVESTOR_ARMS = new Set([
+  "bain capital ventures",
+  "bain capital crypto",
+  "bain capital life sciences",
+  "google ventures",
+  "google capital",
+  "microsoft venture",
+  "microsoft ventures",
+]);
+
+/**
  * Identity key for an investor name. Publishers write the same firm several ways
  * ("Arm" and "Arm Holdings", "M12" and "M12 – Microsoft's Venture Fund"): the
  * descriptor after a spaced dash, colon, or parenthesis is dropped, then generic
@@ -94,7 +111,7 @@ export function normalizeInvestorKey(name: string): string {
     .replace(/^\s*([a-z0-9])\s*\\?\*/i, "$1 star");
   let key = foldKey(head, LEGAL_SUFFIX_TAIL);
   for (;;) {
-    if (/^plus (?:partners|capital)$/.test(key)) return key;
+    if (/^plus (?:partners|capital)$/.test(key) || INVESTOR_ARMS.has(key)) return key;
     const next = key.replace(INVESTOR_GENERIC_TAIL, "");
     // One letter is no name: "A.Capital", "B Capital" and "e.ventures" are three firms, not "a", "b" and "e".
     if (next === key || next.length < 2) break;
@@ -124,7 +141,8 @@ const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
  * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund; NVentures
  * printed with its parent's name is NVentures; SoftBank's first Vision Fund numbered is the Vision Fund; a firm's
  * operating or legal entity ("Sequoia Capital Operations", "Wellington Management Company", "BoxGroup Services") is the
- * firm; a person printed with a title ("Kleiner Perkins Chairman John Doerr") is the person.
+ * firm; a person printed with a title ("Kleiner Perkins Chairman John Doerr") is the person; an arm under its old or
+ * legal name is the arm ("Google Capital" is CapitalG, "Microsoft's Venture Fund" is M12).
  */
 const RENAMED: Record<string, string> = {
   "andreessen horowitz csx": "andreessen horowitz speedrun",
@@ -151,6 +169,9 @@ const RENAMED: Record<string, string> = {
   "boxgroup services": "boxgroup",
   "nexus vp": "nexus",
   "kleiner perkins chairman john doerr": "john doerr",
+  "google capital": "capitalg",
+  "microsoft venture": "m12",
+  "microsoft ventures": "m12",
 };
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */

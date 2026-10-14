@@ -609,6 +609,37 @@ describe("rule 4: one firm, one entry", () => {
     expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));
   });
 
+  test("an investing arm named as its parent plus a vehicle word is its own investor: Bain Capital Ventures is not Bain Capital", () => {
+    for (const [arm, parent] of [
+      ["Bain Capital Ventures", "Bain Capital"],
+      ["Bain Capital Crypto", "Bain Capital"],
+      ["Bain Capital Life Sciences", "Bain Capital"],
+      ["Google Ventures", "Google"],
+      ["Google Capital", "Google"],
+      ["Microsoft's Venture Fund", "Microsoft"],
+    ])
+      expect(investorKeyForMerge(arm), `${arm} vs ${parent}`).not.toBe(investorKeyForMerge(parent));
+    for (const [a, b] of [
+      ["Bain Capital Ventures (BCV)", "Bain Capital Ventures"],
+      ["Bain Capital Ventures LP", "Bain Capital Ventures"],
+      ["Google Ventures", "GV"],
+      ["Google Capital", "CapitalG"],
+      ["Microsoft's Venture Fund", "M12"],
+      ["Microsoft Ventures", "M12"],
+      ["Bain Capital, LP", "Bain Capital"],
+    ])
+      expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
+    // A firm's own two names still meet: the vehicle word is part of the arm's name only.
+    expect(investorKeyForMerge("Lightspeed Venture Partners")).toBe(investorKeyForMerge("Lightspeed"));
+    expect(investorKeyForMerge("Sequoia Capital")).toBe(investorKeyForMerge("Sequoia"));
+    // An arm publishers name either way stays keyed as its parent.
+    expect(investorKeyForMerge("Intel Capital")).toBe(investorKeyForMerge("Intel"));
+    expect(investorKeyForMerge("Point72 Ventures")).toBe(investorKeyForMerge("Point72"));
+    expect(dedupeInvestorNames(["Bain Capital", "Bain Capital Ventures"])).toHaveLength(2);
+    expect(dedupeInvestorNames(["Bain Capital", "Bain Capital Crypto"])).toHaveLength(2);
+    expect(dedupeInvestorNames(["Bain Capital Ventures", "Bain Capital Ventures (BCV)"])).toHaveLength(1);
+  });
+
   test("a misspelling a source printed keys as the firm: Sequioa Capital is Sequoia", () => {
     expect(investorKeyForMerge("Sequioa Capital")).toBe("sequoia");
     expect(investorKeyForMerge("Sequioa Capital India")).toBe(investorKeyForMerge("Sequoia Capital India"));

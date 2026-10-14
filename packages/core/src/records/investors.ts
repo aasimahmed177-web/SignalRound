@@ -25,7 +25,7 @@
 //      participant only where the evidence puts it in the round ("with participation from").
 
 import { GIVEN_NAMES } from "./given-names.ts";
-import { INVESTOR_ALIASES, investorKeyForMerge } from "./keys.ts";
+import { INVESTOR_ALIASES, INVESTOR_ARMS, investorKeyForMerge } from "./keys.ts";
 import { classifyStage, normalizeInvestorKey, parseAmount } from "./normalize.ts";
 import type { Stage } from "./stages.ts";
 
@@ -1060,6 +1060,7 @@ function sameSpelling(keyA: string, fullA: string, keyB: string, fullB: string):
   if (!keyA || !keyB) return false;
   if (keyA === keyB) return true;
   if (/^plus (?:partners|capital)$/.test(keyA) || /^plus (?:partners|capital)$/.test(keyB)) return false;
+  if (INVESTOR_ARMS.has(keyA) || INVESTOR_ARMS.has(keyB)) return false;
   if (sameBrandCore(keyA, keyB)) return true;
   if (isWrappedForm(keyA, fullA, keyB, fullB)) return true;
   return isTokenPrefixForm(fullA, fullB);
