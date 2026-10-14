@@ -570,6 +570,21 @@ describe("rule 4: one firm, one entry", () => {
   test("a firm's other whole name keys as the firm: YC is Y Combinator, Sequoia India is Sequoia Capital India", () => {
     expect(investorKeyForMerge("YC")).toBe(investorKeyForMerge("Y Combinator"));
     expect(investorKeyForMerge("Sequoia India")).toBe(investorKeyForMerge("Sequoia Capital India"));
+    for (const [a, b] of [
+      ["YCombinator", "Y Combinator"],
+      ["YC Continuity Fund", "Y Combinator Continuity"],
+      ["Sequoia China", "Sequoia Capital China"],
+      ["Sequoia Global Equities", "Sequoia Capital Global Equities"],
+      ["DST", "DST Global"],
+      ["Institutional Venture Partners", "IVP"],
+      ["USV", "Union Square Ventures"],
+      ["PeakXV", "Peak XV Partners"],
+      ["KPCB", "Kleiner Perkins"],
+      ["Kleiner Perkins Caufield & Byers", "Kleiner Perkins"],
+      ["Kleiner Perkins Caufield Byers (KPCB)", "Kleiner Perkins"],
+    ])
+      expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
+    expect(investorKeyForMerge("Sequoia Capital China")).not.toBe(investorKeyForMerge("Sequoia Capital"));
     // Only the whole name: a fund that starts with the short form keeps its own key.
     expect(investorKeyForMerge("YC Continuity Fund")).not.toBe(investorKeyForMerge("Y Combinator"));
     expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));

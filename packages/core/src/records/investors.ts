@@ -888,12 +888,24 @@ const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
 
 /**
  * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
- * speedrun; "YC" alone is Y Combinator; Sequoia's Indian arm is printed with and without "Capital".
+ * speedrun; "YC" alone is Y Combinator; Sequoia's Indian and Chinese arms are printed with and without "Capital"; a firm's
+ * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm.
  */
 const RENAMED: Record<string, string> = {
   "andreessen horowitz csx": "andreessen horowitz speedrun",
   yc: "y combinator",
+  ycombinator: "y combinator",
+  "yc continuity": "y combinator continuity",
   "sequoia india": "sequoia capital india",
+  "sequoia china": "sequoia capital china",
+  "sequoia global equities": "sequoia capital global equities",
+  dst: "dst global",
+  institutional: "institutional venture partners",
+  usv: "union square",
+  peakxv: "peak xv",
+  kpcb: "kleiner perkins",
+  "kleiner perkins caufield and byers": "kleiner perkins",
+  "kleiner perkins caufield byers": "kleiner perkins",
 };
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
