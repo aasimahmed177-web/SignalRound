@@ -7,7 +7,7 @@ import type { CompanyPage } from "@/lib/company";
 import { reportedAmount, roundStageLabel, sectorLabel, stageLabel, stageOf } from "@/lib/format";
 import type { InvestorPage } from "@/lib/investor";
 import { canonicalUrl } from "@/lib/origin";
-import type { RoundRow } from "@/lib/persist";
+import type { BareRoundRow, RoundRow } from "@/lib/persist";
 import { readAgainst, sourceCount, sourcesLabel } from "@/lib/source-count";
 import { capitalizeFirst } from "@/lib/text";
 
@@ -69,12 +69,12 @@ export function nameList(names: string[], max = 2): string {
 }
 
 /** The amount as a reader would say it: USD when converted, else what the source wrote. */
-export function amountLabel(r: RoundRow): string | null {
+export function amountLabel(r: BareRoundRow): string | null {
   return reportedAmount(r);
 }
 
 /** "Seed ext." for a card's latest-round line. */
-export function roundLabel(r: RoundRow): string {
+export function roundLabel(r: BareRoundRow): string {
   return `${roundStageLabel(r)}${r.is_extension ? " ext." : ""}`;
 }
 

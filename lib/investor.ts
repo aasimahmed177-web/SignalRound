@@ -7,12 +7,15 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { cache } from "react";
-import type { RoundRow } from "@/lib/persist";
+import type { BareRoundRow } from "@/lib/persist";
 import { listRounds } from "@/lib/persist";
 
 const { investors, roundInvestors } = schema;
 
 export type InvestorRole = "lead" | "participant";
+
+/** A round as an investor's page lists it: read bare (listRounds `bare`), with the investor's seat. */
+export type InvestorRound = BareRoundRow & { role: InvestorRole };
 
 export interface InvestorPage {
   /**
@@ -32,7 +35,7 @@ export interface InvestorPage {
     headquarters: string | null;
   };
   /** Feed rounds (publish and flagged) this investor is named on, newest first. */
-  rounds: Array<RoundRow & { role: InvestorRole }>;
+  rounds: InvestorRound[];
   /**
    * `lead_share_usd_millions` splits each led round's stated amount evenly between its leads, so a
    * firm that is one of ten co-leads on a $65B round is credited $6.5B, not $65B, and the figures
@@ -116,9 +119,12 @@ const loadInvestor = cache(async (handle: Db, id: string, withReview: boolean): 
   const roleByRound = new Map(seats.map((s) => [s.roundId, s.role === "lead" ? ("lead" as const) : ("participant" as const)]));
   const ids = [...roleByRound.keys()];
 
-  const { rows } = ids.length ? await listRounds(handle, { ids, limit: 200 }) : { rows: [] };
+  const { rows } = ids.length ? await listRounds(handle, { ids, limit: 200, bare: true }) : { rows: [] };
   if (!withReview && rows.length === 0) return null;
-  const rounds = rows.map((r) => ({ ...r, role: roleByRound.get(r.id) ?? ("participant" as const) }));
+  const rounds: InvestorRound[] = rows.map(({ previous_rounds, enrichment, alexandria, company_facts, verification_checks, ...r }) => ({
+    ...r,
+    role: roleByRound.get(r.id) ?? ("participant" as const),
+  }));
   const roundIds = rounds.map((r) => r.id);
 
   const co = roundIds.length

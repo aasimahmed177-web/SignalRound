@@ -277,6 +277,26 @@ describe("in the store", () => {
     ]);
   });
 
+  test("a bare read keeps a row's facts, investors, and sources, and skips its previous rounds", async () => {
+    const { db, seriesA, seriesB } = await firecrawl();
+    await db.update(schema.fundingRounds).set({ disposition: "publish" }).where(eq(schema.fundingRounds.id, seriesA.id));
+    const [full] = (await listRounds(db, { ids: [seriesB.id], includeReview: true })).rows;
+    const [bare] = (await listRounds(db, { ids: [seriesB.id], includeReview: true, bare: true })).rows;
+    expect(full?.previous_rounds).toHaveLength(1);
+    expect(bare?.previous_rounds).toEqual([]);
+    expect(bare?.sources).toEqual(full?.sources);
+    expect(bare?.primary_source).toEqual(full?.primary_source);
+    expect(bare?.other_investors).toEqual(full?.other_investors);
+    expect({ ...bare, previous_rounds: null, enrichment: null, alexandria: null, company_facts: null, verification_checks: null }).toEqual({
+      ...full,
+      previous_rounds: null,
+      enrichment: null,
+      alexandria: null,
+      company_facts: null,
+      verification_checks: null,
+    });
+  });
+
   test("the repair lifts a namesake hold the company's own site settled, when nothing else holds it", async () => {
     const { db, seriesA } = await firecrawl();
     const hold = "held for review: same-name company identity is unverified";

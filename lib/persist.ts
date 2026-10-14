@@ -37,7 +37,7 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, desc, eq, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, like, lt, lte, ne, or, type SQL, sql } from "drizzle-orm";
 import { type CompanyFacts, companyFacts, type DossierFacts, type YcFacts } from "./company-facts.ts";
 import { companySlug, isCleanCompanyId, nextFreeId } from "./company-ids.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
@@ -1886,9 +1886,18 @@ export function toAlexandria(e: AlexandriaEnrichment | undefined): RoundRow["ale
   return { yc: { batch: e.yc.batch, team_size: e.yc.team_size, year_founded: e.yc.year_founded, founders_count: e.yc.founders.length } };
 }
 
+/** What a `bare` read leaves out of a row, so a type built on it cannot read them. */
+export type BareRoundRow = Omit<RoundRow, "previous_rounds" | "enrichment" | "alexandria" | "company_facts" | "verification_checks">;
+
 export interface RoundQuery {
   /** Exact ids, for a single-record lookup. */
   ids?: string[];
+  /**
+   * The rows with their investors and sources only: no company profile, Alexandria record, dossier
+   * facts, verification checks, or previous rounds (BareRoundRow). For a page that lists many rounds
+   * by their headline facts (an investor's 200), where those reads were most of its time.
+   */
+  bare?: boolean;
   since?: string;
   /** Announced on or before this day (YYYY-MM-DD); with `since`, the reader's own date range. */
   until?: string;
@@ -2290,6 +2299,9 @@ export function previousRounds(
     }));
 }
 
+/** A round's columns as a list reads them: the publication audit's verdict and fingerprint are the audit's own and never shown. */
+const { audit: _audit, auditFacts: _auditFacts, ...LISTED_ROUND_COLUMNS } = getTableColumns(fundingRounds);
+
 export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows: RoundRow[]; nextCursor: string | null }> {
   const limit = Math.min(q.limit ?? 50, 200);
   const sort: RoundSort = q.sort ?? "";
@@ -2319,7 +2331,7 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
       : [sql`${fundingRounds.announcedOn} desc nulls last`, desc(fundingRounds.id)];
 
   const rows = await handle
-    .select({ round: fundingRounds, company: companies })
+    .select({ round: LISTED_ROUND_COLUMNS, company: companies })
     .from(fundingRounds)
     .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
     .where(conds.length ? and(...conds) : undefined)
@@ -2354,14 +2366,14 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
           .innerJoin(sources, eq(sources.id, roundSources.sourceId))
           .where(inArray(roundSources.roundId, ids))
       : [],
-    companyIds.length
+    companyIds.length && !q.bare
       ? handle
           .select({ companyId: enrichments.companyId, kind: enrichments.kind, data: enrichments.data })
           .from(enrichments)
           .where(and(inArray(enrichments.companyId, companyIds), inArray(enrichments.kind, ["profile", "alexandria"])))
       : [],
-    companyIds.length ? dossierFacts(handle, companyIds) : new Map<string, DossierFacts>(),
-    ids.length
+    companyIds.length && !q.bare ? dossierFacts(handle, companyIds) : new Map<string, DossierFacts>(),
+    ids.length && !q.bare
       ? handle
           .select({
             roundId: schema.roundVerification.roundId,
@@ -2377,7 +2389,7 @@ export async function listRounds(handle: Db, q: RoundQuery = {}): Promise<{ rows
           .from(schema.companyAliases)
           .where(and(inArray(schema.companyAliases.companyId, companyIds), eq(schema.companyAliases.kind, "domain")))
       : [],
-    visibleRoundsOf(handle, companyIds),
+    q.bare ? new Map<string, VisibleRound[]>() : visibleRoundsOf(handle, companyIds),
   ]);
   const checksByRound = new Map(
     checks.map((c) => [c.roundId, { attempts: c.attempts, last_checked_at: c.lastCheckedAt?.toISOString() ?? null }]),
