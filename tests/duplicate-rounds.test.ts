@@ -642,6 +642,59 @@ describe("re-reports and re-dated rows", () => {
     expect(row).toMatchObject({ id: "millie:series_a:2026-09-23", announced_on: "2025-02-20", date_precision: "day" });
   });
 
+  test("Impossible Foods: a repeat lead's equal round twenty months later, each dated to its day, is its own round", async () => {
+    const base = {
+      company_name: "Impossible Foods",
+      company_key: "impossible-foods",
+      company_domain: "impossiblefoods.com",
+      lead_investors: ["Mirae Asset Global Investments"],
+    };
+    for (const stage of ["other", "series_d_plus"] as const) {
+      const db = await testDb();
+      await persistRecords(
+        db,
+        [
+          record({
+            ...base,
+            id: "impossible-foods:series_d_plus:2020-03-15",
+            stage: "series_d_plus",
+            stage_as_written: "Series F",
+            announced_date: "2020-03-13",
+            amount: usd(500, "2020-03-13"),
+            sources: [
+              {
+                url: "https://impossiblefoods.com/media/news-releases/2020/03/impossible-foods-confirms-approximately-usd500-million-in-new-funding",
+                host: "impossiblefoods.com",
+              },
+            ],
+          }),
+        ],
+        "growth",
+        "run-1",
+      );
+      const later = await persistRecords(
+        db,
+        [
+          record({
+            ...base,
+            id: `impossible-foods:${stage}:2021-11-23`,
+            stage,
+            stage_as_written: "funding round",
+            announced_date: "2021-11-23",
+            amount: usd(500, "2021-11-23"),
+            sources: [
+              { url: "https://www.reuters.com/markets/us/impossible-foods-raises-500-mln-latest-funding-2021-11-23/", host: "reuters.com" },
+            ],
+          }),
+        ],
+        "growth",
+        "run-2",
+      );
+      expect(later.inserted).toBe(1);
+      expect((await rows(db)).map((r) => r.announced_on).sort()).toEqual(["2020-03-13", "2021-11-23"]);
+    }
+  });
+
   test("Higharc: a monthly list's reading of a July release is one round, and the release's day stands", async () => {
     const db = await testDb();
     const base = {
@@ -822,6 +875,19 @@ describe("re-reports and re-dated rows", () => {
     // Past a year the two need a shared page, a shared lead, or a list's date; never past three years.
     expect(isSameRound(r({}), r({ announcedOn: "2027-09-10" }))).toBe(false);
     expect(isSameRound(r({ leadKeys: ["tmv"] }), r({ announcedOn: "2027-09-10", leadKeys: ["tmv"] }))).toBe(true);
+    // A shared lead alone does not join two readings each dated to its own day: a repeat lead's next round.
+    expect(
+      isSameRound(
+        r({ leadKeys: ["tmv"], datePrecision: "day" }),
+        r({ announcedOn: "2027-09-10", leadKeys: ["tmv"], datePrecision: "day" }),
+      ),
+    ).toBe(false);
+    expect(
+      isSameRound(
+        r({ leadKeys: ["tmv"], datePrecision: "day" }),
+        r({ announcedOn: "2027-09-10", leadKeys: ["tmv"], datePrecision: "day", stage: "other" }),
+      ),
+    ).toBe(false);
     expect(isSameRound(r({ sourceIds: ["https://a"] }), r({ announcedOn: "2027-09-10", sourceIds: ["https://a"] }))).toBe(true);
     expect(isSameRound(r({}), r({ announcedOn: "2027-09-10", datePrecision: "week" }))).toBe(true);
     expect(isSameRound(r({ leadKeys: ["tmv"] }), r({ announcedOn: "2029-09-10", leadKeys: ["tmv"] }))).toBe(false);

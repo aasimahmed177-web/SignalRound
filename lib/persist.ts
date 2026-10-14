@@ -471,7 +471,7 @@ function seriesLetter(written: string | undefined): string | null {
  * one (other and undisclosed name nothing), both amounts must be known and agree within a tenth,
  * an extension is its own raise, and two different letters inside Series D+ ("Series D" and
  * "Series E") are two rounds. Inside a year that is enough; up to three years the two must share a
- * page or a lead, or one must be dated only by a list.
+ * page, or one must be dated only by a list, or share a lead (corroboratedPast).
  */
 function isReReport(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
   if (!EQUITY_LADDER.has(a.stage) || isStageless(a.stage as Stage)) return false;
@@ -486,10 +486,21 @@ function isReReport(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean
   if (!(larger > 0 && Math.abs(x - y) <= larger * 0.1)) return false;
   if (days <= REREPORT_WINDOW_DAYS) return true;
   if (days > REREPORT_CORROBORATED_WINDOW_DAYS) return false;
-  const sharedPage = (a.sourceIds ?? []).some((s) => (b.sourceIds ?? []).includes(s));
-  const sharedLead = (a.leadKeys ?? []).some((k) => (b.leadKeys ?? []).includes(k));
   const listDated = precisionSpan(a.datePrecision) > 0 || precisionSpan(b.datePrecision) > 0;
-  return sharedPage || sharedLead || listDated;
+  return listDated || corroboratedPast(a, b, days);
+}
+
+/**
+ * Whether two readings more than a year apart with one figure share enough to be one round: a page,
+ * or a lead unless both are dated to their own day. A company's existing lead often leads its next
+ * round too, and two announcements each dated to its day are two events: Mirae Asset led Impossible
+ * Foods' $500 million of March 2020 and its nearly $500 million of November 2021. A re-report that
+ * keeps the lead is dated by its list (Millie's roundup) or by no day at all.
+ */
+function corroboratedPast(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
+  if ((a.sourceIds ?? []).some((s) => (b.sourceIds ?? []).includes(s))) return true;
+  if (!(a.leadKeys ?? []).some((k) => (b.leadKeys ?? []).includes(k))) return false;
+  return days <= REREPORT_WINDOW_DAYS || a.datePrecision !== "day" || b.datePrecision !== "day";
 }
 
 /**
@@ -497,7 +508,7 @@ function isReReport(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean
  * the label (Fearn's June seed came back from a September digest as "raised $5.5 million", Assort
  * Health's Series C from a profile as "$120M funding"). One side stageless, the other a named equity
  * stage, the same extension flag, both amounts known and within a tenth, inside three years, and a
- * shared page or a shared lead: without the label, the figure alone is not enough.
+ * shared page or lead (corroboratedPast): without the label, the figure alone is not enough.
  */
 function isStagelessReReport(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
   if (isStageless(a.stage as Stage) === isStageless(b.stage as Stage)) return false;
@@ -508,9 +519,7 @@ function isStagelessReReport(a: SameRoundFacts, b: SameRoundFacts, days: number)
   const larger = Math.max(x, y);
   if (!(larger > 0 && Math.abs(x - y) <= larger * 0.1)) return false;
   if (days > REREPORT_CORROBORATED_WINDOW_DAYS) return false;
-  const sharedPage = (a.sourceIds ?? []).some((s) => (b.sourceIds ?? []).includes(s));
-  const sharedLead = (a.leadKeys ?? []).some((k) => (b.leadKeys ?? []).includes(k));
-  return sharedPage || sharedLead;
+  return corroboratedPast(a, b, days);
 }
 
 /**
