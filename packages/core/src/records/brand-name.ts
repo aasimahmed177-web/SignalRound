@@ -34,6 +34,61 @@ export function cleanBrandName(raw: string, domain: string | null): string {
   return spelled ?? segments.find((s) => !GENERIC.test(s)) ?? segments[0];
 }
 
+/** A page's own label rather than a company's name: "About", "Notes on Roadtrips", "Blog". */
+const PAGE_LABEL =
+  /^(?:home|homepage|welcome|about|about us|blog|news|newsroom|press|contact|contact us|careers|jobs|log ?in|sign ?in|sign ?up|notes\b.*|official site|official website|main page|index)$/i;
+
+/** A name at most five words long that is not a page's own label. A sentence ("Groceries delivered in minutes") still passes here; the domain decides. */
+function nameLike(name: string): boolean {
+  const words = name.split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.length <= 5 && !PAGE_LABEL.test(name) && squash(name).length >= 2;
+}
+
+/**
+ * Whether a name spells the domain's brand: either holds the other ("Flink" in goflink, "The Browser
+ * Company" around thebrowser), one of its words is the label ("Hims & Hers" for hims.com), or the label
+ * is the name's abbreviation in order from its first letter ("bsky" for Bluesky).
+ */
+function spellsDomain(name: string, domain: string | null): boolean {
+  const label = domainLabel(domain);
+  const key = squash(name);
+  if (label.length < 2 || key.length < 2) return false;
+  if (key.includes(label) || label.includes(key)) return true;
+  if (name.split(/\s+/).some((w) => squash(w).length >= 3 && label.includes(squash(w)))) return true;
+  if (label.length < 3 || label[0] !== key[0]) return false;
+  let i = 0;
+  for (const ch of key) if (ch === label[i]) i++;
+  return i === label.length;
+}
+
+/** The domain's brand as a name: its first label, capitalized ("Goflink" for goflink.com). */
+function domainBrand(domain: string | null): string | null {
+  const label = (domain ?? "").replace(/^www\./, "").split(".")[0] ?? "";
+  return label ? label[0].toUpperCase() + label.slice(1) : null;
+}
+
+/**
+ * A new company's name from what its site says, strongest signal first. `siteName` is the page's
+ * og:site_name, the site's own current name; `stated` the name the homepage reading itself gives,
+ * which can recall a former name (xAI for SpaceXAI), so the site's name goes first;
+ * `brand` (the branding read) and `title` (the page title) are weak: a homepage's hero line or a
+ * subpage's title lands there ("Groceries delivered in minutes", "About", "Notes on Roadtrips").
+ * A signal that spells the domain wins, strong before weak; then a strong one alone; else the
+ * domain's brand. A weak signal that does not spell the domain never names a company.
+ */
+export function companyNameFrom(
+  signals: { stated?: string | null; siteName?: string | null; brand?: string | null; title?: string | null },
+  domain: string | null,
+): string | null {
+  const clean = (raw: string | null | undefined) => {
+    const name = raw?.trim() ? cleanBrandName(raw, domain) : "";
+    return name && name.length <= 80 && nameLike(name) ? name : null;
+  };
+  const strong = [signals.siteName, signals.stated].map(clean).filter((n): n is string => n !== null);
+  const weak = [signals.brand, signals.title].map(clean).filter((n): n is string => n !== null);
+  return strong.find((n) => spellsDomain(n, domain)) ?? weak.find((n) => spellsDomain(n, domain)) ?? strong[0] ?? domainBrand(domain);
+}
+
 /** Remove a headline's location or category before treating the remainder as a company name. */
 export function cleanHeadlineName(raw: string): string {
   const name = raw.trim();

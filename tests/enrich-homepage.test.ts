@@ -32,6 +32,7 @@ import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { clearUnverifiedProfiles, enrichBatch, isPending, isVerified } from "../lib/enrich";
 import { persistRecords } from "../lib/persist";
+import { companyFromHomepage } from "../lib/request-research";
 import { record, testDb } from "./helpers";
 
 /** The chrome every real homepage carries, so a fixture page has a page's worth of text. */
@@ -44,7 +45,7 @@ interface Page {
   markdown?: string;
   /** The page as given, with no site chrome added: a thin page. */
   bare?: boolean;
-  metadata?: { title?: string };
+  metadata?: { title?: string; ogSiteName?: string };
   branding?: { brandName?: string };
 }
 
@@ -849,5 +850,50 @@ describe("a LinkedIn page found by search", () => {
         )
       ).url,
     ).toBeNull();
+  });
+});
+
+describe("a company added from its homepage is named by its strongest name signal", () => {
+  test("Coinbase, read from its About page, is not named About", async () => {
+    const db = await testDb();
+    const { client } = fakeClient(() => [], {
+      "coinbase.com/about": {
+        json: { ...same("A cryptocurrency exchange for buying, selling and storing crypto."), company_name: "Coinbase" },
+        branding: { brandName: "About" },
+        metadata: { title: "About | Coinbase" },
+      },
+    });
+    const r = await companyFromHomepage(db, client, { domain: "coinbase.com", url: "https://www.coinbase.com/about", sites: [] });
+    expect(r).toEqual({ status: "verified", companyId: "coinbase.com", fresh: true });
+    const [row] = await db.select().from(schema.companies).where(eq(schema.companies.id, "coinbase.com"));
+    expect(row?.name).toBe("Coinbase");
+    expect(row?.nameKey).toBe("coinbase");
+  });
+
+  test("Flink, whose branding read is its hero line, takes its og:site_name", async () => {
+    const db = await testDb();
+    const { client } = fakeClient(() => [], {
+      "goflink.com": {
+        json: same("Groceries delivered to your door in minutes from local hubs."),
+        branding: { brandName: "Groceries delivered in minutes" },
+        metadata: { title: "Groceries delivered in minutes", ogSiteName: "Flink" },
+      },
+    });
+    await companyFromHomepage(db, client, { domain: "goflink.com", url: "https://www.goflink.com", sites: [] });
+    const [row] = await db.select().from(schema.companies).where(eq(schema.companies.id, "goflink.com"));
+    expect(row?.name).toBe("Flink");
+  });
+
+  test("a hero line with no stronger signal gives way to the domain's brand", async () => {
+    const db = await testDb();
+    const { client } = fakeClient(() => [], {
+      "meesho.com": {
+        json: same("An online marketplace for fashion, electronics and home goods."),
+        branding: { brandName: "Online Shopping Site for Fashion, Electronics, Home & More" },
+      },
+    });
+    await companyFromHomepage(db, client, { domain: "meesho.com", url: "https://www.meesho.com", sites: [] });
+    const [row] = await db.select().from(schema.companies).where(eq(schema.companies.id, "meesho.com"));
+    expect(row?.name).toBe("Meesho");
   });
 });

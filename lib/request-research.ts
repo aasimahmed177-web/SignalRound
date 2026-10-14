@@ -26,7 +26,7 @@ import { schema } from "@fireround/core/db";
 import type { CompanyRequestBrand } from "@fireround/core/db/schema";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { Firecrawl } from "firecrawl";
-import { cleanBrandName, searchName } from "./brand-name.ts";
+import { cleanBrandName, companyNameFrom, searchName } from "./brand-name.ts";
 import { isVerified, readProfiles, saveProfiles } from "./enrich.ts";
 import { classifyCandidates, type HistoryReader } from "./history.ts";
 import { knownRounds } from "./known-rounds.ts";
@@ -43,7 +43,7 @@ export async function readBrand(client: Pick<Firecrawl, "scrape">, url: string):
     const domain = registrableDomain(url);
     const sites = domain ? linkedSites(home.links ?? [], domain) : [];
     if (!brand && !logo && sites.length === 0) return null;
-    const name = brand?.name ? cleanBrandName(brand.name, domain) : null;
+    const name = brand?.name ? companyNameFrom({ siteName: home.metadata?.ogSiteName, brand: brand.name }, domain) : null;
     return { name, logo, color: brand?.primary_color ?? null, ...(sites.length > 0 ? { sites } : {}) };
   } catch {
     return null;
@@ -96,8 +96,9 @@ export async function companyFromHomepage(
   );
   const verified = result.enrichments.find((enrichment) => isVerified(enrichment) && enrichment.profile);
   if (!verified) return { status: "refused" };
-  const brandName = verified.brand?.name ? cleanBrandName(verified.brand.name, site.domain) : null;
-  const companyName = brandName && brandName.length <= 80 ? brandName : name;
+  const companyName =
+    companyNameFrom({ stated: verified.profile?.company_name, siteName: verified.site_name, brand: verified.brand?.name }, site.domain) ??
+    name;
   if (!existing) {
     await handle
       .insert(companies)

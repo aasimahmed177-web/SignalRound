@@ -10,8 +10,8 @@
 import type { Enrichment } from "@fireround/core";
 import {
   acceptableSiteLine,
-  cleanBrandName,
   cleanHeadlineName,
+  companyNameFrom,
   describingQuote,
   enrichCompanies,
   hostCovered,
@@ -344,8 +344,8 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
     }
     if (current && e.brand?.name) {
       const cleaned = cleanHeadlineName(current.name);
-      const brand = cleanBrandName(e.brand.name, domain);
-      if (cleaned !== current.name && normalizeCompanyKey(cleaned) === normalizeCompanyKey(brand))
+      const brand = companyNameFrom({ stated: e.profile?.company_name, siteName: e.site_name, brand: e.brand.name }, domain);
+      if (brand && cleaned !== current.name && normalizeCompanyKey(cleaned) === normalizeCompanyKey(brand))
         await handle
           .update(companies)
           .set({ name: brand, nameKey: normalizeCompanyKey(brand), updatedAt: new Date() })

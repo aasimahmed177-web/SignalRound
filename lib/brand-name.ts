@@ -1,1 +1,1 @@
-export { cleanBrandName, searchName } from "@fireround/core";
+export { cleanBrandName, companyNameFrom, searchName } from "@fireround/core";

@@ -23,7 +23,7 @@ export * from "./llm/publication-audit.ts";
 export * from "./llm/reconcile.ts";
 export * from "./presets/types.ts";
 export * from "./records/accuracy.ts";
-export { cleanBrandName, cleanHeadlineName } from "./records/brand-name.ts";
+export { cleanBrandName, cleanHeadlineName, companyNameFrom } from "./records/brand-name.ts";
 export * from "./records/certainty.ts";
 export * from "./records/financing.ts";
 export * from "./records/fx.ts";

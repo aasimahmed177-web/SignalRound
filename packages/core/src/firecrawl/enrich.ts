@@ -26,6 +26,13 @@ import { extractionCredits, mapLimit, RATE, searchCredits } from "./credits.ts";
 // is the company the prompt describes, and it has to name the different business before it may
 // answer false, so the verdict follows the evidence.
 export const CompanyProfile = z.object({
+  company_name: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      'The company\'s own name as this site writes it today, its brand ("Coinbase", "Meesho", "The Browser Company"), even when the company was known by another name before: never a tagline, a slogan, a heading, or a page\'s title ("About", "Groceries delivered in minutes"). Null when the site does not name the company.',
+    ),
   what_they_sell: z.string().describe("One sentence: the product and who buys it"),
   customer_type: z.enum([
     "B2B software",
@@ -169,6 +176,8 @@ export interface Enrichment {
   linkedin_url?: string | null;
   /** The verified homepage's own one-line description of the company (its meta description), when it reads as one (siteOneLiner). */
   site_description?: string | null;
+  /** The verified homepage's og:site_name, a name signal that outranks the branding read's; absent on rows written before it was read. */
+  site_name?: string | null;
   error?: string;
   /**
    * The row a clear leaves when the old row had refused hosts: the profile is to be read again and
@@ -1393,6 +1402,7 @@ export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[
       row.pricing_page_url = pricingLink(home.links, website);
       row.linkedin_url = linkedinFromLinks(home.links, { name: c.company_name, homepage: website });
       row.site_description = siteOneLiner(home.metadata, c.company_name);
+      row.site_name = typeof home.metadata?.ogSiteName === "string" ? home.metadata.ogSiteName.trim() || null : null;
       const domain = registrableDomain(website);
       if (!row.linkedin_url && domain) {
         const found = await findLinkedinPage(client, { name: c.company_name, domain });
