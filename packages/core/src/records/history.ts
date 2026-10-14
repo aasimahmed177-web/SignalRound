@@ -300,7 +300,7 @@ export type PriorMatch =
 
 /**
  * Whether the record's company is the dossier's company: a key, an alias key, the domain, or every
- * word of one name inside the other. A domain the page gives that is not the company's refuses it,
+ * word of one name (its own or a stored former one) inside the other. A domain the page gives that is not the company's refuses it,
  * unless it is a site the company publishes on (tldraw.dev for tldraw.com); a sibling that shares
  * only the label must still carry the company's name.
  */
@@ -314,7 +314,10 @@ export function sameHistoryCompany(
   const keys = new Set([company.nameKey, ...(company.aliasKeys ?? [])].filter(Boolean));
   if (keys.has(record.company_key)) return true;
   if (site === "own") return true;
-  return namesCompany(record.company_name, company.name, { share: 1 }) || namesCompany(company.name, record.company_name, { share: 1 });
+  // A stored former name counts as the name does: "Hampton Creek Foods Inc." is the company once known as Hampton Creek.
+  return [company.name, ...(company.aliasKeys ?? [])].some(
+    (name) => namesCompany(record.company_name, name, { share: 1 }) || namesCompany(name, record.company_name, { share: 1 }),
+  );
 }
 
 /**

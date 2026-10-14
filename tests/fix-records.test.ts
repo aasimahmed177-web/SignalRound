@@ -1,9 +1,11 @@
 // Hand-checked corrections to stored rows (lib/repair.ts applyRecordFixes), shaped like the Sep 23
 // repairs: Xpeng Robotics dated by a trend story's byline, Creem on a rock magazine's domain.
 
+import { sameHistoryCompany } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
+import { historySubject } from "../lib/history";
 import { persistRecords } from "../lib/persist";
 import { applyRecordFixes, type RecordFix } from "../lib/repair";
 import { record, testDb } from "./helpers";
@@ -658,5 +660,56 @@ describe("applyRecordFixes", () => {
     const aliases = await handle.select().from(schema.companyAliases).where(eq(schema.companyAliases.companyId, "monzo.com"));
     expect(aliases).toMatchObject([{ kind: "domain", aliasKey: "getmondo.co.uk", sourceUrl: evidence }]);
     expect(await applyRecordFixes(handle, [site("getmondo.co.uk")], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+  });
+
+  test("a former name is stored as a name alias the history reading accepts; another company's name is refused", async () => {
+    const handle = await testDb();
+    await persistRecords(
+      handle,
+      [
+        record({ company_name: "Eat Just", company_domain: "ju.st", company_website: "https://ju.st", announced_date: "2021-03-03" }),
+        record({
+          company_name: "Roman",
+          company_domain: "roman.example",
+          company_website: "https://roman.example",
+          announced_date: "2021-03-04",
+        }),
+      ],
+      "series-a-b",
+      "run-1",
+    );
+    const [eatJust] = await handle.select().from(schema.companies).where(eq(schema.companies.domain, "ju.st"));
+    const evidence = "https://www.businessinsider.com/hampton-creek-raises-90-million-to-take-on-asia-2014-12";
+    const alias: RecordFix = {
+      kind: "alias",
+      company: eatJust.id,
+      name: "Hampton Creek",
+      evidence,
+      note: "Eat Just was Hampton Creek until 2017",
+    };
+
+    const dry = await applyRecordFixes(handle, [alias], { apply: false });
+    expect(dry.lines.join("\n")).toContain(`alias ${eatJust.id} (Eat Just): also known as "Hampton Creek"`);
+    expect((await historySubject(handle, eatJust.id, { requireDossier: false }))?.aliasKeys).toEqual([]);
+
+    expect(await applyRecordFixes(handle, [alias], { apply: true })).toMatchObject({ applied: 1, refused: 0 });
+    const subject = await historySubject(handle, eatJust.id, { requireDossier: false });
+    expect(subject?.aliasKeys).toEqual(["hampton creek"]);
+    const page = { company_key: "hampton creek", company_domain: null, company_name: "Hampton Creek" };
+    expect(sameHistoryCompany({ name: "Eat Just", nameKey: "eat just", domain: "ju.st", aliasKeys: [] }, page)).toBe(false);
+    expect(sameHistoryCompany({ name: "Eat Just", nameKey: "eat just", domain: "ju.st", aliasKeys: subject?.aliasKeys }, page)).toBe(true);
+    expect(await applyRecordFixes(handle, [alias], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+
+    const taken = await applyRecordFixes(
+      handle,
+      [
+        { ...alias, name: "Roman" },
+        { ...alias, name: "Eat Just Inc." },
+      ],
+      { apply: true },
+    );
+    expect(taken).toMatchObject({ applied: 0, refused: 2 });
+    expect(taken.lines.join("\n")).toContain('refuse alias ju.st: "Roman" is also');
+    expect(taken.lines.join("\n")).toContain('"Eat Just Inc." is not another name for Eat Just');
   });
 });

@@ -191,6 +191,13 @@ describe("matchPriorRound", () => {
     });
   });
 
+  test("a page from before a rebrand is the company's under a stored former name, with its legal suffix", () => {
+    const eatJust: HistoryCompany = { name: "Eat Just", nameKey: "eat just", domain: "ju.st" };
+    const hamptonCreek = rec({ company_key: "hampton creek foods", company_name: "Hampton Creek Foods Inc.", company_domain: null });
+    expect(matchPriorRound(prior({}), hamptonCreek, eatJust)).toEqual({ ok: false, reason: "company" });
+    expect(matchPriorRound(prior({}), hamptonCreek, { ...eatJust, aliasKeys: ["hampton creek"] })).toMatchObject({ ok: true });
+  });
+
   test("the Series B article that recalls the seed yields the Series B, which is another round", () => {
     const seriesB = rec({
       stage: "series_b",

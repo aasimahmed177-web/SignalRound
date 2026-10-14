@@ -30,7 +30,7 @@ import {
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import type { HistoryPrior } from "@fireround/core/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { recordInvestorFold } from "./investor-repair.ts";
 import {
   applyRoundMerge,
@@ -674,6 +674,13 @@ export type RecordFix =
    * when the domain is another company's, or another company's site.
    */
   | { kind: "site"; company: string; domain: string; evidence: string; note: string }
+  /**
+   * A name the company went by before a rebrand (Hampton Creek for Eat Just, LimeBike for Lime), stored as
+   * a name alias with the page that shows it is the same company. Pages from before the rename use that
+   * name, and a history reading of one is the company's only when its name is one the company is known by.
+   * A name another company is stored under is refused: the alias would hand that company's readings to this one.
+   */
+  | { kind: "alias"; company: string; name: string; evidence: string; note: string }
   /** A company's headquarters when the stored one is wrong or missing (a factory town, a founder's birthplace). */
   | { kind: "hq"; company: string; from: string | null; hq: string; evidence: string; note: string }
   /** A company's sector from the vocabulary when the stored one is wrong (a rocket maker filed under AI). */
@@ -794,6 +801,65 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       say(`  why: ${fix.note}`);
       if (!opts.apply) continue;
       await handle.update(companies).set({ description: fix.description, updatedAt: new Date() }).where(eq(companies.id, fix.company));
+      out.applied++;
+      continue;
+    }
+    if (fix.kind === "alias") {
+      const key = normalizeCompanyKey(fix.name);
+      const [company] = await handle
+        .select({ name: companies.name, nameKey: companies.nameKey })
+        .from(companies)
+        .where(eq(companies.id, fix.company));
+      if (!company) {
+        say(`refuse alias ${fix.company}: no such company`);
+        out.refused++;
+        continue;
+      }
+      if (!key || key === company.nameKey) {
+        say(`refuse alias ${fix.company}: ${JSON.stringify(fix.name)} is not another name for ${company.name}`);
+        out.refused++;
+        continue;
+      }
+      const holders = await handle
+        .select({ id: companies.id })
+        .from(companies)
+        .where(
+          and(
+            ne(companies.id, fix.company),
+            or(
+              eq(companies.nameKey, key),
+              sql`exists (select 1 from company_aliases a where a.company_id = ${companies.id} and a.kind = 'name' and a.alias_key = ${key})`,
+            ),
+          ),
+        );
+      if (holders.length > 0) {
+        say(`refuse alias ${fix.company}: ${JSON.stringify(fix.name)} is also ${holders.map((h) => h.id).join(", ")}'s name`);
+        out.refused++;
+        continue;
+      }
+      const [held] = await handle
+        .select({ alias: schema.companyAliases.alias })
+        .from(schema.companyAliases)
+        .where(
+          and(
+            eq(schema.companyAliases.companyId, fix.company),
+            eq(schema.companyAliases.kind, "name"),
+            eq(schema.companyAliases.aliasKey, key),
+          ),
+        );
+      if (held) {
+        say(`skip alias ${fix.company}: already known as ${JSON.stringify(held.alias)}`);
+        out.skipped++;
+        continue;
+      }
+      say(`alias ${fix.company} (${company.name}): also known as ${JSON.stringify(fix.name)}`);
+      say(`  evidence: ${fix.evidence}`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      await handle
+        .insert(schema.companyAliases)
+        .values({ companyId: fix.company, kind: "name", aliasKey: key, alias: fix.name.trim(), sourceUrl: fix.evidence })
+        .onConflictDoNothing();
       out.applied++;
       continue;
     }
