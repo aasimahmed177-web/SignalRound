@@ -892,7 +892,7 @@ export function GET(request: Request) {
                             url: { type: "string" },
                             rounds_led: { type: "integer" },
                             lead_share_usd_millions: { type: "number" },
-                            led_rounds: { type: "array", description: "Its newest led rounds in the window, at most 3", items: RoundRef },
+                            led_rounds: { type: "array", description: "Every round it led in the window, newest first", items: RoundRef },
                           },
                         },
                       },

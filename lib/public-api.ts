@@ -445,9 +445,6 @@ export async function apiInvestorProfile(handle: Db, wanted: string) {
 export const TOP_WINDOWS = { "7d": 7, "30d": 30, "90d": 90 } as const;
 export type TopWindow = keyof typeof TOP_WINDOWS;
 
-/** How many of an investor's led rounds the ranking shows beside its count. */
-const TOP_LED_SHOWN = 3;
-
 /**
  * The investors that led the most rounds in the window: announced or reported rounds the feed lists,
  * history left out, as the Overview's "Most active leads" counts them. `lead_share_usd_millions`
@@ -513,10 +510,7 @@ export async function apiTopLeads(
       url: `${origin}${investorHref(r.id)}`,
       rounds_led: r.leads,
       lead_share_usd_millions: Math.round(r.usd * 1000) / 1000,
-      led_rounds: led
-        .filter((l) => l.investorId === r.id)
-        .slice(0, TOP_LED_SHOWN)
-        .map(roundRef),
+      led_rounds: led.filter((l) => l.investorId === r.id).map(roundRef),
     })),
   };
 }
