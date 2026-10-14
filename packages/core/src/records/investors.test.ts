@@ -587,11 +587,23 @@ describe("rule 4: one firm, one entry", () => {
       ["T. Rowe Price Associates, Inc.", "T. Rowe Price"],
       ["Founder’s Fund", "Founders Fund"],
       ["Founder's Fund", "Founders Fund"],
+      ["NVIDIA NVentures", "NVentures"],
+      ["NVIDIA’s NVentures", "NVentures"],
+      ["Softbank Vision Fund 1", "SoftBank Vision Fund"],
+      ["Sequoia Capital Operations", "Sequoia Capital"],
+      ["Wellington Management Company", "Wellington Management"],
+      ["Fidelity Management & Research", "Fidelity Management & Research Company"],
+      ["BoxGroup Services", "BoxGroup"],
+      ["Nexus VP", "Nexus Venture Partners"],
+      ["Kleiner Perkins Chairman John Doerr", "John Doerr"],
     ])
       expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
     expect(investorKeyForMerge("Sequoia Capital China")).not.toBe(investorKeyForMerge("Sequoia Capital"));
     expect(investorKeyForMerge("Founder Collective")).not.toBe(investorKeyForMerge("Founders Fund"));
     expect(investorKeyForMerge("Founder’s Co-op")).not.toBe(investorKeyForMerge("Founders Fund"));
+    expect(investorKeyForMerge("SoftBank Vision Fund 2")).not.toBe(investorKeyForMerge("SoftBank Vision Fund"));
+    expect(investorKeyForMerge("NVIDIA")).not.toBe(investorKeyForMerge("NVentures"));
+    expect(investorKeyForMerge("Kleiner Perkins")).not.toBe(investorKeyForMerge("John Doerr"));
     // Only the whole name: a fund that starts with the short form keeps its own key.
     expect(investorKeyForMerge("YC Continuity Fund")).not.toBe(investorKeyForMerge("Y Combinator"));
     expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));

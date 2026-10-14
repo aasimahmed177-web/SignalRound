@@ -100,7 +100,10 @@ const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
  * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
  * speedrun; "YC" alone is Y Combinator; Sequoia's Indian and Chinese arms are printed with and without "Capital"; a firm's
  * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm; T. Rowe Price's adviser, "T. Rowe Price
- * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund.
+ * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund; NVentures
+ * printed with its parent's name is NVentures; SoftBank's first Vision Fund numbered is the Vision Fund; a firm's
+ * operating or legal entity ("Sequoia Capital Operations", "Wellington Management Company", "BoxGroup Services") is the
+ * firm; a person printed with a title ("Kleiner Perkins Chairman John Doerr") is the person.
  */
 const RENAMED: Record<string, string> = {
   "andreessen horowitz csx": "andreessen horowitz speedrun",
@@ -119,6 +122,14 @@ const RENAMED: Record<string, string> = {
   "kleiner perkins caufield byers": "kleiner perkins",
   "t rowe price associates": "t rowe price",
   founder: "founders",
+  "nvidia nventures": "nventures",
+  "softbank vision fund 1": "softbank vision",
+  "sequoia capital operations": "sequoia",
+  "wellington management company": "wellington",
+  "fidelity management and research": "fidelity management and research company",
+  "boxgroup services": "boxgroup",
+  "nexus vp": "nexus",
+  "kleiner perkins chairman john doerr": "john doerr",
 };
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
