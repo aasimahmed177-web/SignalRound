@@ -1428,6 +1428,65 @@ export function statedRole(name: string, evidence: string[]): Attribution {
   return role;
 }
 
+/** Words before a firm that make it the source of a sentence's money: "investment with", "funding from venture capital firm". */
+const SOLE_SOURCE_BEFORE =
+  /\b(?:investments?|funding|financing|round|capital|raise|stake|million|billion|bn|mn)\b(?:(?!participation|backing|support)[^.;]){0,50}?\b(?:from|with|(?:funded|financed|provided|made)\s+by)\s+(?:(?:the\s+)?(?:(?:venture capital|private equity|growth equity|investment|growth)\s+)?firm\s+|(?:funds|accounts|vehicles)\s+(?:managed|advised)\s+by\s+)?$/i;
+/** Words after a firm that make it the one paying: "SoftBank has made a $1 billion investment", "Acme invests $10 million". */
+const SOLE_SOURCE_AFTER = /^\s+(?:has\s+|have\s+)?(?:made\s+an?\s+|invest(?:s|ed)\s+|put\s+|pour(?:s|ed)\s+|commit(?:s|ted)\s+)/i;
+/** What continues a list of investors after a name, rather than describing the one named: ", Beta", "and Beta", "alongside". */
+const LIST_GOES_ON =
+  /^\s*(?:,(?!\s+(?:a|an|the|which|who|its|one|based|headquartered)\b)|\band\b|&|\+|\balong|\btogether|\bas well|\bplus\b|\bjoined|\bwith\b|\bamong|\bco-|\bet al)/i;
+/** Words that put a firm among a round's other investors, or its money in a loan: "among others", "included participation from", "venture debt". */
+const AMONG_OTHERS =
+  /\b(?:among others|and others|participation|participated|participating|alongside|joined|included|including|debt|loans?|credit facility)\b/i;
+const FIGURES =
+  /(?:US\$|[$€£¥])\s?\d[\d,.]*(?:\s*(?:million|billion|bn|mn|m|b|k)\b)?|\b\d[\d,.]*\s*(?:million|billion)\s+(?:dollars|euros|pounds|usd|eur|gbp)\b/gi;
+
+/**
+ * Whether a page states the round's money as coming from this one firm alone: "a $150 million investment
+ * with PSG", "$13 million in series-A funding from venture capital firm Index Ventures", "a strategic
+ * growth investment of $165 million from funds managed by Rubicon Founders", "SoftBank Group Corp. has
+ * made a $1 billion investment in Rappi". The sentence names the firm and no other beside it, and the
+ * figure nearest it is the round's whole amount, so a round with no amount known never qualifies. A
+ * round whose only named investor is its whole source is that firm's lead, though no sentence says "led".
+ */
+export function soleInvestor(name: string, evidence: string[], amount: string | null): boolean {
+  const want = parseAmount(amount);
+  if (want.value === null) return false;
+  const isAmount = (figure: string | undefined) => {
+    const got = parseAmount(figure ?? null);
+    return (
+      got.value !== null && got.currency === want.currency && Math.abs(got.value - (want.value as number)) <= 0.01 * (want.value as number)
+    );
+  };
+  const form = tokens(head(name));
+  if (form.length === 0) return false;
+  let sole = false;
+  for (const raw of evidence) {
+    const text = raw.replace(/[\u2010-\u2015]/g, "-").replace(/[“”]/g, '"');
+    const folded = fold(text);
+    const sentences = sentenceSpans(text);
+    for (let i = findTokens(folded, form); i >= 0; i = findTokens(folded, form, i + 1)) {
+      const [start, end] = sentenceAt(sentences, i);
+      const sentence = text.slice(start, end);
+      // A sentence stating the round's amount that places the firm among others, or calls the money a loan,
+      // says it is not the whole round's source. Another round recalled beside it ("$3 million in seed
+      // funding from Google Ventures, Index Ventures, ...") does not.
+      if (AMONG_OTHERS.test(sentence) && [...sentence.matchAll(FIGURES)].some((m) => isAmount(m[0]))) return false;
+      if (sole || hasLeadLanguage(sentence)) continue;
+      const before = text.slice(start, i);
+      // The firm's name as the sentence writes it may run on ("D1 Capital" in "D1 Capital Partners", "Group Corp.").
+      const rest = text.slice(i + form.join(" ").length, end).replace(/^(?:[\s.]+(?:[A-Z][\w&'’-]*\.?|&|of))*/, "");
+      if (LIST_GOES_ON.test(rest)) continue;
+      // The figure the money clause states, nearest the firm, is the round's whole amount, not a part of it.
+      if (SOLE_SOURCE_BEFORE.test(before) && isAmount([...before.matchAll(FIGURES)].at(-1)?.[0])) sole = true;
+      const lead = before.slice(-40).replace(/^.*[.:]\s*/, "");
+      if (SOLE_SOURCE_AFTER.test(rest) && !/[,;]|\band\b|&/.test(lead) && isAmount(rest.match(FIGURES)?.[0])) sole = true;
+    }
+  }
+  return sole;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Rule 9: a lead of another round
 
@@ -1901,6 +1960,10 @@ export function cleanInvestors(input: InvestorInput): InvestorOutput {
       if (m.attribution === "unattributed" && m.extractorLead && leads.size < MAX_UNATTRIBUTED_LEADS) leads.add(m);
     }
   }
+
+  // Rule 10: the round's one named investor, when the evidence states the money as coming from it alone.
+  const only = merged.length === 1 ? merged[0] : undefined;
+  if (only && leads.size === 0 && soleInvestor(only.name, [evidence], input.amount_as_written ?? null)) leads.add(only);
 
   return {
     lead_investors: merged.filter((m) => leads.has(m)).map((m) => m.name),

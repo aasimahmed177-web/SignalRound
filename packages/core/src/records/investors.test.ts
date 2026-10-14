@@ -13,6 +13,7 @@ import {
   levenshtein,
   MAX_UNATTRIBUTED_LEADS,
   normalizeInvestorName,
+  soleInvestor,
   statedRole,
 } from "./investors.ts";
 import { normalizeCompanyKey } from "./keys.ts";
@@ -1637,5 +1638,37 @@ describe("a lead list ends where it names its firms", () => {
     expect(clean([], ["Beta Ventures"], "It was led by existing and new investors including Beta Ventures.").lead_investors).toEqual([
       "Beta Ventures",
     ]);
+  });
+});
+
+describe("the round's one named investor, when the money is stated as its alone, is its lead", () => {
+  test.each([
+    ["uscreen", "PSG", "Uscreen today announced a $150 million investment with PSG, a leading growth equity firm.", "$150 million"],
+    [
+      "caidya",
+      "Rubicon Founders",
+      "Caidya today announced the closing of a strategic growth investment of $165 million from funds managed by Rubicon Founders",
+      "$165 million",
+    ],
+    ["rappi", "SoftBank", "SoftBank Group Corp. has made a $1 billion investment in Rappi Inc.", "up to $1 billion"],
+    [
+      "robinhood",
+      "Index Ventures",
+      "Robinhood said Tuesday it has picked up $13 million in series-A funding from venture capital firm Index Ventures.",
+      "$13 million",
+    ],
+    ["plain", "Alpha Capital", "Acme raised $20 million from Alpha Capital.", "$20 million"],
+  ])("%s", (_case, name, evidence, amount) => {
+    expect(soleInvestor(name, [evidence], amount)).toBe(true);
+    expect(clean([], [name], evidence, amount)).toMatchObject({ lead_investors: [name], other_investors: [] });
+  });
+
+  test.each([
+    ["two firms", ["Alpha Capital", "Beta Ventures"], "Acme raised $20 million from Alpha Capital and Beta Ventures.", "$20 million"],
+    ["a list that goes on", ["Alpha Capital"], "Acme raised $20 million from Alpha Capital, Beta Ventures and others.", "$20 million"],
+    ["participation", ["Alpha Capital"], "Acme raised $20 million in a round with participation from Alpha Capital.", "$20 million"],
+    ["a part of the round", ["Alpha Capital"], "Acme raised $20 million, including $5 million from Alpha Capital.", "$20 million"],
+  ])("not with %s", (_case, others, evidence, amount) => {
+    expect(clean([], others, evidence, amount).lead_investors).toEqual([]);
   });
 });

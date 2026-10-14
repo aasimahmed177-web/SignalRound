@@ -579,6 +579,19 @@ describe("a lead stands on the page it cites saying so, or on a page read when t
     expect(r.other_investors).toContain("Maverick Silicon");
   });
 
+  test("a round whose pages name one investor as the whole round's source has it as lead: Uscreen's PSG", () => {
+    const pages = [page(RELEASE, "Gimlet Labs today announced a $41 million investment with PSG, a leading growth equity firm.")];
+    const alone: Reconciliation = { ...AGREES, lead_investors: [], other_investors: [{ name: "PSG", source: RELEASE }] };
+    const r = applyReconciliation(record({ lead_investors: [], other_investors: ["PSG"] }), alone, { ...OPTS, pages });
+    expect(r.lead_investors).toEqual(["PSG"]);
+    expect(r.other_investors).toEqual([]);
+    // Two named investors, or a figure that is not the round's, leave the roles as the pages word them.
+    const two: Reconciliation = { ...alone, other_investors: [...alone.other_investors, { name: "Samsung Ventures", source: RELEASE }] };
+    expect(applyReconciliation(record({ lead_investors: [] }), two, { ...OPTS, pages }).lead_investors).toEqual([]);
+    const part = [page(RELEASE, "Gimlet Labs raised $41 million; it includes a $10 million investment with PSG.")];
+    expect(applyReconciliation(record({ lead_investors: [] }), alone, { ...OPTS, pages: part }).lead_investors).toEqual([]);
+  });
+
   test("the same firm stands as lead when the page it cites says it led", () => {
     const pages = [page(COVERAGE, "Gimlet Labs raised $41 million in a Series A led by Maverick Silicon.")];
     const r = applyReconciliation(record(), leadsOn(COVERAGE), { ...OPTS, pages });

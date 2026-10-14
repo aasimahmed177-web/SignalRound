@@ -12,7 +12,7 @@ import { mapLimit } from "../firecrawl/credits.ts";
 import { groundingCheck } from "../firecrawl/extract.ts";
 import { applyCorrection, samePage } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
-import { investorMentions, type LeadRound, leadOfAnotherRound, statedRole } from "../records/investors.ts";
+import { investorMentions, type LeadRound, leadOfAnotherRound, soleInvestor, statedRole } from "../records/investors.ts";
 import { FIGURE, moneyKindFromSentence } from "../records/money-kind.ts";
 import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
@@ -275,7 +275,22 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
     stage_as_written: read === "other" ? record.stage_as_written : stage.value,
     amount_as_written: amount.value ?? record.amount.as_written,
   };
-  const leads = opts.pages ? statedLeads(v.lead_investors, opts.pages, round) : { leads: v.lead_investors, participants: [] };
+  const leadsStated = opts.pages ? statedLeads(v.lead_investors, opts.pages, round) : { leads: v.lead_investors, participants: [] };
+  // A round whose pages name one investor, and state the money as coming from it alone, has it as its
+  // lead though no page says "led" (soleInvestor): "a $150 million investment with PSG".
+  const named = [...v.other_investors.map((n) => n.name), ...leadsStated.participants];
+  const sole =
+    opts.pages &&
+    leadsStated.leads.length === 0 &&
+    named.length === 1 &&
+    soleInvestor(
+      named[0] as string,
+      opts.pages.map((p) => `${p.title ?? ""}\n${p.markdown.slice(0, PAGE_CHARS)}`),
+      round.amount_as_written,
+    )
+      ? (v.other_investors.find((n) => n.name === named[0]) ?? { name: named[0] as string, source: null })
+      : null;
+  const leads = sole ? { leads: [sole], participants: [] } : leadsStated;
   const corrected = applyCorrection(
     record,
     {
@@ -289,7 +304,7 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
         precision: dateGrounded ? v.announced_date.precision : record.date_precision === "unknown" ? null : record.date_precision,
       },
       leads: leads.leads,
-      others: [...v.other_investors.map((n) => n.name), ...leads.participants],
+      others: sole ? [] : named,
       notThisRound: v.not_this_round,
       headquarters,
       // "Sources agree." with its period says nothing more either.

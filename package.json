@@ -26,6 +26,7 @@
     "prune-unrelated-sources": "node --env-file-if-exists=.env scripts/maintenance/prune-unrelated-sources.ts",
     "prune-trending-posts": "node --env-file-if-exists=.env scripts/maintenance/prune-trending-posts.ts",
     "repair-investors": "node --env-file-if-exists=.env scripts/maintenance/repair-investors.ts",
+    "repair-sole-leads": "node --env-file-if-exists=.env scripts/maintenance/repair-sole-leads.ts",
     "fix-records": "node --env-file-if-exists=.env scripts/maintenance/fix-records.ts",
     "history-backfill": "node --env-file-if-exists=.env scripts/maintenance/history-backfill.ts",
     "seed-tombstones": "node --env-file-if-exists=.env scripts/maintenance/seed-tombstones.ts",
