@@ -636,4 +636,27 @@ describe("applyRecordFixes", () => {
     expect(row?.prior.source_url).toBe(semafor);
     expect(await applyRecordFixes(handle, [requeue], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
   });
+
+  test("a former domain is kept as one of the company's sites, never one another company holds", async () => {
+    const handle = await testDb();
+    await handle.insert(schema.companies).values([
+      { id: "monzo.com", name: "Monzo", nameKey: "monzo", domain: "monzo.com" },
+      { id: "acme.com", name: "Acme", nameKey: "acme", domain: "acme.com" },
+    ]);
+    await handle.insert(schema.companyAliases).values({ companyId: "acme.com", kind: "domain", aliasKey: "acme.dev", alias: "acme.dev" });
+    const evidence = "https://techcrunch.com/2015/06/30/mondo-gets-passionate/";
+    const site = (domain: string): RecordFix => ({ kind: "site", company: "monzo.com", domain, evidence, note: "Monzo was Mondo" });
+
+    const dry = await applyRecordFixes(handle, [site("https://www.getmondo.co.uk/")], { apply: false });
+    expect(dry.lines[0]).toBe("site monzo.com (Monzo): + getmondo.co.uk");
+    const refused = await applyRecordFixes(handle, [site("acme.com"), site("acme.dev"), site("monzo.com")], { apply: true });
+    expect(refused).toMatchObject({ applied: 0, refused: 2, skipped: 1 });
+    expect(refused.lines.join("\n")).toContain("refuse site monzo.com: acme.com belongs to company acme.com");
+    expect(refused.lines.join("\n")).toContain("refuse site monzo.com: acme.dev belongs to company acme.com");
+
+    expect(await applyRecordFixes(handle, [site("getmondo.co.uk")], { apply: true })).toMatchObject({ applied: 1 });
+    const aliases = await handle.select().from(schema.companyAliases).where(eq(schema.companyAliases.companyId, "monzo.com"));
+    expect(aliases).toMatchObject([{ kind: "domain", aliasKey: "getmondo.co.uk", sourceUrl: evidence }]);
+    expect(await applyRecordFixes(handle, [site("getmondo.co.uk")], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
+  });
 });

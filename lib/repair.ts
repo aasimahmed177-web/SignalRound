@@ -21,6 +21,7 @@ import {
   priorKey,
   promotable,
   reconcileInvestorLists,
+  registrableDomain,
   SECTORS,
   settleDate,
   WEEKLY_LIST,
@@ -51,7 +52,8 @@ import {
 } from "./persist.ts";
 import { loadPublisherTiers } from "./rules.ts";
 
-const { companies, fundingRounds, historyPromotions, investors, roundInvestors, sources, roundSources, enrichments } = schema;
+const { companies, companyAliases, fundingRounds, historyPromotions, investors, roundInvestors, sources, roundSources, enrichments } =
+  schema;
 
 /**
  * Re-key investors under normalizeInvestorKey so spellings of one firm ("Arm", "Arm Holdings")
@@ -664,6 +666,12 @@ export type RecordFix =
       evidence: string;
       note: string;
     }
+  /**
+   * A domain the company published on under an earlier name (Mondo's getmondo.co.uk for Monzo), kept as
+   * one of its sites so the history check takes pages giving that domain as the company's own. Refused
+   * when the domain is another company's, or another company's site.
+   */
+  | { kind: "site"; company: string; domain: string; evidence: string; note: string }
   /** A company's headquarters when the stored one is wrong or missing (a factory town, a founder's birthplace). */
   | { kind: "hq"; company: string; from: string | null; hq: string; evidence: string; note: string }
   /** A company's sector from the vocabulary when the stored one is wrong (a rocket maker filed under AI). */
@@ -715,6 +723,48 @@ export async function applyRecordFixes(handle: Db, fixes: RecordFix[], opts: { a
       }
       for (const m of result.planned) for (const l of describeRoundMerge(m)) say(l);
       if (opts.apply) out.applied++;
+      continue;
+    }
+    if (fix.kind === "site") {
+      const domain = registrableDomain(
+        `https://${fix.domain
+          .trim()
+          .toLowerCase()
+          .replace(/^https?:\/\//, "")}`,
+      );
+      const [company] = await handle
+        .select({ name: companies.name, domain: companies.domain })
+        .from(companies)
+        .where(eq(companies.id, fix.company));
+      if (!company || !domain) {
+        say(`refuse site ${fix.company}: ${company ? `${fix.domain} is not a domain` : "no such company"}`);
+        out.refused++;
+        continue;
+      }
+      const [held] = await handle
+        .select({ companyId: companyAliases.companyId })
+        .from(companyAliases)
+        .where(and(eq(companyAliases.kind, "domain"), eq(companyAliases.aliasKey, domain)));
+      if (company.domain === domain || held?.companyId === fix.company) {
+        say(`skip site ${fix.company}: ${domain} is already its site`);
+        out.skipped++;
+        continue;
+      }
+      const [owner] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.domain, domain));
+      if (owner || held) {
+        say(`refuse site ${fix.company}: ${domain} belongs to company ${owner?.id ?? held?.companyId}`);
+        out.refused++;
+        continue;
+      }
+      say(`site ${fix.company} (${company.name}): + ${domain}`);
+      say(`  evidence: ${fix.evidence}`);
+      say(`  why: ${fix.note}`);
+      if (!opts.apply) continue;
+      await handle
+        .insert(companyAliases)
+        .values({ companyId: fix.company, kind: "domain", aliasKey: domain, alias: domain, sourceUrl: fix.evidence })
+        .onConflictDoNothing();
+      out.applied++;
       continue;
     }
     if (fix.kind === "describe") {

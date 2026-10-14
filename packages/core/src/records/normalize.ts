@@ -626,9 +626,10 @@ export function isArticleUrl(url: string): boolean {
   if (LISTING_ROOTS.has(segments[0]) && segments.length <= 2) return false;
   if (segments.some((seg, i) => i > 0 && LISTING_SEGMENTS.has(seg) && segments.length - i <= 2)) return false;
   // A news section that shares a directory's name files its articles by year (`/companies/2026/07/...`)
-  // or under a headline slug (`/startups/malaysian-deep-tech-startup-nanoskunkworkx-raises-us2m-...`);
+  // or under a headline slug, last or before an article number (`/startups/malaysian-deep-tech-startup-
+  // nanoskunkworkx-raises-us2m-...`, `/companies/lenskart-raises-100-mn-.../article66971633.ece`);
   // a directory entry is a name (`/company/light-links`, `/investors/sequoia`).
-  const headlineSlug = (segments[segments.length - 1] ?? "").split(/[-_]+/).filter((w) => /[a-z]/.test(w)).length >= 5;
+  const headlineSlug = segments.slice(1).some((seg) => seg.split(/[-_]+/).filter((w) => /[a-z]/.test(w)).length >= 5);
   if (DIRECTORY_ROOTS.has(segments[0]) && segments.length >= 2 && !/^\d{4}$/.test(segments[1]) && !headlineSlug) return false;
   if (segments.some((seg) => DIRECTORY_SEGMENTS.has(seg))) return false;
   // A wire's "all releases in this category" page ends in -list.

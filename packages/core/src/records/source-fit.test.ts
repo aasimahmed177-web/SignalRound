@@ -204,6 +204,11 @@ describe("URL shapes", () => {
     expect(isArticleUrl("https://example.com/startups/malaysian-deep-tech-startup-nanoskunkworkx-raises-us2m-seed")).toBe(true);
     expect(
       isArticleUrl(
+        "https://www.thehindubusinessline.com/companies/lenskart-raises-100-mn-in-funding-from-private-equity-firm-chryscapital/article66971633.ece",
+      ),
+    ).toBe(true);
+    expect(
+      isArticleUrl(
         "https://www.siliconindia.com/startup/startup-funding/firi-raises-3-million-seed-round-led-by-360-one-asset-nwid-55461.html",
       ),
     ).toBe(true);

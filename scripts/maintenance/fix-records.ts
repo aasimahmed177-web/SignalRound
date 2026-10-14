@@ -10,6 +10,7 @@
 // writes a verified list), "hq" and "sector" (a company's headquarters, or its sector from the
 // vocabulary), "certainty" (a round shown as announced that its pages say is still being raised, pinned),
 // "valuation" (a valuation in the words of the page and sentence that state it, pinned),
+// "site" (a domain the company published on under an earlier name, kept as one of its sites),
 // "publish" (a flagged or review row a person checked against a page it cites, published as from the
 // review queue),
 // "unlink" (a page and its quotes taken off a round they do not belong to, when a second deal was merged in),
