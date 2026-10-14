@@ -61,7 +61,7 @@ export async function readBrand(client: Pick<Firecrawl, "scrape">, url: string):
 export async function companyFromHomepage(
   handle: Db,
   client: Firecrawl,
-  site: { domain: string; url: string; sites: string[] },
+  site: { domain: string; url: string; sites: string[]; name?: string | null },
 ): Promise<{ status: "verified"; companyId: string; fresh: boolean } | { status: "refused" }> {
   const [existing] = await handle
     .select()
@@ -87,10 +87,12 @@ export async function companyFromHomepage(
       return { status: "verified", companyId, fresh: false };
     }
   }
-  // A company not yet stored is asked about as its domain's brand ("Glycoera"), so a reading that only
-  // repeats the name it was given is told apart from one that read the site's own ("GlycoEra", "fal").
+  // A company not yet stored is asked about by the name its round's own page uses ("Core Medical" for
+  // coretechmed.com), else as its domain's brand ("Glycoera"), so a reading that only repeats that
+  // placeholder is told apart from one that read the site's own ("GlycoEra", "fal").
   const label = site.domain.split(".")[0];
-  const name = existing?.name ?? label.charAt(0).toUpperCase() + label.slice(1);
+  const given = site.name?.trim() || null;
+  const name = existing?.name ?? given ?? label.charAt(0).toUpperCase() + label.slice(1);
   const result = await readProfiles(
     handle,
     client,
@@ -105,7 +107,7 @@ export async function companyFromHomepage(
         stated: verified.profile?.company_name,
         siteName: verified.site_name,
         brand: verified.brand?.name,
-        placeholder: existing ? null : name,
+        placeholder: existing || given ? null : name,
       },
       site.domain,
     ) ?? name;

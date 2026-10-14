@@ -926,3 +926,100 @@ describe("a company added from its homepage is named by its strongest name signa
     expect(row?.name).toBe("Meesho");
   });
 });
+
+describe("a company added from its homepage is asked about by the name its round's page uses", () => {
+  /**
+   * A reading that answers same_company only when asked about `name`, the way a model reads a site
+   * under a name its pages never use ("Coretechmed") as some other company.
+   */
+  function askedAs(client: Firecrawl, name: string, other: string) {
+    const scrape = client.scrape.bind(client);
+    client.scrape = (async (url: string, opts: { formats?: Array<string | { prompt?: string }> }) => {
+      const page = await scrape(url, opts as never);
+      const prompt = (opts?.formats ?? []).map((f) => (typeof f === "object" ? (f.prompt ?? "") : "")).join(" ");
+      return prompt.includes(`"${name}"`) ? page : { ...page, json: namesake(other) };
+    }) as typeof client.scrape;
+  }
+  const stored = async (db: Awaited<ReturnType<typeof testDb>>, id: string) =>
+    (await db.select().from(schema.companies).where(eq(schema.companies.id, id)))[0];
+
+  test("Core Medical, at coretechmed.com, passes under its own name and is refused under the domain's", async () => {
+    const pages = {
+      "coretechmed.com": {
+        json: { ...same("Ventricular assist systems for patients with advanced heart failure."), company_name: "Core Medical" },
+      },
+    };
+    const named = fakeClient(() => [], pages);
+    askedAs(named.client, "Core Medical", "a maker of unrelated technology products");
+    const db = await testDb();
+    const r = await companyFromHomepage(db, named.client, {
+      domain: "coretechmed.com",
+      url: "https://coretechmed.com",
+      sites: [],
+      name: "Core Medical",
+    });
+    expect(r).toEqual({ status: "verified", companyId: "coretechmed.com", fresh: true });
+    expect((await stored(db, "coretechmed.com"))?.name).toBe("Core Medical");
+    expect(named.calls.prompts.get("https://coretechmed.com")).toContain('"Core Medical"');
+
+    // With no name stated the domain's brand is asked about, as before, and this reading refuses it.
+    const unnamed = fakeClient(() => [], pages);
+    askedAs(unnamed.client, "Core Medical", "a maker of unrelated technology products");
+    const fresh = await testDb();
+    const refused = await companyFromHomepage(fresh, unnamed.client, {
+      domain: "coretechmed.com",
+      url: "https://coretechmed.com",
+      sites: [],
+    });
+    expect(refused).toEqual({ status: "refused" });
+    expect(unnamed.calls.prompts.get("https://coretechmed.com")).toContain('"Coretechmed"');
+    expect(await stored(fresh, "coretechmed.com")).toBeUndefined();
+  });
+
+  test("Flow, whose name is its domain's, is asked about and named as before", async () => {
+    const db = await testDb();
+    const { client, calls } = fakeClient(() => [], {
+      "flow.life": { json: { ...same("Furnished rental communities in Miami and Riyadh."), company_name: "Flow" } },
+    });
+    askedAs(client, "Flow", "a wellness coaching service");
+    const r = await companyFromHomepage(db, client, { domain: "flow.life", url: "https://www.flow.life", sites: [], name: "Flow" });
+    expect(r).toEqual({ status: "verified", companyId: "flow.life", fresh: true });
+    expect((await stored(db, "flow.life"))?.name).toBe("Flow");
+    expect(calls.prompts.get("https://www.flow.life")).toContain('"Flow"');
+  });
+
+  test("SAIC Mobility, at saicmobility.com, is asked about and named as its round's page writes it", async () => {
+    const db = await testDb();
+    const { client, calls } = fakeClient(() => [], {
+      "saicmobility.com": {
+        json: { ...same("Ride-hailing, car rental and robotaxi services in China."), company_name: "SAIC Mobility" },
+      },
+    });
+    askedAs(client, "SAIC Mobility", "a car rental agency");
+    const r = await companyFromHomepage(db, client, {
+      domain: "saicmobility.com",
+      url: "https://www.saicmobility.com",
+      sites: [],
+      name: "SAIC Mobility",
+    });
+    expect(r.status).toBe("verified");
+    expect((await stored(db, "saicmobility.com"))?.name).toBe("SAIC Mobility");
+    expect(calls.prompts.get("https://www.saicmobility.com")).not.toContain('"Saicmobility"');
+  });
+
+  test("a wrong company's site is still refused when asked about the round's name (canopy.com.br is not Canopy)", async () => {
+    const db = await testDb();
+    const { client, calls } = fakeClient(() => [], {
+      "canopy.com.br": { json: namesake("a succession and consolidation advisory for business owners") },
+    });
+    const r = await companyFromHomepage(db, client, {
+      domain: "canopy.com.br",
+      url: "https://www.canopy.com.br",
+      sites: [],
+      name: "Canopy",
+    });
+    expect(r).toEqual({ status: "refused" });
+    expect(calls.prompts.get("https://www.canopy.com.br")).toContain('"Canopy"');
+    expect(await stored(db, "canopy.com.br")).toBeUndefined();
+  });
+});

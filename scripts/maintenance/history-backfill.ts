@@ -4,7 +4,9 @@
 // The file names the companies to add by their homepage and the fixes to apply (the `pnpm fix-records`
 // format: a missing round is a "history_lead" with the page that states it; "merge", "redate",
 // "reject", "restage" and "investors" correct rows already there):
-//   { "companies": [{ "homepage": "https://www.example.com" }], "fixes": [ ... ] }
+//   { "companies": [{ "homepage": "https://www.example.com", "name": "Example" }], "fixes": [ ... ] }
+// A company's "name" is the one its round's own page uses; the identity check is asked about it, and
+// about the domain's brand when it is left out.
 // A company not stored yet is added only when its homepage passes the identity check a company request
 // runs, and is named by its brand. Then every lead due for each company the file names is worked by the
 // history lane (lib/history.ts promotePrior): the search, the page reads, the read-back, and persist. A
@@ -45,7 +47,10 @@ if (!file) {
   console.error("--file <history.json> is required");
   process.exit(1);
 }
-const plan = JSON.parse(await readFile(file, "utf8")) as { companies?: Array<{ homepage: string }>; fixes?: RecordFix[] };
+const plan = JSON.parse(await readFile(file, "utf8")) as {
+  companies?: Array<{ homepage: string; name?: string }>;
+  fixes?: RecordFix[];
+};
 const fixes = plan.fixes ?? [];
 
 const handle = await openStore();
@@ -55,7 +60,7 @@ const touched = new Set<string>();
 /** Companies the dry run would add: their leads can only be queued once they are stored. */
 const adding = new Set<string>();
 
-for (const { homepage } of plan.companies ?? []) {
+for (const { homepage, name } of plan.companies ?? []) {
   const domain = registrableDomain(homepage);
   if (!domain) {
     console.log(`refuse company ${homepage}: not a website`);
@@ -79,7 +84,7 @@ for (const { homepage } of plan.companies ?? []) {
   }
   const client = getFirecrawl();
   const brand = stored ? null : await readBrand(client, homepage);
-  const identity = await companyFromHomepage(handle, client, { domain, url: homepage, sites: brand?.sites ?? [] });
+  const identity = await companyFromHomepage(handle, client, { domain, url: homepage, sites: brand?.sites ?? [], name });
   if (identity.status === "refused") {
     console.log(`refuse company ${domain}: ${homepage} did not pass the identity check`);
     refused++;
