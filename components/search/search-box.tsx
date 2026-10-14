@@ -88,7 +88,7 @@ export function SearchBox({ value, onChange, onClear, placeholder, label, classN
         placeholder={placeholder}
         aria-label={label}
         aria-keyshortcuts="/"
-        className="peer h-8 rounded-full pointer-coarse:h-11 border-0 bg-black-alpha-4 pr-8 pl-9 text-label-small shadow-none placeholder:text-black-alpha-40 dark:bg-white/6 dark:placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+        className="peer h-8 rounded-full pointer-coarse:h-11 border-0 bg-black-alpha-4 pr-8 pl-9 text-label-small shadow-none placeholder:text-black-alpha-40 dark:bg-white/6 dark:placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
       />
       {value ? (
         <button

@@ -380,3 +380,16 @@
     animation-iteration-count: infinite;
   }
 }
+
+/*
+ * Mobile Safari zooms the page into any field it focuses whose text is under 16px, and leaves it
+ * zoomed after the keyboard closes. On a touch screen every field reads at 16px; outside any layer,
+ * so it outranks the utilities that set the smaller desktop sizes.
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
