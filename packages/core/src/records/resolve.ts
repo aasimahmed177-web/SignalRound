@@ -34,6 +34,7 @@ import {
   parseAmount,
   parseDate,
   parseStatedDate,
+  preferredCompanyName,
   registrableDomain,
   SOCIAL_AND_DIRECTORY_HOSTS,
   stageLabel,
@@ -1861,13 +1862,13 @@ export function reconcileInvestorLists(leads: string[], others: string[]): { lea
   return { lead_investors, other_investors: all.filter((n) => !leadSet.has(n)) };
 }
 
-/** The record `into` with what its alias `from` adds; the longer name wins, a date fills an undated record. Neither input changes. */
+/** The record `into` with what its alias `from` adds; the brand over its legal name, else the longer name, wins, and a date fills an undated record. Neither input changes. */
 function absorb(into: FeedRecord, from: FeedRecord): FeedRecord {
   const dated = into.undated && !from.undated;
   return {
     ...into,
     certainty: strongerCertainty(into.certainty, from.certainty),
-    company_name: from.company_name.length > into.company_name.length ? from.company_name : into.company_name,
+    company_name: preferredCompanyName(into.company_name, from.company_name),
     company_website: firstNonNull(into.company_website, from.company_website),
     company_domain: firstNonNull(into.company_domain, from.company_domain),
     company_description: longer(into.company_description, from.company_description),

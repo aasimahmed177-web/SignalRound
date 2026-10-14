@@ -1,4 +1,4 @@
-import type { FeedRecord } from "@fireround/core";
+import { type FeedRecord, normalizeCompanyKey } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
@@ -1920,5 +1920,49 @@ describe("a row merged away while a reading is written", () => {
     expect(summary.persistedIds).toEqual([]);
     const links = await db.select().from(schema.roundInvestors).where(eq(schema.roundInvestors.roundId, r.id));
     expect(links).toEqual([]);
+  });
+});
+
+describe("a company written again keeps its brand name", () => {
+  const reading = (name: string, stage: FeedRecord["stage"], domain: string) =>
+    record({
+      company_name: name,
+      company_key: normalizeCompanyKey(name),
+      company_domain: domain,
+      company_website: `https://${domain}`,
+      stage,
+      id: `${domain}:${stage}:2026-09-02`,
+    });
+  const nameOf = async (db: Db, id: string) => (await db.select().from(companies).where(eq(companies.id, id)))[0]?.name;
+
+  test("Kalshi: a press release's 'Kalshi Inc.' never replaces the stored brand", async () => {
+    const db = await testDb();
+    await persistRecords(db, [reading("Kalshi", "series_a", "kalshi.com")], "series-a-b", "run-1");
+    await persistRecords(db, [reading("Kalshi Inc.", "series_b", "kalshi.com")], "series-a-b", "run-2");
+    expect(await nameOf(db, "kalshi.com")).toBe("Kalshi");
+  });
+
+  test("Upgrade: a stored 'Upgrade, Inc.' gives way to the brand when it is read", async () => {
+    const db = await testDb();
+    await persistRecords(db, [reading("Upgrade, Inc.", "series_a", "upgrade.com")], "series-a-b", "run-1");
+    await persistRecords(db, [reading("Upgrade", "series_b", "upgrade.com")], "series-a-b", "run-2");
+    expect(await nameOf(db, "upgrade.com")).toBe("Upgrade");
+  });
+
+  test("without a legal form the fuller reading still names the company", async () => {
+    const db = await testDb();
+    await persistRecords(db, [reading("Scale", "series_a", "scale.com")], "series-a-b", "run-1");
+    await persistRecords(db, [reading("Scale AI", "series_b", "scale.com")], "series-a-b", "run-2");
+    expect(await nameOf(db, "scale.com")).toBe("Scale AI");
+  });
+
+  test("ICON: folding 'Icon Technology Inc.' into iconbuild.com keeps the name ICON", async () => {
+    const db = await testDb();
+    await db.insert(companies).values([
+      { id: "iconbuild.com", name: "ICON", nameKey: "icon", domain: "iconbuild.com" },
+      { id: "icon", name: "Icon Technology Inc.", nameKey: "icon" },
+    ]);
+    await mergeCompanies(db, "icon", "iconbuild.com");
+    expect(await nameOf(db, "iconbuild.com")).toBe("ICON");
   });
 });

@@ -21,6 +21,7 @@ import {
   normalizeInvestorName,
   parseAmount,
   pickValuation,
+  preferredCompanyName,
   priorAsKnown,
   priorKey,
   promotable,
@@ -249,10 +250,11 @@ async function foldCompany(handle: Db, fromId: string, intoId: string, renamed =
   await handle.delete(schema.companyFolds).where(eq(schema.companyFolds.fromId, intoId));
   // The domain is unique, so the row that goes is deleted before the survivor takes its domain.
   await handle.delete(companies).where(eq(companies.id, fromId));
+  const [into] = await handle.select({ name: companies.name }).from(companies).where(eq(companies.id, intoId));
   await handle
     .update(companies)
     .set({
-      name: sql`CASE WHEN length(${from.name}) > length(${companies.name}) THEN ${from.name} ELSE ${companies.name} END`,
+      name: preferredCompanyName(into?.name ?? from.name, from.name),
       domain: sql`coalesce(${companies.domain}, ${from.domain})`,
       website: sql`coalesce(${companies.website}, ${from.website})`,
       linkedinSlug: sql`coalesce(${companies.linkedinSlug}, ${from.linkedinSlug})`,
@@ -1239,7 +1241,7 @@ export async function persistRecords(
       standing ?? owner ?? (identityCollision ? await newCompanyId(handle, r, true) : (agreeing ?? (await newCompanyId(handle, r, false)))),
       r.company_domain,
     );
-    await handle
+    const [stored] = await handle
       .insert(companies)
       .values({
         id: companyId,
@@ -1254,7 +1256,6 @@ export async function persistRecords(
       .onConflictDoUpdate({
         target: companies.id,
         set: {
-          name: sql`CASE WHEN length(excluded.name) > length(${companies.name}) THEN excluded.name ELSE ${companies.name} END`,
           website: sql`COALESCE(${companies.website}, excluded.website)`,
           domain: sql`COALESCE(${companies.domain}, excluded.domain)`,
           description: sql`COALESCE(${companies.description}, excluded.description)`,
@@ -1262,7 +1263,10 @@ export async function persistRecords(
           sector: keptSector(sql`excluded.sector`),
           updatedAt: now,
         },
-      });
+      })
+      .returning({ name: companies.name });
+    const name = preferredCompanyName(stored.name, r.company_name);
+    if (name !== stored.name) await handle.update(companies).set({ name }).where(eq(companies.id, companyId));
     await rememberNameKey(handle, companyId, r.company_key, r.company_name, r.sources[0]?.url ?? null);
 
     const prev = existingById.get(r.id);

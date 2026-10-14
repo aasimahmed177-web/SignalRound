@@ -18,6 +18,7 @@ import {
   normalizeInvestorName,
   normalizeSector,
   parseAmount,
+  preferredCompanyName,
   priorKey,
   promotable,
   reconcileInvestorLists,
@@ -149,7 +150,7 @@ export function describeRoundMerge(m: RoundMerge): string[] {
   if (m.company) {
     const from = m.company.from === m.keep.companyId ? m.keep : m.dup;
     const into = m.company.into === m.keep.companyId ? m.keep : m.dup;
-    const name = from.companyName.length > into.companyName.length ? from.companyName : into.companyName;
+    const name = preferredCompanyName(into.companyName, from.companyName);
     lines.push(
       `  company: fold "${m.company.from}" into "${m.company.into}" (every round of "${m.company.from}" moves; name becomes "${name}"; key "${from.nameKey}" kept as an alias${!into.domain && from.domain ? `; domain ${from.domain} moves over` : ""})`,
     );

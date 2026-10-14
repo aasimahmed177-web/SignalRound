@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { companyNameFrom } from "./brand-name.ts";
+import { preferredCompanyName } from "./keys.ts";
 
 describe("companyNameFrom: a new company is named by its strongest name signal", () => {
   test("a subpage's title or a blog post's heading never names the company", () => {
@@ -83,5 +84,33 @@ describe("companyNameFrom: a new company is named by its strongest name signal",
     // A brand that writes itself in lowercase keeps it.
     expect(companyNameFrom({ brand: "bunq" }, "bunq.com")).toBe("bunq");
     expect(companyNameFrom({ stated: "fal", brand: "Gen Media AI Inference Platform & Serverless GPUs" }, "fal.ai")).toBe("fal");
+  });
+});
+
+describe("preferredCompanyName: a company read again keeps its brand over its legal name", () => {
+  test("a legal name never replaces the stored brand (the 2026-10-14 sweep's cases)", () => {
+    expect(preferredCompanyName("Kalshi", "Kalshi Inc.")).toBe("Kalshi");
+    expect(preferredCompanyName("Upgrade", "Upgrade, Inc.")).toBe("Upgrade");
+    expect(preferredCompanyName("ICON", "Icon Technology Inc.")).toBe("ICON");
+    expect(preferredCompanyName("Precision Neuroscience", "Precision Neuroscience Corporation")).toBe("Precision Neuroscience");
+    expect(preferredCompanyName("Helical Fusion", "Helical Fusion Co., Ltd.")).toBe("Helical Fusion");
+    expect(preferredCompanyName("Dialybrid", "Dialybrid S.r.l.")).toBe("Dialybrid");
+    expect(preferredCompanyName("Finches", "Finches GmbH")).toBe("Finches");
+  });
+
+  test("the brand replaces a stored legal name, whichever came first", () => {
+    expect(preferredCompanyName("Kalshi Inc.", "Kalshi")).toBe("Kalshi");
+    expect(preferredCompanyName("Upwind Security Inc.", "Upwind Security")).toBe("Upwind Security");
+    expect(preferredCompanyName("Icon Technology Inc.", "ICON")).toBe("ICON");
+  });
+
+  test("without a legal form the fuller name still wins, and a brand ending in '& Co' is no legal name", () => {
+    expect(preferredCompanyName("Scale", "Scale AI")).toBe("Scale AI");
+    expect(preferredCompanyName("Scale AI", "Scale")).toBe("Scale AI");
+    expect(preferredCompanyName("Sober", "Sober & Co")).toBe("Sober & Co");
+  });
+
+  test("names under different keys are not a brand and its legal name: the longer one wins as before", () => {
+    expect(preferredCompanyName("Ramp", "Ramp Business Corporation")).toBe("Ramp Business Corporation");
   });
 });

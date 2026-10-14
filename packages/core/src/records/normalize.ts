@@ -6,7 +6,7 @@ import { getDomain } from "tldts";
 import { normalizeCompanyKey } from "./keys.ts";
 import type { Stage } from "./schema.ts";
 
-export { normalizeCompanyKey, normalizeInvestorKey } from "./keys.ts";
+export { normalizeCompanyKey, normalizeInvestorKey, preferredCompanyName } from "./keys.ts";
 
 const PLACEHOLDER =
   /^(not\s+(stated|specified|mentioned|provided|available|disclosed|given|known)|unknown|undisclosed|unspecified|n\/?a|none|null|nil|tbd|-+|—)\.?$/i;

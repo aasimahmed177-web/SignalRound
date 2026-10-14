@@ -49,6 +49,27 @@ export function normalizeCompanyKey(name: string): string {
 }
 
 /**
+ * A legal form ending a company name as written: "Kalshi Inc.", "Upgrade, Inc.", "Dialybrid S.r.l.",
+ * "Precision Neuroscience Corporation". "Sober & Co" is a brand.
+ */
+const LEGAL_FORM =
+  /(?<!&)[\s,]+(inc|llc|ltd|limited|corp|corporation|co|gmbh|ag|sas|s\.?a|s\.?p\.?a|b\.?v|plc|pte|pty|oy|ab|s\.?r\.?l|aps|kk)\.?$/i;
+
+/**
+ * The name to show when a company is read again. Two names that share a key once their legal forms are
+ * off, where only one carries a legal form, are the brand and its legal name: the brand stays ("Kalshi"
+ * over "Kalshi Inc.", "ICON" over "Icon Technology Inc."), whichever came first. Otherwise the longer
+ * name, the fuller reading.
+ */
+export function preferredCompanyName(stored: string, incoming: string): string {
+  const legalStored = LEGAL_FORM.test(stored);
+  const legalIncoming = LEGAL_FORM.test(incoming);
+  const brandKey = (name: string) => normalizeCompanyKey(name.replace(LEGAL_FORM, ""));
+  if (legalStored !== legalIncoming && brandKey(stored) === brandKey(incoming)) return legalStored ? incoming : stored;
+  return incoming.length > stored.length ? incoming : stored;
+}
+
+/**
  * Vehicle nouns only, so the key keeps a region and a strategy: "sequoia capital china" and
  * "andreessen horowitz crypto" are their own investor pages and their own rows. `CORE_NOISE` in
  * investors.ts strips those words too, because a dedupe pass wants "Brand" and "Brand Asia" to meet
