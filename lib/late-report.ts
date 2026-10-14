@@ -23,10 +23,10 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { staleForNews } from "./deliverable.ts";
 import { getFirecrawl } from "./firecrawl.ts";
-import { REREPORT_CORROBORATED_WINDOW_DAYS, SAME_STAGE_WINDOW_DAYS } from "./persist.ts";
+import { REREPORT_CORROBORATED_WINDOW_DAYS, SAME_STAGE_WINDOW_DAYS, seriesLetter } from "./persist.ts";
 
 const { fundingRounds, enrichments, historyPromotions, deliveries, sources, roundSources, companies } = schema;
 
@@ -42,16 +42,28 @@ export interface RoundLead {
   origin: string;
   /** The label and figure as the source writes them, for the note. */
   label: string;
+  /** The stage as the source writes it ("Series D"), when it names one. */
+  stageAsWritten?: string | null;
   /** A stored round whose day a page states (or a verified history round): strong enough to hold a row with a stated day too. */
   stated?: boolean;
   sourceUrl?: string;
 }
 
-/** A participation post reports an already named financing, rather than announcing the financing. */
+/**
+ * A participation post reports an already named financing, rather than announcing the financing. "As
+ * part of its Series C" is a participant's only beside an investor's verb: the British Business Bank
+ * "has invested $25m into PhysicsX ... as part of its Series C", while Suki "today announced $90 million
+ * in financing as part of its Series E" is the company announcing its own round.
+ */
 export function participantReport(evidence: string, stage: string): boolean {
   if (!/\b(?:series\s+[a-z]|(?:pre-)?seed)\b/i.test(stage)) return false;
   if (!evidence.toLowerCase().includes(stage.toLowerCase())) return false;
-  return /\b(?:as part of (?:its|the|\w+['’]s)?\s*(?:recently announced\s+)?(?:series\s+[a-z]|(?:pre-)?seed)|join(?:s|ed|ing)?\s+(?:the|its)?\s*(?:series\s+[a-z]|(?:pre-)?seed)|participat(?:ed|es|ing)\s+in\s+(?:the|its)?\s*(?:series\s+[a-z]|(?:pre-)?seed)|adds?\s+to\s+its\s+recently\s+announced\s+(?:series\s+[a-z]|(?:pre-)?seed)|latest\s+close\s+of\s+(?:its|the)?\s*(?:series\s+[a-z]|(?:pre-)?seed))\b/i.test(
+  if (
+    /\bas part of (?:its|the|\w+['’]s)?\s*(?:recently announced\s+)?(?:series\s+[a-z]|(?:pre-)?seed)\b/i.test(evidence) &&
+    /\b(?:invest(?:s|ed|ing|ment)?|back(?:s|ed|ing)?|commit(?:s|ted|ting|ment)?)\b/i.test(evidence)
+  )
+    return true;
+  return /\b(?:join(?:s|ed|ing)?\s+(?:the|its)?\s*(?:series\s+[a-z]|(?:pre-)?seed)|participat(?:ed|es|ing)\s+in\s+(?:the|its)?\s*(?:series\s+[a-z]|(?:pre-)?seed)|adds?\s+to\s+its\s+recently\s+announced\s+(?:series\s+[a-z]|(?:pre-)?seed)|latest\s+close\s+of\s+(?:its|the)?\s*(?:series\s+[a-z]|(?:pre-)?seed))\b/i.test(
     evidence,
   );
 }
@@ -106,6 +118,7 @@ export async function findOriginalAnnouncement(
         date: original.announced_date,
         origin: "the original announcement",
         label: [original.stage_as_written, original.amount.as_written].filter(Boolean).join(" "),
+        stageAsWritten: original.stage_as_written,
         stated: original.date_basis === "stated",
         sourceUrl: candidate.url,
         amount: original.amount,
@@ -119,6 +132,7 @@ export async function findOriginalAnnouncement(
 export interface HoldCandidate {
   id: string;
   stage: string;
+  stageAsWritten?: string | null;
   announcedOn: string | null;
   dateBasis: string | null;
   amountUsdMillions: number | null;
@@ -134,8 +148,9 @@ function family(stage: string | null): string | null {
 /**
  * The lead that makes this row a late re-report, or null. The row is not history and has a day and a
  * known figure; the lead states the same figure within a tenth, the same stage family when both name
- * one, and its latest possible day (the end of its month when it gives only a month) is more than 45
- * days before the row's and inside three years. A day the row's page states ("launched today with
+ * one, no other series letter when both write one (OpenEvidence's $250M Series E is not its $250M
+ * Series D of eight months before), and its latest possible day (the end of its month when it gives
+ * only a month) is more than 45 days before the row's and inside three years. A day the row's page states ("launched today with
  * $5.5 million") yields only to a stored round whose own day is stated: a lead's month is weeks
  * off often enough that it holds only a borrowed day (a byline, a URL, a search result, a list). Pure.
  */
@@ -151,6 +166,9 @@ export function lateReportLead(row: HoldCandidate, leads: RoundLead[]): RoundLea
     if (Math.abs(lead.usdMillions - row.amountUsdMillions) > larger * 0.1) continue;
     const leadFamily = family(lead.stage);
     if (rowFamily && leadFamily && rowFamily !== leadFamily) continue;
+    const rowLetter = seriesLetter(row.stageAsWritten ?? undefined);
+    const leadLetter = seriesLetter(lead.stageAsWritten ?? undefined);
+    if (rowLetter && leadLetter && rowLetter !== leadLetter) continue;
     const end = priorDateRange(lead.date)?.to.getTime();
     if (end === undefined) continue;
     const days = (rowAt - end) / DAY;
@@ -173,6 +191,7 @@ function priorLead(p: PriorRound, origin: string): RoundLead {
     date: p.announced_date,
     origin,
     label: [p.stage_as_written, p.amount_as_written].filter(Boolean).join(" ") || "a round",
+    stageAsWritten: p.stage_as_written,
   };
 }
 
@@ -219,6 +238,7 @@ export async function companyLeads(handle: Db, companyId: string): Promise<Round
       date: r.on,
       origin: `round ${r.id}`,
       label: [r.stageAsWritten, r.amountAsWritten].filter(Boolean).join(" "),
+      stageAsWritten: r.stageAsWritten,
       stated: true,
     });
   return out;
@@ -228,7 +248,8 @@ export async function companyLeads(handle: Db, companyId: string): Promise<Round
  * Hold every row of these companies that a lead source shows is a late re-report: the reason on the
  * row (hold, and the note in its verification), out of delivery from then on, and in review unless it
  * already went out to a channel, when it stays visible as flagged with the note. A row already held,
- * rejected, or history is left alone. Returns the ids held now.
+ * rejected, or history is left alone, and so is a row a person published whose facts are still the
+ * ones they checked. Returns the ids held now.
  */
 export async function holdLateReports(
   handle: Db,
@@ -240,20 +261,26 @@ export async function holdLateReports(
   const held: string[] = [];
   for (const companyId of new Set(companyIds)) {
     const rows = await handle
-      .select()
+      .select({
+        ...getTableColumns(fundingRounds),
+        checked: sql<boolean>`coalesce(${fundingRounds.audit}->>'status', '') = 'human' and ${fundingRounds.auditFacts} is not distinct from round_audit_facts(${fundingRounds})`,
+      })
       .from(fundingRounds)
       .where(and(eq(fundingRounds.companyId, companyId), eq(fundingRounds.history, false), ne(fundingRounds.disposition, "rejected")));
     const open = rows.filter((r) => r.announcedOn);
     if (open.length === 0) continue;
     const leads = await companyLeads(handle, companyId);
     for (const r of open) {
+      if (r.checked) continue;
       if (r.hold && !r.hold.startsWith("held: ")) continue;
       const links = await handle.select({ evidence: roundSources.fieldClaims }).from(roundSources).where(eq(roundSources.roundId, r.id));
-      const participant = links.some((l) => participantReport(String(l.evidence?.evidence ?? ""), r.stageAsWritten));
+      const said = links.map((l) => String(l.evidence?.evidence ?? "")).filter(Boolean);
+      const participant = said.length > 0 && said.every((e) => participantReport(e, r.stageAsWritten));
       const lead = lateReportLead(
         {
           id: r.id,
           stage: r.stage,
+          stageAsWritten: r.stageAsWritten,
           announcedOn: r.announcedOn,
           dateBasis: r.dateBasis,
           amountUsdMillions: r.amountUsdMillions === null ? null : Number(r.amountUsdMillions),

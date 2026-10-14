@@ -512,7 +512,7 @@ function amountsFarApart(a: SameRoundFacts, b: SameRoundFacts): boolean {
 }
 
 /** The series letter a written label names ("Series E" is e), or null when it names none. */
-function seriesLetter(written: string | undefined): string | null {
+export function seriesLetter(written: string | undefined): string | null {
   return /\bseries\s+([a-z])(?![a-z])/i.exec(written ?? "")?.[1]?.toLowerCase() ?? null;
 }
 

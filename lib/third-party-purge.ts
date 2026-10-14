@@ -286,6 +286,7 @@ export async function planPurge(handle: Db): Promise<PurgePlan> {
     const candidate: HoldCandidate = {
       id: r.id,
       stage: r.stage,
+      stageAsWritten: r.stageAsWritten,
       announcedOn: r.announcedOn,
       dateBasis: r.dateBasis,
       amountUsdMillions: r.amountUsdMillions === null ? null : Number(r.amountUsdMillions),

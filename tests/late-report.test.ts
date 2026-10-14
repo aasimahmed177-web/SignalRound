@@ -2,7 +2,7 @@
 // SF Business Times profile dated Sep 25 read as "$120M funding", stage other, page-dated; the store
 // already held a lead for the $120M Series C in 2026-06 before the Slack post.
 
-import { priorKey } from "@fireround/core";
+import { type FeedRecord, priorKey } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
@@ -221,7 +221,8 @@ describe("holding a late re-report", () => {
     await createTarget(db, { channel: "slack", target: "https://hooks.slack.test/abc", minConfidence: 0.5 });
     const fresh = profileRow();
     await persistRecords(db, [fresh], "growth", "run-1");
-    await setDisposition(db, fresh.id, "publish");
+    // Published by the pipeline, not by a person: a person's publish is never held again (below).
+    await db.update(schema.fundingRounds).set({ disposition: "publish", hold: null }).where(eq(schema.fundingRounds.id, fresh.id));
     expect(await enqueueDeliveries(db, [fresh.id], "growth")).toBe(1);
     const ok: typeof fetch = async () => new Response("ok");
     expect((await flushDeliveries(db, "https://app.test", ok)).sent).toBe(1);
@@ -256,5 +257,124 @@ describe("holding a late re-report", () => {
     };
     expect(await flushDeliveries(db, "https://app.test", spy)).toEqual({ sent: 0, failed: 0, deadLettered: 1 });
     expect(calls).toEqual([]);
+  });
+});
+
+describe("Suki's own Series E release is not a participant report", () => {
+  const RELEASE =
+    "Suki, the leader in Ambient Clinical Intelligence (ACI), today announced $90 million in financing as part of its Series E to accelerate growth and expand its healthcare AI capabilities.";
+
+  function suki(sources: FeedRecord["sources"]) {
+    return record({
+      company_name: "Suki",
+      company_key: "suki",
+      company_domain: "suki.ai",
+      stage: "series_d_plus",
+      stage_as_written: "Series E",
+      announced_date: daysAgo(2),
+      date_basis: "stated",
+      amount: { value: 90, currency: "USD", as_written: "$90 million", usd_millions: 90, fx_rate: 1, fx_date: daysAgo(2) },
+      sources,
+    });
+  }
+
+  test("a company announcing or raising its own round is not a participant", () => {
+    expect(participantReport(RELEASE, "Series E")).toBe(false);
+    expect(participantReport("Suki has raised $90 million as part of its Series E round.", "Series E")).toBe(false);
+    expect(participantReport("Fund X has invested $10 million in Suki as part of its Series E.", "Series E")).toBe(true);
+  });
+
+  test("the release lands without a participant hold", async () => {
+    const db = await testDb();
+    const row0 = suki([{ url: "https://www.suki.ai/press-releases/suki-secures-90-million", host: "suki.ai", evidence: RELEASE }]);
+    await persistRecords(db, [row0], "growth", "suki-1");
+    expect((await row(db, row0.id))?.hold ?? "").not.toMatch(/participant/);
+  });
+
+  test("a participant post beside a direct announcement does not hold the row", async () => {
+    const db = await testDb();
+    const row0 = suki([
+      {
+        url: "https://fund-x.example/news/suki",
+        host: "fund-x.example",
+        evidence: "Fund X has invested $10 million in Suki as part of its Series E.",
+      },
+      {
+        url: "https://www.axios.com/pro/health-tech-deals/suki-series-e-90m",
+        host: "axios.com",
+        evidence: "Suki, a health care AI and scribe company, raised a $90 million Series E round.",
+      },
+    ]);
+    await persistRecords(db, [row0], "growth", "suki-2");
+    expect((await row(db, row0.id))?.hold ?? "").not.toMatch(/participant/);
+  });
+});
+
+describe("OpenEvidence's $250M Series E is not its $250M Series D re-reported", () => {
+  const seriesD: RoundLead = {
+    stage: "series_d_plus",
+    usdMillions: 250,
+    date: "2026-01-21",
+    origin: "round openevidence:series_d_plus:2026-01-21",
+    label: "Series D $250M",
+    stageAsWritten: "Series D",
+    stated: true,
+  };
+  const seriesE = {
+    id: "openevidence:series_d_plus:2026-09-24",
+    stage: "series_d_plus",
+    stageAsWritten: "Series E",
+    announcedOn: "2026-09-24",
+    dateBasis: "page",
+    amountUsdMillions: 250,
+    history: false,
+  };
+
+  test("two series letters are two rounds", () => {
+    expect(lateReportLead(seriesE, [seriesD])).toBeNull();
+    expect(lateReportLead({ ...seriesE, stageAsWritten: "Series D" }, [seriesD])).toBe(seriesD);
+    expect(lateReportLead({ ...seriesE, stageAsWritten: "funding round" }, [seriesD])).toBe(seriesD);
+  });
+
+  test("a ledger's Series D does not hold the later Series E of the same size", async () => {
+    const db = await testDb();
+    const fresh = record({
+      company_name: "OpenEvidence",
+      company_key: "openevidence",
+      company_domain: "openevidence.com",
+      stage: "series_d_plus",
+      stage_as_written: "Series E",
+      announced_date: daysAgo(3),
+      date_basis: "page",
+      amount: { value: 250, currency: "USD", as_written: "$250M", usd_millions: 250, fx_rate: 1, fx_date: daysAgo(3) },
+      sources: [{ url: "https://www.businessinsider.com/openevidence", host: "businessinsider.com" }],
+    });
+    await persistRecords(db, [fresh], "growth", "oe-1");
+    const companyId = (await row(db, fresh.id))?.companyId as string;
+    const prior = { stage_as_written: "Series D", amount_as_written: "$250 million", announced_date: daysAgo(249), lead_investors: [] };
+    await db.insert(schema.historyPromotions).values({ companyId, priorKey: priorKey(prior), prior, origin: "search", status: "pending" });
+    expect(await holdLateReports(db, [companyId])).toEqual([]);
+    expect(await row(db, fresh.id)).toMatchObject({ history: false });
+    expect((await row(db, fresh.id))?.hold ?? "").not.toMatch(/^held: /);
+  });
+});
+
+describe("a row a person checked and published", () => {
+  test("is never held again while its facts are the ones they checked", async () => {
+    const db = await testDb();
+    const fresh = profileRow();
+    await persistRecords(db, [fresh], "growth", "run-1");
+    await setDisposition(db, fresh.id, "publish");
+    await ledgerSays(db, { type: "Series C", amount: "$120M", date: monthOf(daysAgo(93)) });
+    expect(await holdLateReports(db, ["assorthealth.com"])).toEqual([]);
+    expect(await row(db, fresh.id)).toMatchObject({ disposition: "publish", hold: null });
+
+    // A later reading that changes a checked fact is no longer what the person published.
+    await db
+      .update(schema.fundingRounds)
+      .set({ amountAsWritten: "$121 million", amountUsdMillions: "121" })
+      .where(eq(schema.fundingRounds.id, fresh.id));
+    expect(await holdLateReports(db, ["assorthealth.com"])).toEqual([fresh.id]);
+    expect((await row(db, fresh.id))?.hold).toMatch(/^held: the history ledger \(search\) reports Series C \$120M/);
   });
 });
