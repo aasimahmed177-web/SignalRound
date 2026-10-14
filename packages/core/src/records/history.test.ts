@@ -14,6 +14,7 @@ import {
   priorStage,
   promotable,
   rankHistoryCandidates,
+  withPriorExtension,
 } from "./history.ts";
 import type { FeedRecord } from "./schema.ts";
 
@@ -366,6 +367,22 @@ describe("tldraw: sibling sites, a seed extension, and app pages", () => {
       reason: "company",
     });
     expect(matchPriorRound(a, tl({ ...at, amount: ten, company_domain: "canvas.io" }), tldraw)).toEqual({ ok: false, reason: "company" });
+  });
+
+  test("a lead's extension read from a page that names only its series is the extension when the amounts agree", () => {
+    const lead = prior({
+      stage_as_written: "Seed extension",
+      amount_as_written: "$2 million",
+      announced_date: "2023-11",
+      lead_investors: [],
+    });
+    const page = tl({
+      announced_date: "2023-11-22",
+      amount: { value: 2, currency: "USD", as_written: "$2 million", usd_millions: 2, fx_rate: 1, fx_date: null },
+    });
+    expect(matchPriorRound(lead, page, tldraw)).toMatchObject({ ok: true });
+    expect(withPriorExtension(lead, page)).toMatchObject({ is_extension: true, stage_as_written: "Seed extension" });
+    expect(matchPriorRound({ ...lead, amount_as_written: "$5 million" }, page, tldraw)).toMatchObject({ ok: false });
   });
 
   test("a lead's bare seed and an announced seed extension of the same amount are one round; a different amount is not", () => {

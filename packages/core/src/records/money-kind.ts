@@ -80,7 +80,8 @@ export function nonStartupIssuerReason(issuer: IssuerType): string | null {
   return null;
 }
 
-const FIGURE =
+/** A money figure as pages write it, with its currency: "$56 million", "£272m", "EUR 40 million". */
+export const FIGURE =
   /(?:US|AU|NZ|CA|SG|HK|A|C|S)?\$\s*\d[\d,.]*(?:\s*(?:million|billion|m|bn))?|(?:€|£|₹|¥|₩|₦|₱|₺|₪|₫|฿|₴|₽|₵|৳|₸)\s*\d[\d,.]*(?:\s*(?:million|billion|crore|m|bn))?|\b(?:USD|EUR|GBP|INR|AUD|CAD|NZD|SGD|HKD|CNY|RMB|Rs|JPY|KRW|CHF|SEK|NOK|DKK|BRL|ILS|AED|SAR|TWD|MXN|ZAR|PLN|CZK|HUF|RON|TRY|IDR|MYR|PHP|THB|VND|PKR|BDT|NGN|KES|EGP|GHS|ARS|CLP|COP|PEN|UAH|KZT|QAR|KWD|MAD)\s*\d[\d,.]*(?:\s*(?:million|billion|crore|m|bn))?/gi;
 
 /** Reads the clause containing this particular figure, not an unrelated number elsewhere on the page. */

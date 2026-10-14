@@ -424,13 +424,15 @@ export function matchPriorRound(prior: PriorRound, record: FeedRecord, company: 
   const recordStageKnown = record.stage !== "other" && record.stage !== "undisclosed";
   let stageAgrees = false;
   if (stage && recordStageKnown) {
-    // A lead often writes an extension as its bare stage ("seed round" for tldraw's seed extension):
-    // the same stage is no contradiction, though only the same extension flag is agreement.
+    // A lead often writes an extension as its bare stage ("seed round" for tldraw's seed extension), and
+    // a page as often names an extension's series alone (Shield AI's "another $60M" in its Series E): the
+    // same stage is no contradiction when the amounts agree, though only the same extension flag is agreement.
     const extendsLead = stage.stage === record.stage && !stage.isExtension && record.is_extension;
     if (stage.stage === record.stage && stage.isExtension === record.is_extension) stageAgrees = true;
     else if (
       !extendsLead &&
-      ((amountGap !== null && !amountAgrees) || (stage.stage === record.stage && stage.isExtension && !record.is_extension))
+      ((amountGap !== null && !amountAgrees) ||
+        (stage.stage === record.stage && stage.isExtension && !record.is_extension && !amountAgrees))
     )
       return { ok: false, reason: "stage" };
   }
@@ -463,6 +465,16 @@ export function matchPriorRound(prior: PriorRound, record: FeedRecord, company: 
   }
   if (stage && recordStageKnown && stage.stage !== record.stage) evidence.push("stage label differs; announcement wins");
   return { ok: true, score, evidence };
+}
+
+/**
+ * The record with the dossier's extension label when the page named only the series: a matched prior
+ * extension of the same stage stays an extension, so it is never taken for its series' first close.
+ */
+export function withPriorExtension(prior: PriorRound, record: FeedRecord): FeedRecord {
+  const stage = priorStage(prior);
+  if (!stage?.isExtension || record.is_extension || stage.stage !== record.stage) return record;
+  return { ...record, is_extension: true, stage_as_written: prior.stage_as_written };
 }
 
 // Leads. A funding event a search result or a listing states is not a fact: its dates run weeks off and

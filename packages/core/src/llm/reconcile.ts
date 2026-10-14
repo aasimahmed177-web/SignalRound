@@ -13,6 +13,7 @@ import { groundingCheck } from "../firecrawl/extract.ts";
 import { applyCorrection, samePage } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
 import { investorMentions, type LeadRound, leadOfAnotherRound, statedRole } from "../records/investors.ts";
+import { FIGURE, moneyKindFromSentence } from "../records/money-kind.ts";
 import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import type { FeedRecord } from "../records/schema.ts";
@@ -188,6 +189,35 @@ export function statedLeads(
 }
 
 /**
+ * Whether a smaller figure is one part of the round's amount as its pages state it: the quote names it
+ * beside the rest of the round (Boom's "$56 million in new investment as well as $44 million in previously
+ * announced investments", Nuro's "latest tranche of $97 million follows the $106 million announced in
+ * April") and a page states the whole as the round's own ("closed a $100 million Series B"). A breakdown
+ * into equity and debt, a secondary sale, or a separate round is not one round's tranches.
+ */
+export function partOfStatedRound(round: string, figure: string, quote: string, pages: SourceText[]): boolean {
+  const whole = parseAmount(round);
+  const piece = parseAmount(figure);
+  if (whole.value === null || piece.value === null || piece.currency !== whole.currency || piece.value >= whole.value) return false;
+  // Equity beside debt, a secondary sale, a grant, or a separate round is the read-back's to pick.
+  if (/\b(?:debt|credit|loans?|facility|secondary|grants?|non-?dilutive|separate)\b/i.test(quote)) return false;
+  const total = whole.value;
+  const rest = piece.value;
+  const others = [...quote.matchAll(FIGURE)].map((m) => parseAmount(m[0]));
+  if (
+    !others.some(
+      (f) => f.currency === whole.currency && f.value !== null && f.value !== rest && Math.abs(rest + f.value - total) <= 0.02 * total,
+    )
+  )
+    return false;
+  return pages.some((page) =>
+    [page.title ?? "", ...page.markdown.split(/(?<=[.!?])\s+|\n+/)].some(
+      (sentence) => moneyKindFromSentence(sentence, round) === "primary",
+    ),
+  );
+}
+
+/**
  * Apply what the sources state to the record. Pure: the tests exercise it without a model. The verdict
  * maps into a Correction and the shared applier does the rest. What is the reconciler's alone: every
  * field cites the page that stated it; the date comes graded (day, week, month), so only its day that
@@ -222,7 +252,14 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
   });
   const kept = (value: string | null) => ({ value, source: null });
   const stage = checked("stage", v.stage) ? stated(v.stage) : kept(record.stage_as_written);
-  const amount = checked("amount", v.amount, true) ? stated(v.amount) : kept(record.amount.as_written);
+  const readAmount = checked("amount", v.amount, true) ? stated(v.amount) : kept(record.amount.as_written);
+  // A smaller figure from the round's own breakdown is a part of it, never its amount: the read-back is
+  // blind to the record, so a page giving both the whole and its tranches can lead it to a tranche.
+  const part =
+    opts.pages && readAmount.value && record.amount.as_written && v.amount.quote
+      ? partOfStatedRound(record.amount.as_written, readAmount.value, v.amount.quote, opts.pages)
+      : false;
+  const amount = part ? kept(record.amount.as_written) : readAmount;
   const dateGrounded = checked("date", v.announced_date);
   const date = dateGrounded ? stated(v.announced_date) : kept(record.announced_date);
   const valuation = checked("valuation", v.valuation, true) ? stated(v.valuation) : kept(record.valuation_as_written);
@@ -254,7 +291,11 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
       headquarters,
       // "Sources agree." with its period says nothing more either.
       notes:
-        [notes, ungrounded.length ? `not on the page it cites, so not applied: ${ungrounded.join(", ")}` : null]
+        [
+          notes,
+          part ? `${v.amount.value} is part of the ${record.amount.as_written} round a page states, so the round's amount stands` : null,
+          ungrounded.length ? `not on the page it cites, so not applied: ${ungrounded.join(", ")}` : null,
+        ]
           .filter(Boolean)
           .join("; ") || null,
       cited: true,

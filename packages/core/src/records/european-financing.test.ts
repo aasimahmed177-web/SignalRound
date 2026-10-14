@@ -192,3 +192,13 @@ describe("growth capital lending facilities", () => {
     expect(moneyKindFromSentence("Acme raised $185m in a growth equity round.", "$185m")).toBe("primary");
   });
 });
+
+describe("a figure written to fewer digits than the page states", () => {
+  test("is the page's figure rounded, within half its last digit and a fiftieth", () => {
+    expect(amountInEvidence("$39 million", "Neuralink has raised $39.3 million in a new round.")).toBe(true);
+    expect(amountInEvidence("$2 billion", "SpaceX raised $1.98 billion.")).toBe(true);
+    expect(amountInEvidence("$2 billion", "SpaceX raised $1.68 billion.")).toBe(false);
+    expect(amountInEvidence("$39.3 million", "Neuralink has raised $39 million.")).toBe(false);
+    expect(amountInEvidence("$39 million", "Neuralink has raised $39.6 million.")).toBe(false);
+  });
+});

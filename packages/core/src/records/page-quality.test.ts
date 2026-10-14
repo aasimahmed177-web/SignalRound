@@ -246,6 +246,9 @@ describe("dates: the text, then the page, then the URL, then the search result, 
     expect(day("2 September 2026")).toBe("2026-09-02");
     expect(day("April 6, 2026")).toBe("2026-04-06");
     expect(day("01.02.2021")).toBe("2021-02-01");
+    // Only month first makes this a date: CHAOS Industries dates its releases "11.13.2024".
+    expect(day("11.13.2024")).toBe("2024-11-13");
+    expect(day("13.13.2024")).toBeNull();
     expect(day("today")).toBeNull();
     expect(day("2 days ago")).toBeNull();
     expect(day("this week")).toBeNull();

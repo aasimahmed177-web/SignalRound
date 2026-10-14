@@ -4,6 +4,7 @@
 
 import { cleanHeadlineName } from "./brand-name.ts";
 import { assertedRoundCertainty, classifyRoundCertainty, ROUND_CERTAINTY_RANK } from "./certainty.ts";
+import { writtenSlack } from "./financing.ts";
 import type { RateTable } from "./fx.ts";
 import { convertToUsd } from "./fx.ts";
 import { cleanInvestors, dedupeInvestorNames, hasLeadLanguage, investorMentions } from "./investors.ts";
@@ -351,7 +352,12 @@ export function amountInEvidence(asWritten: string | null | undefined, evidence:
   const figures = normalizeAmountText(evidence ?? "").matchAll(
     /(?<![\w.])\d+(?:\.\d+)?\s*(?:billion|bn|b|million|mn|mm|m|thousand|k|crore|cr|lakh)?\b/gi,
   );
-  return [...figures].some(([figure]) => parseAmount(figure).value === target.value);
+  // A figure written to fewer digits is the stated one rounded: "$39 million" for "$39.3 million".
+  const slack = writtenSlack(asWritten, 0.02);
+  return [...figures].some(([figure]) => {
+    const value = parseAmount(figure).value;
+    return value === target.value || (value !== null && Math.abs(value - (target.value as number)) <= slack);
+  });
 }
 
 /** Where a stage sits on the equity ladder; stages off the ladder (debt, grant, secondary) do not compete. */

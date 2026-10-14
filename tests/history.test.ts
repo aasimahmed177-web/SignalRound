@@ -440,6 +440,35 @@ describe("promotion", () => {
     expect(JSON.stringify(ledger.outcome)).toContain("undated round on the company's own site");
   });
 
+  test("an own-site release that says the company today announced the round dates an undated prior by its day", async () => {
+    const handle = await testDb();
+    const undated = { ...SEED_PRIOR, announced_date: null };
+    const companyId = await seed(handle, [undated]);
+    const [key] = await queueCompanyHistory(handle, companyId);
+    const url = "https://onefootprint.com/press/footprint-raises-seed";
+    const { reader: r } = reader({
+      search: [{ url, title: "Footprint raises $6M seed", via: "search" }],
+      pages: {
+        [url]: [
+          {
+            ...item(
+              url,
+              round({
+                announced_date: null,
+                evidence_quote: "Footprint, the identity platform, today announced it has raised a $6 million seed round.",
+              }),
+            ),
+            page_date: "2022-08-03",
+          },
+        ],
+      },
+    });
+    const out = await promotePrior(handle, r, companyId, key, "history:test");
+    expect(out.status).toBe("promoted");
+    const [promoted] = await historyRow(handle);
+    expect(promoted.announcedOn).toBe("2022-08-03");
+  });
+
   test("an own-site announcement with a day printed beside its headline dates an undated prior", async () => {
     const handle = await testDb();
     const undated = { ...SEED_PRIOR, announced_date: null };

@@ -8,6 +8,8 @@ import {
   DEFAULT_TIERS,
   dedupeInvestorNames,
   financingTotalMatches,
+  financingTotalSplits,
+  financingTotalsDiffer,
   implausibleReading,
   invariantBreach,
   investorKeyForMerge,
@@ -525,6 +527,21 @@ function separateBackers(a: SameRoundFacts, b: SameRoundFacts): boolean {
   return !a.announcedOn || !b.announcedOn || readingGap(a, b) > CROSS_STAGE_WINDOW_DAYS;
 }
 
+/** Stages that name a round, as opposed to a growth, bridge, or unlabelled one. */
+const SERIES_LADDER = new Set(["pre_seed", "seed", "series_a", "series_b", "series_c", "series_d_plus"]);
+
+/**
+ * Whether two dated readings are two closes or two deals rather than one round read twice: their amounts
+ * add up to a total one of them states (financingTotalSplits); they state different running totals
+ * (financingTotalsDiffer); or both are dated to the day, more than a week apart, with figures more than a
+ * quarter apart. Coverage of one announcement trails it by days and repeats its figure, so Yamaha's $150
+ * million in Grab's Series H five weeks after Hyundai's $250 million is another close, not a correction.
+ */
+function separateCloses(a: SameRoundFacts, b: SameRoundFacts, days: number): boolean {
+  if (financingTotalSplits(a, b) || financingTotalsDiffer(a, b)) return true;
+  return a.datePrecision === "day" && b.datePrecision === "day" && days > CROSS_STAGE_WINDOW_DAYS && amountsDiffer(a, b);
+}
+
 /**
  * Whether two records for the same company describe one round. Undated on either side is a
  * match when the stage agrees (the date is what a second source usually supplies) and the figures
@@ -548,6 +565,7 @@ export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
   }
   const days = daysApart(a.announcedOn, b.announcedOn);
   if (days <= (a.stage === b.stage ? SAME_STAGE_WINDOW_DAYS : CROSS_STAGE_WINDOW_DAYS) && financingTotalMatches(a, b)) return true;
+  if (separateCloses(a, b, days)) return false;
   if (a.stage === b.stage) {
     // A tranche or an extension beside its series is its own round when the figures differ: Corgi's
     // $106 million Series B1 three weeks after its $160 million Series B.
@@ -560,7 +578,9 @@ export function isSameRound(a: SameRoundFacts, b: SameRoundFacts): boolean {
     return isReReport(a, b, span);
   }
   if (!EQUITY_LADDER.has(a.stage) || !EQUITY_LADDER.has(b.stage)) return false;
-  if (days <= CROSS_STAGE_WINDOW_DAYS) return true;
+  // Two named series a few days apart are one round labelled two ways only when their figures agree:
+  // Razorpay's $2.5 million seed and $9 million Series A were announced the same day.
+  if (days <= CROSS_STAGE_WINDOW_DAYS) return !(SERIES_LADDER.has(a.stage) && SERIES_LADDER.has(b.stage) && amountsDiffer(a, b));
   if (isStagelessReReport(a, b, readingGap(a, b))) return true;
   const larger = Math.max(a.amountUsdMillions ?? 0, b.amountUsdMillions ?? 0);
   return larger > 0 && Math.abs((a.amountUsdMillions ?? 0) - (b.amountUsdMillions ?? 0)) <= larger * 0.1 && days <= SAME_STAGE_WINDOW_DAYS;

@@ -930,3 +930,93 @@ describe("regroundValuation on the production copy's cases", () => {
     ).toEqual({ outcome: "held", value: "$500 million", url });
   });
 });
+
+describe("a tranche of the round its pages state", () => {
+  const NURO = "https://www.reuters.com/business/autos-transportation/nuro-valued-6-billion-2025-08-21/";
+  const nuro = (over: Partial<FeedRecord> = {}) =>
+    record({
+      id: "nuro:series_d_plus:2025-08-21",
+      company_key: "nuro",
+      company_name: "Nuro",
+      company_domain: "nuro.ai",
+      company_website: "https://nuro.ai",
+      stage: "series_d_plus",
+      stage_as_written: "Series E",
+      amount: { value: 203, currency: "USD", as_written: "$203 million", usd_millions: 203, fx_rate: 1, fx_date: null },
+      lead_investors: [],
+      other_investors: [],
+      announced_date: "2025-08-21",
+      evidence_quotes: ["Nuro closed its late-stage funding round on Thursday, raising $203 million at a $6 billion valuation."],
+      sources: [
+        { url: NURO, host: "reuters.com", title: "Self-driving vehicle startup Nuro valued at $6 billion", published: "2025-08-21" },
+      ],
+      ...over,
+    });
+  const page = (markdown: string): SourceText => ({ url: NURO, host: "reuters.com", title: "Nuro valued at $6 billion", markdown });
+  const verdict = (value: string, quote: string): Reconciliation => ({
+    ...AGREES,
+    stage: { stated: true, value: "Series E", source: NURO, quote: "late-stage funding round" },
+    amount: { stated: true, value, source: NURO, quote },
+    announced_date: { stated: true, value: "2025-08-21", precision: "day", source: NURO, quote: "Aug 21 (Reuters)" },
+    lead_investors: [],
+    other_investors: [],
+    headquarters: { stated: false, value: null, source: null, quote: null },
+    notes: "sources agree",
+  });
+  const RELEASE =
+    "Aug 21 (Reuters) - Self-driving vehicle startup Nuro closed its late-stage funding round on Thursday, raising $203 million at a $6 billion valuation. The latest tranche of $97 million follows the $106 million announced in April.";
+
+  test("keeps the round's amount when the read-back takes the latest tranche", () => {
+    const r = applyReconciliation(
+      nuro(),
+      verdict("$97 million", "The latest tranche of $97 million follows the $106 million announced in April."),
+      { ...OPTS, pages: [page(RELEASE)] },
+    );
+    expect(r.amount.as_written).toBe("$203 million");
+    expect(r.verification?.notes.join(" ")).toContain("$97 million is part of the $203 million round a page states");
+  });
+
+  test("keeps the round's amount when the read-back takes the new money of a stated total", () => {
+    const markdown =
+      "Colorado-based Boom Supersonic says it has closed a $100 million Series B investment round to support the development of Overture. The funding includes $56 million in new investment as well as $44 million in previously announced investments.";
+    const r = applyReconciliation(
+      nuro({ amount: { value: 100, currency: "USD", as_written: "$100 million", usd_millions: 100, fx_rate: 1, fx_date: null } }),
+      verdict(
+        "$56 million",
+        "The funding includes $56 million in new investment as well as $44 million in previously announced investments.",
+      ),
+      { ...OPTS, pages: [page(markdown)] },
+    );
+    expect(r.amount.as_written).toBe("$100 million");
+  });
+
+  test("still corrects a series' running total to the new money", () => {
+    const markdown = "The company raised $30 million, bringing the total Series D-2 to $110 million.";
+    const r = applyReconciliation(
+      nuro({ amount: { value: 110, currency: "USD", as_written: "$110 million", usd_millions: 110, fx_rate: 1, fx_date: null } }),
+      verdict("$30 million", "The company raised $30 million, bringing the total Series D-2 to $110 million."),
+      { ...OPTS, pages: [page(markdown)] },
+    );
+    expect(r.amount.as_written).toBe("$30 million");
+  });
+
+  test("still takes the equity when the page splits the whole into equity and debt", () => {
+    const markdown =
+      "Quartermaster announced $140 million in financing. The financing comprises a $100 million Series B equity round plus $40 million in debt.";
+    const r = applyReconciliation(
+      nuro({ amount: { value: 140, currency: "USD", as_written: "$140 million", usd_millions: 140, fx_rate: 1, fx_date: null } }),
+      verdict("$100 million", "The financing comprises a $100 million Series B equity round plus $40 million in debt."),
+      { ...OPTS, pages: [page(markdown)] },
+    );
+    expect(r.amount.as_written).toBe("$100 million");
+  });
+
+  test("still corrects when no page states the whole as the round's", () => {
+    const r = applyReconciliation(
+      nuro(),
+      verdict("$97 million", "The latest tranche of $97 million follows the $106 million announced in April."),
+      { ...OPTS, pages: [page("The latest tranche of $97 million follows the $106 million announced in April.")] },
+    );
+    expect(r.amount.as_written).toBe("$97 million");
+  });
+});

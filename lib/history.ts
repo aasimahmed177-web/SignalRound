@@ -66,6 +66,7 @@ import {
   searchCredits,
   settleDate,
   verdictSummary,
+  withPriorExtension,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
@@ -898,7 +899,7 @@ const REPORTED_NOT_ANNOUNCED = "reported, not announced";
 
 /** The company's post is the announcement itself, so its day is the round's: stated in the sentence, or the post says it is today's news. */
 const ANNOUNCES_NOW =
-  /\b(?:announc\w*\s+today|today,?\s+(?:we(?:'|’)re|we are|we|i(?:'|’)m|i am)\s+(?:\w+\s+){0,3}(?:announc\w*|shar\w*|rais\w*)|(?:excited|thrilled|pleased|proud|delighted|happy)\s+to\s+(?:announce|share))\b/i;
+  /\b(?:announc\w*\s+today|today\s+(?:announc\w*|unveil\w*|said|says|clos(?:ed|es)|secur(?:ed|es)|rais(?:ed|es))|today,?\s+(?:we(?:'|’)re|we are|we|i(?:'|’)m|i am)\s+(?:\w+\s+){0,3}(?:announc\w*|shar\w*|rais\w*)|(?:excited|thrilled|pleased|proud|delighted|happy)\s+to\s+(?:announce|share))\b/i;
 function ownAnnouncementDay(r: FeedRecord, items: ExtractResult["items"] = []): boolean {
   if (r.date_precision !== "day" || !r.announced_date) return false;
   if (r.date_basis === "stated" || r.evidence_quotes.some((q) => ANNOUNCES_NOW.test(q))) return true;
@@ -1114,7 +1115,7 @@ export async function finishPromotion(
     });
     return { ...base, sourced: true, credits, reason };
   }
-  const record = await priceAtDay(reader, asCompanyRecord(checked, subject));
+  const record = await priceAtDay(reader, withPriorExtension(prior, asCompanyRecord(checked, subject)));
   if (!includeRecent && record.announced_date && Date.parse(record.announced_date) > now.getTime() - HISTORY_RECENT_DAYS * DAY) {
     const next = new Date(Date.parse(record.announced_date) + (HISTORY_RECENT_DAYS + 1) * DAY);
     await writeLedger(handle, companyId, key, {

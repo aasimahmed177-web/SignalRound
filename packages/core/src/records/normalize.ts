@@ -193,7 +193,7 @@ const READ_WINDOW_DAYS = 14;
 
 /**
  * A numeric date written with dots, dashes, or slashes. A dotted one is day first ("01.02.2021" is
- * 1 February), the convention wherever dots are used. One that only one order makes valid is read that
+ * 1 February), the convention wherever dots are used, unless only month first is a date ("11.13.2024"). One that only one order makes valid is read that
  * way ("25-09-2026", "09-25-2026"). When both orders are valid ("08-10-2026" is 8 October to
  * Investing.com India and 10 August to a US page), the page decides: the reading another of its dates
  * agrees with; else, on a page read while fresh, the reading within the news window of the read time
@@ -205,7 +205,8 @@ function numericDay(v: string, ctx: DateContext = {}): Date | null | undefined {
   const m = /(?<!\d)(\d{1,2})([./-])(\d{1,2})\2((?:19|20)\d{2})(?!\d)/.exec(v);
   if (!m) return undefined;
   const [a, b, year] = [Number(m[1]), Number(m[3]), Number(m[4])];
-  if (m[2] === ".") return utcDay(year, b, a);
+  // A dotted date is day first unless only month first is a date: "11.13.2024" on a US release is 13 November.
+  if (m[2] === ".") return utcDay(year, b, a) ?? utcDay(year, a, b);
   if (a > 12 || b > 12 || a === b) return a <= 12 && b > 12 ? utcDay(year, a, b) : utcDay(year, b, a);
   const dayFirst = utcDay(year, b, a);
   const monthFirst = utcDay(year, a, b);
