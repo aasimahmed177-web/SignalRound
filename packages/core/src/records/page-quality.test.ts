@@ -394,6 +394,15 @@ describe("round certainty", () => {
     expect(classifyRoundCertainty("Acme raised $20 million, according to people familiar with the matter.")).toBe("reported");
     expect(classifyRoundCertainty("Acme raised $20 million, sources say.")).toBe("reported");
     expect(classifyRoundCertainty("Apex Intelligence completed its round, raising nearly US$50 million.")).toBe("announced");
+    // A release that announces raising money reports a closed round; a headline that someone is raising does not.
+    expect(
+      classifyRoundCertainty(
+        "Classiq today announced raising $110 million in Series C funding, the largest ever for a quantum software company.",
+      ),
+    ).toBe("announced");
+    expect(classifyRoundCertainty("Acme confirms raising $20 million")).toBe("announced");
+    expect(classifyRoundCertainty("Acme raising $20 million to expand")).toBe("expected");
+    expect(classifyRoundCertainty("Acme in talks raising $20 million")).toBe("expected");
     expect(classifyRoundCertainty("A new registry could raise phone costs for consumers.")).toBe("announced");
     expect(classifyRoundCertainty("The round is said to be a second extension of its Series B round and has already closed.")).toBe(
       "reported",

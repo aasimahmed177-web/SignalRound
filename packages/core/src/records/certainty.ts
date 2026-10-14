@@ -8,7 +8,7 @@ const EXPECTED =
 const OPENED =
   /\b(?:(?:launch|open|kick)(?:es|s|ed|ing)?(?: off)?|launch of) (?:a|an|its|the) (?:further |new |second |fresh |next )?(?:(?:[$€£¥₹₩]|a\$|au\$|us\$|nz\$)\s?\d[\d.,]*\s?(?:k|m|mn|million|bn|billion)?\s+)?(?:funding|fundraising|investment|capital|equity|crowdfunding|seed|series [a-z])(?: financing| funding| investment)? ?(?:round|raise|campaign)/i;
 const RAISING_HEADLINE =
-  /^(?:scoop:\s*|exclusive:\s*|report:\s*)?(?!after\b|how\b)(?:[\w.&'\u2019\u2013-]+\s+){1,5}raising\s+(?:up to |about |around |roughly |over |nearly |some |a |an )?(?:[$€£¥₹₩]\s?\d|\d+(?:\.\d+)?\s?(?:m|mn|million|b|bn|billion)\b)/i;
+  /^(?:scoop:\s*|exclusive:\s*|report:\s*)?(?!after\b|how\b)(?:[\w.&'\u2019\u2013-]+\s+){1,5}(?<!\b(?:announc|complet|confirm)(?:ed|es|s)\s+)raising\s+(?:up to |about |around |roughly |over |nearly |some |a |an )?(?:[$€£¥₹₩]\s?\d|\d+(?:\.\d+)?\s?(?:m|mn|million|b|bn|billion)\b)/i;
 const REPORTED =
   /\b(?:reportedly\s+(?:has\s+|had\s+)?(?:raised|secured|closed)|(?:has|have|had)\s+reportedly\s+(?:raised|secured|closed)|rumou?red to have (?:raised|secured|closed)|is said to (?:have (?:raised|secured|closed)|be .{0,100}?already closed)|(?:sources?|people|persons) (?:familiar with|with knowledge of|say|said)|according to (?:unnamed |anonymous )?(?:sources|people|persons)|citing (?:unnamed |anonymous )?(?:sources|people|persons)|selon (?:nos |des |plusieurs )?(?:informations|sources)|aurait lev[ée]|seg[uú]n fuentes)\b|消息称|知情人士|据悉|关系人士|関係者によると|관계자에 따르면|업계에 따르면/i;
 const CLOSED = /\b(?:raises|raised|secured|closed|completed|announced|announces|has (?:gotten|secured)|already secured)\b/i;
