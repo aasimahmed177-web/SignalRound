@@ -240,7 +240,7 @@ describe("feeds in demo mode", () => {
 describe("visibleNav", () => {
   test("a demo visitor loses the admin sections and keeps Overview; a demo admin loses nothing", () => {
     const hrefs = (demo: boolean, admin: boolean) => visibleNav({ demo, admin }).map((n) => n.href);
-    expect(hrefs(true, false)).toEqual(["/overview", "/feed", "/companies", "/investors", "/news", "/runs"]);
+    expect(hrefs(true, false)).toEqual(["/overview", "/feed", "/companies", "/investors", "/news"]);
     expect(hrefs(true, true)).toEqual(NAV_DISPLAY.map((n) => n.href));
     expect(hrefs(false, false)).toEqual(NAV_DISPLAY.map((n) => n.href));
   });

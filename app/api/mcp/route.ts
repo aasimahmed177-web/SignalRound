@@ -204,11 +204,16 @@ const handler = createMcpHandler(
       "get_company",
       {
         title: "Get a company",
-        description: "Every round on record for one company, by domain or name.",
-        inputSchema: z.object({ company: z.string().min(1).max(200).describe("Domain (acme.com) or name") }),
+        description: "Every round on record for one company, by domain or name. Pass company, or id as get_company_profile takes it.",
+        inputSchema: z.object({
+          company: z.string().min(1).max(200).optional().describe("Domain (acme.com) or name"),
+          id: z.string().min(1).max(200).optional().describe("The same as company, under get_company_profile's name"),
+        }),
         annotations: { readOnlyHint: true },
       },
-      reader("get_company", async ({ company }, handle) => {
+      reader("get_company", async (args, handle) => {
+        const company = args.company ?? args.id;
+        if (!company) return refusal("Pass company: a domain (acme.com) or a name.");
         const { rows } = await listRounds(handle, { company, limit: 50, includeReview: trusted });
         return text({ company, rounds: rows.map(compactRound) });
       }),
@@ -302,11 +307,15 @@ const handler = createMcpHandler(
             .string()
             .min(1)
             .max(200)
+            .optional()
             .describe("The id list_companies returns (ramp.com), or a domain, earlier id, or name slug the company is known by"),
+          company: z.string().min(1).max(200).optional().describe("The same as id, under get_company's name"),
         }),
         annotations: { readOnlyHint: true },
       },
-      reader("get_company_profile", async ({ id }, handle) => {
+      reader("get_company_profile", async (args, handle) => {
+        const id = args.id ?? args.company;
+        if (!id) return refusal("Pass id: the id list_companies returns (ramp.com), a domain, or a name.");
         const wanted = id.trim().toLowerCase();
         const found = await companyProfileOrNear(handle, wanted);
         return "error" in found ? { ...text(found), isError: true } : text(found);
@@ -345,11 +354,15 @@ const handler = createMcpHandler(
             .string()
             .min(1)
             .max(200)
-            .describe("The id list_investors returns (sequoia-capital), or the investor's name (Sequoia Capital) or site (sequoiacap.com)"),
+            .optional()
+            .describe("The id list_investors returns (sequoia), or the investor's name (Sequoia Capital) or site (sequoiacap.com)"),
+          investor: z.string().min(1).max(200).optional().describe("The same as id, by the investor's own name"),
         }),
         annotations: { readOnlyHint: true },
       },
-      reader("get_investor", async ({ id }, handle) => {
+      reader("get_investor", async (args, handle) => {
+        const id = args.id ?? args.investor;
+        if (!id) return refusal("Pass id: the id list_investors returns (sequoia), or the investor's name or site.");
         const found = await investorProfileOrNear(handle, id);
         return "error" in found ? { ...text(found), isError: true } : text(found);
       }),

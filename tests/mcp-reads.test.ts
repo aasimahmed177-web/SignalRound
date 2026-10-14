@@ -176,6 +176,19 @@ describe("each tool answers what its route answers", () => {
       expect(await call("get_investor", { id })).toEqual(body);
     }
   });
+
+  test("each lookup takes id or the entity's own name, and asks for one when given neither", async () => {
+    expect(await call("get_company_profile", { company: "zeta.example" })).toEqual(
+      await call("get_company_profile", { id: "zeta.example" }),
+    );
+    expect(await call("get_investor", { investor: "Fund One" })).toEqual(await call("get_investor", { id: "Fund One" }));
+    expect(await call("get_company", { id: "zeta.example" })).toEqual(await call("get_company", { company: "zeta.example" }));
+    for (const name of ["get_company", "get_company_profile", "get_investor"]) {
+      const empty = await tool(name, {});
+      expect(empty.isError, name).toBe(true);
+      expect(empty.text, name).toMatch(/^Pass /);
+    }
+  });
 });
 
 describe("misses and bad values", () => {

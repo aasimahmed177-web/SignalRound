@@ -137,7 +137,7 @@ describe("Overview in all four LANDING and PUBLIC_DEMO combinations", () => {
         expect(hrefs[1], label).toBe("/feed");
       }
       // A visitor keeps only the public sections in demo mode; everyone else sees them all.
-      expect(visibleNav(viewerFrom(null)).length, label).toBe(demo ? 6 : NAV_DISPLAY.length);
+      expect(visibleNav(viewerFrom(null)).length, label).toBe(demo ? 5 : NAV_DISPLAY.length);
       const res = gate(new NextRequest("http://app.test/overview", { headers: { authorization: admin } }));
       expect(passed(res), label).toBe(true);
       expect(rewrite(res), label).toBeNull();

@@ -42,7 +42,6 @@ describe("NAV", () => {
       "/companies",
       "/investors",
       "/news",
-      "/runs",
     ]);
   });
 

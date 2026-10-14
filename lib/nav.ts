@@ -49,12 +49,13 @@ export function navItemsFor(hrefs: string[] | undefined): NavItem[] {
 
 /**
  * Nav entries a demo visitor never sees: the admin paths (ADMIN_PATHS in lib/access.ts) stay
- * behind the password. Overview lives at /overview and shows only what the feed publishes to a
+ * behind the password. Runs stays open at its address but leaves the visitor's nav: its columns are
+ * the pipeline's own, and most lanes count other things, so a visitor reads a table of n/a. Overview lives at /overview and shows only what the feed publishes to a
  * visitor, so every viewer keeps it, as they keep the directories. LANDING=1 changes nothing here:
  * the landing page took `/`, which no section uses.
  */
 export function visibleNav(v: Viewer): NavItem[] {
-  const hidden = v.demo && !v.admin ? ["/presets", "/review", "/settings"] : [];
+  const hidden = v.demo && !v.admin ? ["/presets", "/review", "/settings", "/runs"] : [];
   return hidden.length ? NAV_DISPLAY.filter((n) => !hidden.includes(n.href)) : NAV_DISPLAY;
 }
 
