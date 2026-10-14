@@ -4,7 +4,7 @@
 // feeds, and the exports to anyone, so each of those surfaces passes its rows through here first.
 // Admins, and every caller on a private instance (the password already gated them), keep the full row.
 
-import { parseAmount, withBasis } from "@fireround/core";
+import { isBareDollar, parseAmount, withBasis } from "@fireround/core";
 import type { RunRow } from "./news.ts";
 import type { RoundRow } from "./persist.ts";
 
@@ -21,7 +21,8 @@ const BASIS = /\b(pre|post)[\s-]?money\b/i;
  * The valuation a reader may cite, or null. Only a published round (never a flagged, held-for-review
  * or rejected one) that closed (announced or reported) and that the read-back confirmed or corrected
  * carries one. The USD figure is the stated one, or the round's own announcement-day rate when the
- * valuation is in the amount's currency; any other currency leaves it null. The basis comes from the
+ * valuation is in the amount's currency; any other currency leaves it null. A bare "$" valuation beside a bare "$"
+ * amount is in whatever dollar that amount was read as (an Australian outlet's A$, or unsure). The basis comes from the
  * valuation's own words, else from a sentence the round keeps that states the same figure.
  */
 export function citableValuation(r: {
@@ -30,15 +31,16 @@ export function citableValuation(r: {
   disposition: RoundRow["disposition"];
   certainty: RoundRow["certainty"];
   verification: { status: string } | null;
-  amount: Pick<RoundRow["amount"], "value" | "currency" | "usd_millions">;
+  amount: Pick<RoundRow["amount"], "value" | "currency" | "usd_millions"> & { as_written?: string | null };
 }): RoundValuation | null {
   const asWritten = r.valuation_as_written?.trim();
   if (!asWritten || r.disposition !== "publish") return null;
   if (r.certainty !== "announced" && r.certainty !== "reported") return null;
   if (r.verification?.status !== "confirmed" && r.verification?.status !== "corrected") return null;
-  const { value, currency } = parseAmount(asWritten);
-  if (value === null) return null;
   const { amount } = r;
+  const { value, currency: written } = parseAmount(asWritten);
+  if (value === null) return null;
+  const currency = isBareDollar(asWritten) && isBareDollar(amount.as_written) ? amount.currency : written;
   const rate =
     currency === "USD"
       ? 1

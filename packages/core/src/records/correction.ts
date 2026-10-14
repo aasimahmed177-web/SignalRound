@@ -8,7 +8,7 @@
 import { convertToUsd, type RateTable } from "./fx.ts";
 import { dedupeInvestorNames, investedInRound, leadOfAnotherRound, normalizeInvestorName } from "./investors.ts";
 import { FIGURE } from "./money-kind.ts";
-import { canonicalUrl, classifyStage, dateFromUrl, hostOf, parseAmount, parseStatedDate } from "./normalize.ts";
+import { canonicalUrl, classifyStage, dateFromUrl, hostOf, isBareDollar, parseAmount, parseStatedDate } from "./normalize.ts";
 import { MONTHLY_LIST, reconcileInvestorLists, scoreConfidence, WEEKLY_LIST } from "./resolve.ts";
 import type { FeedRecord } from "./schema.ts";
 
@@ -208,10 +208,11 @@ export function applyCorrection(record: FeedRecord, c: Correction, opts: Correct
   } else {
     let parsed = parseAmount(c.amount.value);
     const current = r.amount.value;
-    // A figure copied without its currency ("17.2m" for "€17.2m") is the record's own amount when the numbers match.
+    // A figure copied without its currency ("17.2m" for "€17.2m") is the record's own amount when the numbers match,
+    // and so is the bare "$" of a record whose own bare "$" its page read as another dollar, or left unsure (dollarFromPage).
     if (
       parsed.value !== null &&
-      parsed.currency === null &&
+      (parsed.currency === null || (isBareDollar(c.amount.value) && isBareDollar(r.amount.as_written) && r.amount.currency !== "USD")) &&
       current !== null &&
       Math.abs(parsed.value - current) <= AMOUNT_TOLERANCE * current
     )

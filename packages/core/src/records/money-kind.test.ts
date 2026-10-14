@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { pageItems } from "../firecrawl/extract.ts";
+import { companyPlace, pageItems, pageSentences } from "../firecrawl/extract.ts";
 import { cleanInvestors } from "./investors.ts";
 import { moneyKindFromSentence, safeMoneyKind } from "./money-kind.ts";
-import { dollarFromEvidence, hostOf, parseAmount } from "./normalize.ts";
+import { dollarFromEvidence, dollarFromPage, hostOf, isBareDollar, pageDollars, parseAmount } from "./normalize.ts";
 import { amountInEvidence, resolveRounds } from "./resolve.ts";
 import type { ExtractedRound } from "./schema.ts";
+import { STAGES } from "./stages.ts";
 
 describe("audited money sentences", () => {
   test.each([
@@ -378,5 +379,199 @@ describe("audited lead roles", () => {
       { stages: ["series_a"], windowStart: new Date("2026-09-01"), now: new Date("2026-09-27") },
     );
     expect(result.kept[0].lead_investors).toEqual(["True Ventures"]);
+  });
+});
+
+describe("a bare dollar read against its page", () => {
+  const read = (asWritten: string, page: Parameters<typeof dollarFromPage>[2]) =>
+    dollarFromPage(asWritten, dollarFromEvidence(asWritten, parseAmount(asWritten), page.quote), page).currency;
+
+  test("Archa's $11 million is AUD on Startup Daily, and a global site's bare dollar stays USD whatever the company's country", () => {
+    const evidence =
+      "Archa raised $11 million in equity, kept apart from a $50 million debt facility, to widen working capital without personal guarantees from its directors.";
+    const markdown = [
+      "# Archa raises $11 million to drop personal guarantees",
+      evidence,
+      "Startup Daily reported on October 13, 2026 that the Melbourne firm raised $11 million of equity at an undisclosed valuation.",
+      "The [about page](https://www.archa.com.au/about), opened the same day, does not restate them. It calls Archa a Melbourne-based fintech and says it is not a bank.",
+    ].join("\n\n");
+    const extracted: ExtractedRound = {
+      company_name: "Archa",
+      company_website: null,
+      company_description: "a fintech focused on business credit cards and working capital solutions",
+      round_type_as_written: "equity",
+      amount_as_written: "$11 million",
+      amount_kind: "round",
+      valuation_as_written: null,
+      lead_investors: [],
+      other_investors: [],
+      announced_date: "2026-10-13",
+      headquarters: null,
+      sector: null,
+      evidence_quote: evidence,
+      source_url: null,
+      is_background: false,
+      is_rumor: false,
+    };
+    const resolveOn = (url: string) => {
+      const items = pageItems([extracted], { url, host: hostOf(url) }, markdown);
+      return resolveRounds(items, { stages: [...STAGES], windowStart: new Date("2026-10-01"), now: new Date("2026-10-14") }).kept[0];
+    };
+    expect(resolveOn("https://theindustryspread.com/archa-raises-11-million-to-drop-personal-guarantees/")?.amount).toMatchObject({
+      value: 11,
+      currency: "USD",
+      as_written: "$11 million",
+    });
+    expect(resolveOn("https://www.startupdaily.net/topic/funding/archa-raises-11-million/")?.amount).toMatchObject({
+      value: 11,
+      currency: "AUD",
+      as_written: "$11 million",
+    });
+  });
+
+  test("a national outlet's own bare dollar is its country's, and a conversion beside it confirms it", () => {
+    const startupDaily = "https://www.startupdaily.net/topic/funding/cheque-in-7-startups-raised-274-7-million-this-week/";
+    expect(read("$6.75 million", { url: startupDaily, quote: "Kinoxis Therapeutics has raised $6.75 million in equity funding" })).toBe(
+      "AUD",
+    );
+    expect(
+      read("$37 million", { url: startupDaily, quote: "HEO Robotics has raised a $37 million (US$25 million) Series B", dollars: ["USD"] }),
+    ).toBe("AUD");
+    expect(
+      read("$98 million (US$65 million)", {
+        url: "https://www.smartcompany.com.au/startupsmart/heidi-health-98-million-raise/",
+        quote: "Melbourne scaleup Heidi Health has raised $98 million (US$65 million) in a Series B funding round.",
+      }),
+    ).toBe("AUD");
+    expect(
+      read("$100 million", {
+        url: "https://betakit.com/wealthsimple-raises-100-million-from-allianz-x/",
+        quote: "Toronto-based Wealthsimple has secured a new $100 million investment round.",
+      }),
+    ).toBe("CAD");
+    expect(
+      read("$5.9m", {
+        url: "https://businessdesk.co.nz/sustainable-finance",
+        quote: "Neocrete raises $5.9m in pre-series A raise for global scale-up",
+      }),
+    ).toBe("NZD");
+  });
+
+  test("a US dollar the sentence writes out stays one, and a sentence mixing them is unsure", () => {
+    expect(
+      read("$60 million", {
+        url: "https://betakit.com/mecka-ai-announces-60-million-usd/",
+        quote: "Mecka revealed Monday that it has raised $60 million USD in funding.",
+      }),
+    ).toBe("USD");
+    expect(isBareDollar("US $315 million")).toBe(false);
+    expect(
+      read("$400 million", {
+        url: "https://smbtech.au/news/island-raises-400-million/",
+        quote: "Island announced its $400 million Series F financing round which brings the company's valuation to US$6.4 billion.",
+      }),
+    ).toBeNull();
+  });
+
+  test("a company or city of another dollar country leaves the outlet's dollar unsure", () => {
+    expect(
+      read("$14 million", {
+        url: "https://www.startupdaily.net/topic/funding/cheque-in-4-anz-startups-ended-april/",
+        quote: "Auckland startup Marloo has raised $14 million (US$10 million) in a seed funding round.",
+      }),
+    ).toBeNull();
+    expect(
+      read("$80 million", {
+        url: "https://melbourne-insider.au/ipak-yuli-secures-80m-club-loan-financing/",
+        quote: "Ipak Yuli Bank has secured an $80 million club loan financing in Uzbekistan.",
+      }),
+    ).toBeNull();
+  });
+
+  test("a page that writes another dollar somewhere, a wire release, a foreign dateline and the region's US dollar stay US dollars", () => {
+    expect(
+      read("$45 million", {
+        url: "https://fortune.com/2026/09/22/term-sheet/",
+        dollars: pageDollars("Ottawa's Acme raised C$12 million. Baselayer raised $45 million."),
+        quote: "Baselayer, a New York City-based business identity-verification company, raised $45 million.",
+      }),
+    ).toBe("USD");
+    expect(
+      read("$1 billion", {
+        url: "https://financialpost.com/pmn/business-pmn/sequoia-leads-1-billion-funding-round/",
+        quote: "Sequoia Capital led a $1 billion funding round for Valar Atomics Inc.",
+      }),
+    ).toBe("USD");
+    expect(
+      read("$223 million", {
+        url: "https://www.straitstimes.com/paid-press-releases/gmi-cloud-raises/",
+        dateline: "MOUNTAIN VIEW",
+        quote: "GMI Cloud has raised $223 million.",
+      }),
+    ).toBe("USD");
+    expect(
+      read("$31M", { url: "https://www.greenqueen.com.hk/rize-farm-funding/", quote: "Rize has closed a $31M Series B investment." }),
+    ).toBe("USD");
+    expect(
+      read("$65 billion", {
+        url: "https://www.gic.com.sg/newsroom/all/anthropic-raises-65b/",
+        quote: "Anthropic has raised $65 billion in Series H funding.",
+      }),
+    ).toBe("USD");
+  });
+
+  test("a release under a local dateline is that dollar only when it writes that dollar somewhere", () => {
+    const cohere = "https://www.globenewswire.com/news-release/2021/09/07/2292856/0/en/cohere-raises-40-million-in-series-a.html";
+    expect(
+      read("$40 million", {
+        url: cohere,
+        dateline: "TORONTO",
+        quote: "Cohere announced today that it has raised $40 million in series A financing.",
+      }),
+    ).toBe("USD");
+    expect(
+      read("$6.75 million", {
+        url: "https://kinoxistherapeutics.com/news/closes-financing",
+        dateline: "MELBOURNE",
+        quote: "Kinoxis Therapeutics closes $6.75 million financing round.",
+      }),
+    ).toBe("USD");
+    expect(
+      read("$18 million", {
+        url: "https://www.newswire.ca/news-releases/run-for-the-cure-raises-18-million.html",
+        dateline: "TORONTO",
+        dollars: ["CAD"],
+        quote: "The run raised $18 million.",
+      }),
+    ).toBe("CAD");
+    expect(
+      read("$20 million", { url: "https://example.com/news/x", dateline: "SINGAPORE", quote: "The startup raised $20 million." }),
+    ).toBe("USD");
+  });
+
+  test("a Singapore or Hong Kong newspaper's own bare dollar is unsure", () => {
+    expect(
+      read("$20 million", {
+        url: "https://www.straitstimes.com/business/startup-raises-20-million",
+        quote: "The startup raised $20 million.",
+      }),
+    ).toBeNull();
+    expect(
+      read("$20 million", {
+        url: "https://example.com/news/x",
+        dateline: "SINGAPORE",
+        dollars: ["SGD"],
+        quote: "The startup raised $20 million.",
+      }),
+    ).toBeNull();
+  });
+
+  test("the company's place is read beside its name, never from a roundup's other companies or investors", () => {
+    const sentences = pageSentences(
+      "Sydney-based investing platform Pearler has raised $16 million. The round was led by Canada's Portage Ventures, which also backed Pearler in its seed round, alongside New Zealand-based Altered Capital. Fresh capital went to Auckland-based Drumbeat, Victorian startup GonGlobal and others.",
+    );
+    expect(companyPlace({ company_name: "Pearler", company_description: null }, sentences)).toBe("Sydney");
+    expect(companyPlace({ company_name: "GonGlobal", company_description: null }, sentences)).toBeNull();
+    expect(companyPlace({ company_name: "Archa", company_description: "a Melbourne-based fintech" }, [])).toBe("Melbourne");
   });
 });

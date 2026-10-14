@@ -21,6 +21,7 @@ import {
   cleanText,
   dateFromUrl,
   dollarFromEvidence,
+  dollarFromPage,
   hostOf,
   isArticleUrl,
   isCompanyDescription,
@@ -65,6 +66,10 @@ export interface ExtractedItem {
   visible_article_date?: boolean;
   /** The city the page's dateline opens with, when it has one; never a headquarters on its own. */
   dateline?: string | null;
+  /** The dollars the page writes out (pageDollars): what a bare "$" on it is read against. */
+  page_dollars?: string[];
+  /** Where the page's own sentences place the company (companyPlace), for the same reading. */
+  company_place?: string;
   /** The page names the company right around the valuation's sentence (namedNearby), so its "it" is the company. */
   valuation_named?: boolean;
   /**
@@ -1166,7 +1171,13 @@ function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext)
   if (readsAsListing(sourced.source, round, !newsOfTheTime)) return "nonArticle";
   const date = dateRound(item, round, sourced, ctx);
   if (typeof date === "string") return date;
-  const priced = priceRound(round, sourced, { ...classified, announced: date.announcedIso, named: item.valuation_named === true }, ctx);
+  const priced = priceRound(
+    round,
+    sourced,
+    { ...classified, announced: date.announcedIso, named: item.valuation_named === true },
+    ctx,
+    item,
+  );
   if (typeof priced === "string") return priced;
   // A round that names no stage is this preset's when its amount falls in one of the bands it keeps. With
   // no amount there is nothing to place it by, and it goes (see data-quality.md).
@@ -1493,6 +1504,7 @@ function priceRound(
   sourced: Sourced,
   classified: { stage: Stage; isExtension: boolean; announced: string | null; named?: boolean },
   ctx: PageContext,
+  page: Pick<ExtractedItem, "dateline" | "page_dollars" | "company_place">,
 ): Priced | DropReason {
   const { source, pageKind } = sourced;
   const kind = safeMoneyKind(
@@ -1540,7 +1552,14 @@ function priceRound(
     !(isExtension && !newMoney && !together && amountIsRoundTotal(round.evidence_quote)) &&
     amountInEvidence(amountAsWritten, amountQuote);
   const parsed = isRoundAmount
-    ? dollarFromEvidence(amountAsWritten, parseAmount(amountAsWritten), amountQuote)
+    ? dollarFromPage(amountAsWritten, dollarFromEvidence(amountAsWritten, parseAmount(amountAsWritten), amountQuote), {
+        url: source.url,
+        dateline: page.dateline,
+        dollars: page.page_dollars,
+        website: round.company_website,
+        place: [round.headquarters, page.company_place].filter(Boolean).join("; "),
+        quote: amountQuote,
+      })
     : { value: null, currency: null };
   const amountText = isRoundAmount && parsed.value !== null ? (amountAsWritten ?? null) : null;
   const sideFinancing =

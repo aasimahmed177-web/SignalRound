@@ -980,36 +980,33 @@ export interface ParsedAmount {
 
 /**
  * True when the text's only claim to a currency is a bare "$": no country prefix, no code, no word.
- * "$46 million" is bare; "US$46 million", "$53 million CAD", and "46 million dollars" are not.
+ * "$46 million" is bare; "US$46 million", "$53 million CAD", and "46 million dollars" are not. A conversion in
+ * brackets after the figure is not its own: "$98 million (US$65 million)" is a bare $98 million.
  */
 export function isBareDollar(asWritten: string | null | undefined): boolean {
   if (!asWritten) return false;
-  const s = asWritten.replace(/,/g, "");
+  const s = asWritten.replace(/\s*\([^)]*\)\s*$/, "").replace(/,/g, "");
   const sym = CURRENCY_SYMBOL.exec(s);
   if (sym?.[0] !== "$") return false;
-  if (DOLLAR_PREFIX.test(s) || /\bus\$/i.test(s)) return false;
+  if (DOLLAR_PREFIX.test(s) || /\bus ?\$/i.test(s)) return false;
   if (CURRENCY_CODES.test(s)) return false;
   if (/\b(dollars?|euros?|pounds?|yuan|yen|won|rupees?|crore|lakh)\b/i.test(s)) return false;
   return true;
 }
 
-/** A bare dollar changes currency only when the same figure has an explicit marker in its evidence. */
-export function dollarFromEvidence(
-  asWritten: string | null | undefined,
-  parsed: ParsedAmount,
-  evidence: string | null | undefined,
-): ParsedAmount {
-  if (parsed.currency !== "USD" || !isBareDollar(asWritten)) return parsed;
+/** The currencies a text writes out for a figure of this value: "A$11 million", "11 million Australian dollars". */
+function statedDollars(value: number | null, evidence: string | null | undefined): Set<string> {
   const stated = new Set<string>();
   const text = evidence ?? "";
   const figures = [
     ...text.matchAll(/(?:USD|US|AUD|AU|NZD|NZ|CAD|CA|SGD|SG|HKD|HK|A|C|S)\$\s*\d[\d,.]*\s*(?:million|billion|bn|m|thousand|k)?/gi),
+    ...text.matchAll(/\$US\s?\d[\d,.]*\s*(?:million|billion|bn|m|thousand|k)?/g),
     ...text.matchAll(/\b(?:USD|AUD|NZD|CAD|SGD|HKD)\s*\$?\s*\d[\d,.]*\s*(?:million|billion|bn|m|thousand|k)?/gi),
     ...text.matchAll(/\$\s*\d[\d,.]*\s*(?:million|billion|bn|m|thousand|k)?\s*(?:USD|AUD|NZD|CAD|SGD|HKD)\b/gi),
   ];
   for (const [figure] of figures) {
     const explicit = parseAmount(figure);
-    if (explicit.value === parsed.value && explicit.currency) stated.add(explicit.currency);
+    if (explicit.value === value && explicit.currency) stated.add(explicit.currency);
   }
   const words: Array<[RegExp, string]> = [
     [/\bAustralian dollars?\b/gi, "AUD"],
@@ -1022,10 +1019,151 @@ export function dollarFromEvidence(
     for (const match of text.matchAll(marker)) {
       const before = text.slice(Math.max(0, match.index - 35), match.index);
       const figure = /\d[\d,.]*\s*(?:million|billion|bn|m|thousand|k)?\s*$/i.exec(before)?.[0];
-      if (figure && parseAmount(figure).value === parsed.value) stated.add(currency);
+      if (figure && parseAmount(figure).value === value) stated.add(currency);
     }
   }
+  return stated;
+}
+
+/** A bare dollar changes currency only when the same figure has an explicit marker in its evidence. */
+export function dollarFromEvidence(
+  asWritten: string | null | undefined,
+  parsed: ParsedAmount,
+  evidence: string | null | undefined,
+): ParsedAmount {
+  if (parsed.currency !== "USD" || !isBareDollar(asWritten)) return parsed;
+  const stated = statedDollars(parsed.value, evidence);
   return stated.size === 1 ? { ...parsed, currency: [...stated][0] } : parsed;
+}
+
+/** The dollars a page writes out in so many words: "A$11 million", "AUD", "Canadian dollars", "US$", "$US". */
+const PAGE_DOLLARS: Array<[RegExp, string]> = [
+  [/(?<![A-Za-z])(?:A|AU)\$|\$A(?=\s?\d)|\bAUD\b|\bAustralian dollars?\b/, "AUD"],
+  [/(?<![A-Za-z])(?:C|CA)\$|\$C(?=\s?\d)|\bCAD\b|\bCanadian dollars?\b/, "CAD"],
+  [/(?<![A-Za-z])NZ\$|\$NZ(?=\s?\d)|\bNZD\b|\bNew Zealand dollars?\b/, "NZD"],
+  [/(?<![A-Za-z])S\$|\bSGD\b|\bSingapore(?:an)? dollars?\b/, "SGD"],
+  [/(?<![A-Za-z])HK\$|\bHKD\b|\bHong Kong dollars?\b/, "HKD"],
+  [/(?<![A-Za-z])US\$|\$US(?=\s?\d)|\bUSD\b|\bU\.?S\.? dollars?\b/, "USD"],
+];
+
+export function pageDollars(markdown: string | null | undefined): string[] {
+  if (!markdown) return [];
+  return PAGE_DOLLARS.filter(([marker]) => marker.test(markdown)).map(([, currency]) => currency);
+}
+
+/** National outlets whose own reporting writes their country's dollar as a bare "$". */
+const DOLLAR_OUTLETS: Record<string, string> = {
+  "afr.com": "AUD",
+  "startupdaily.net": "AUD",
+  "smartcompany.com.au": "AUD",
+  "theaustralian.com.au": "AUD",
+  "betakit.com": "CAD",
+  "theglobeandmail.com": "CAD",
+  "financialpost.com": "CAD",
+  "thelogic.co": "CAD",
+  "businessdesk.co.nz": "NZD",
+  "nzherald.co.nz": "NZD",
+  "straitstimes.com": "SGD",
+  "businesstimes.com.sg": "SGD",
+  "scmp.com": "HKD",
+};
+const DOLLAR_TLDS: Record<string, string> = { au: "AUD", ca: "CAD", nz: "NZD", sg: "SGD", hk: "HKD" };
+/** Country domains used as generic names (.io, .ai, .co), which place a website nowhere. */
+const GENERIC_TLDS = new Set(["io", "ai", "co", "me", "tv", "ly", "gg", "so", "sh", "fm", "to", "cc", "ws", "vc", "la", "app", "dev"]);
+const DOLLAR_CITIES: Record<string, string[]> = {
+  AUD: ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Canberra", "Hobart"],
+  CAD: ["Toronto", "Vancouver", "Montreal", "Montréal", "Calgary", "Ottawa", "Edmonton", "Waterloo"],
+  NZD: ["Auckland", "Wellington", "Christchurch"],
+  SGD: ["Singapore"],
+  HKD: ["Hong Kong"],
+};
+const DOLLAR_COUNTRIES: Record<string, string[]> = {
+  AUD: ["Australia", "Australian", "Aussie", "Queensland", "New South Wales", "Victorian", "Tasmania", "Western Australia"],
+  CAD: ["Canada", "Canadian", "Ontario", "Quebec", "British Columbia", "Alberta"],
+  NZD: ["New Zealand", "Kiwi"],
+  SGD: ["Singapore", "Singaporean"],
+  HKD: ["Hong Kong"],
+};
+/** Press-release wires and syndication, carried on a national outlet without being its own reporting. */
+const WIRE_PATH = /press-?releases?|newswire|business-?wire|cision|accesswire|medianet|\/pmn\//i;
+
+function placeDollars(text: string, places: Record<string, string[]>, whole = false): string[] {
+  return Object.entries(places)
+    .filter(([, names]) => names.some((name) => new RegExp(whole ? `^${name}$` : `\\b${name}\\b`, "i").test(text.trim())))
+    .map(([currency]) => currency);
+}
+
+/** Where a website's domain places it: a dollar country's currency, "elsewhere" for another country, or null. */
+function websiteDollar(website: string | null | undefined): string | null {
+  const tld = (registrableDomain(website) ?? "").split(".").at(-1) ?? "";
+  if (tld.length !== 2 || GENERIC_TLDS.has(tld)) return null;
+  return DOLLAR_TLDS[tld] ?? "elsewhere";
+}
+
+/**
+ * A bare "$" read against the page it stands on, after its own sentence (dollarFromEvidence) has had its say.
+ * A national outlet's own reporting (Startup Daily, BetaKit) makes it that country's dollar, and so does a
+ * dateline in Sydney or Toronto on a release that writes that dollar somewhere. A local domain that is not a
+ * known outlet needs the page to back it (an A$ or a "(US$7.7 million)" conversion, a dateline, the company
+ * placed there or its site on that domain). Whatever stays ambiguous keeps its value and loses its currency,
+ * uncertain and never converted as US dollars: a Singapore or Hong Kong newspaper, or a release from there that
+ * writes their dollar (other sites on .sg and .hk keep the region's bare US dollar); a sentence that writes US$
+ * beside the bare figure; a company or city of another country. Every other page's bare "$" stays US dollars,
+ * whatever the company's country: a wire release carried by a local outlet, a release under a local dateline
+ * that never writes the local dollar (Cohere's Toronto release of its US$40 million Series A), a dateline
+ * elsewhere, and a US or global outlet. Archa's "$11 million" was A$11 million on Startup Daily, and stays US
+ * dollars on a global site that copied it without the A$.
+ */
+export function dollarFromPage(
+  asWritten: string | null | undefined,
+  parsed: ParsedAmount,
+  page: {
+    url?: string | null;
+    dateline?: string | null;
+    dollars?: string[];
+    website?: string | null;
+    /** Where the page places the company: its headquarters and description as the page words them. */
+    place?: string | null;
+    quote?: string | null;
+  },
+): ParsedAmount {
+  if (parsed.currency !== "USD" || !isBareDollar(asWritten) || parsed.value === null) return parsed;
+  const quote = page.quote ?? "";
+  if (statedDollars(parsed.value, quote).size > 0) return parsed;
+  const uncertain = { ...parsed, currency: null };
+  const dollars = page.dollars ?? [];
+  const number = (/\d[\d,.]*/.exec(asWritten ?? "")?.[0] ?? "").replace(/\./g, "\\.");
+  const converted = new RegExp(`\\$\\s?${number}\\s*(?:million|billion|bn|m|k)?\\s*\\((?:[a-z]+ )?(?:US\\$|\\$US|USD)`, "i").test(
+    `${asWritten} ${quote}`,
+  );
+  const usInQuote = !converted && /(?<![A-Za-z])US\$|\$US(?=\s?\d)|\bUSD\b|\bU\.S\. dollars?\b/.test(quote);
+  let path = "";
+  try {
+    path = page.url ? new URL(page.url).pathname : "";
+  } catch {
+    path = "";
+  }
+  const host = hostOf(page.url);
+  const wire = WIRE_PATH.test(`${host}${path}`);
+  const known = Object.entries(DOLLAR_OUTLETS).find(([domain]) => host === domain || host.endsWith(`.${domain}`))?.[1];
+  const domain = DOLLAR_TLDS[host.split(".").at(-1) ?? ""];
+  const outlet = wire ? null : (known ?? (domain === "SGD" || domain === "HKD" ? null : domain) ?? null);
+  const dateline = page.dateline ? (placeDollars(page.dateline, DOLLAR_CITIES, true)[0] ?? "elsewhere") : null;
+  const placed = placeDollars(page.place ?? "", DOLLAR_CITIES).concat(placeDollars(page.place ?? "", DOLLAR_COUNTRIES));
+  const site = websiteDollar(page.website);
+  if (dateline === "elsewhere") return parsed;
+  const local = new Set([outlet, dateline].filter((c): c is string => c !== null));
+  if (local.size === 0 || (outlet === null && dateline !== null && !dollars.includes(dateline))) return parsed;
+  const [currency] = [...local];
+  if (local.size > 1 || currency === "SGD" || currency === "HKD" || currency === undefined) return uncertain;
+  const elsewhere = [...placed, ...placeDollars(quote, DOLLAR_CITIES)].some((c) => c !== currency);
+  if (usInQuote || elsewhere || (site !== null && site !== currency)) return uncertain;
+  const backed =
+    (known && !wire) ||
+    converted ||
+    dollars.includes(currency) ||
+    (outlet === currency && (site === currency || placed.includes(currency) || dateline === currency));
+  return backed ? { ...parsed, currency } : uncertain;
 }
 
 /** Numbers a figure is spelled with before "million" or "billion". */

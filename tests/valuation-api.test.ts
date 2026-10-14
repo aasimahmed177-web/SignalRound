@@ -69,6 +69,14 @@ describe("citableValuation", () => {
     });
   });
 
+  test("a bare-dollar valuation is in the dollar its bare-dollar amount was read as", () => {
+    const aud = { value: 475, currency: "AUD", as_written: "$475 million", usd_millions: 310 };
+    expect(citableValuation({ ...base, valuation_as_written: "$1.26 billion", amount: aud })?.usd_millions).toBeCloseTo(822.3, 1);
+    const unsure = { value: 11, currency: null, as_written: "$11 million", usd_millions: null };
+    expect(citableValuation({ ...base, valuation_as_written: "$60 million", amount: unsure })?.usd_millions).toBeNull();
+    expect(citableValuation({ ...base, valuation_as_written: "US$800 million", amount: aud })?.usd_millions).toBe(800);
+  });
+
   test("the page label keeps the source's words and adds the basis once", () => {
     expect(valuationLabel({ as_written: "$5.8 billion", basis: "post" })).toBe("$5.8 billion post-money");
     expect(valuationLabel({ as_written: "$5.8 billion post-money valuation", basis: "post" })).toBe("$5.8 billion post-money");

@@ -14,6 +14,7 @@ import {
   isArticleUrl,
   namesCompany,
   normalizeCompanyKey,
+  pageDollars,
   parseAmount,
   parseDate,
   parseStatedDate,
@@ -432,6 +433,37 @@ export function listedOnPage(companyName: string | null | undefined, markdown: s
   return false;
 }
 
+const BASED_IN =
+  /\b([A-Z][\w']*(?:[ -][A-Z][\w']*)*)[- ](?:based|headquartered|founded)\b|\b(?:based|headquartered) in ([A-Z][\w']*(?:,? [A-Z][\w']*)*)/g;
+
+/**
+ * Where the page places the company: its description's "a Melbourne-based fintech", or a sentence's "Sydney-based
+ * investing platform Pearler", "Archa, a Melbourne-based fintech" or "Reach, which is headquartered in Calgary",
+ * read right beside the company's name so a roundup's other companies and investors lend it none of theirs.
+ */
+export function companyPlace(round: Pick<ExtractedRound, "company_name" | "company_description">, sentences: string[]): string | null {
+  const name = round.company_name.split(/\s+/)[0]?.toLowerCase() ?? "";
+  const beside = (text: string, at: number, end: number) =>
+    [...text.matchAll(BASED_IN)].find((match) => {
+      const before = at - (match.index + match[0].length);
+      const after = match.index - end;
+      const between = before >= 0 ? text.slice(match.index + match[0].length, at) : text.slice(end, match.index);
+      if (/[,;]| and /.test(between) && !(after >= 0 && /^, (?:an? |which |that )/.test(between))) return false;
+      return (match[1] && before >= 0 && before <= 40) || (after >= 0 && after <= (match[1] ? 25 : 60));
+    });
+  const places = [
+    round.company_description ? beside(round.company_description, 0, 0) : undefined,
+    ...sentences
+      .filter((sentence) => name.length > 0 && mentionsCompany(sentence, round.company_name))
+      .map((sentence) => {
+        const at = sentence.toLowerCase().indexOf(name);
+        return at < 0 ? undefined : beside(sentence, at, at + name.length);
+      }),
+  ].map((match) => match?.[1] ?? match?.[2]);
+  const found = places.filter((place): place is string => Boolean(place));
+  return found.length === 0 ? null : found.join("; ");
+}
+
 export function pageItems(
   extracted: ExtractedRound[],
   source: RoundSource,
@@ -446,9 +478,12 @@ export function pageItems(
   });
   const grounded = rounds.map((round) => (markdown === undefined ? undefined : groundingCheck(round, markdown)));
   const dateline = pageDateline(markdown);
+  const dollars = pageDollars(markdown);
   const companies = rounds.filter((_, i) => grounded[i] !== false).map((r) => r.company_name);
   // The page's own title stands; only a search result's title standing in for it is checked.
   const titled = page.title_from_page ? source : { ...source, title: sourceTitle(source.title, source.url, companies) };
+  const sentences = markdown === undefined ? [] : pageSentences(markdown);
+  const places = rounds.map((round) => companyPlace(round, sentences));
   return rounds.map((round, i) => ({
     round,
     source: titled,
@@ -457,6 +492,8 @@ export function pageItems(
     ...(page.page_date === null ? {} : { page_date: page.page_date }),
     ...(page.visible_article_date ? { visible_article_date: true } : {}),
     ...(dateline === null ? {} : { dateline }),
+    ...(dollars.length === 0 ? {} : { page_dollars: dollars }),
+    ...(places[i] ? { company_place: places[i] } : {}),
     ...(markdown !== undefined && round.valuation_quote && namedNearby(round.valuation_quote, markdown, source.title, round.company_name)
       ? { valuation_named: true }
       : {}),

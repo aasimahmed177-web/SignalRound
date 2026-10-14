@@ -229,7 +229,7 @@ describe("applyVerdict", () => {
     expect(r.announced_date).toBe("2026-08-28");
     expect(r.verification?.status).toBe("corrected");
     expect(r.verification?.notes).toEqual(["date 2026-09-02 read as 2026-08-28"]);
-    // A bare dollar remains USD even when the source is Australian; a prior local-dollar label is corrected.
+    // An Australian outlet's bare dollar the page read as AUD stays AUD when the read-back hands back the same "$16 million".
     const au = applyVerdict(
       record({
         amount: { value: 16, currency: "AUD", as_written: "$16 million", usd_millions: 10.4, fx_rate: 1.54, fx_date: "2026-09-02" },
@@ -239,8 +239,8 @@ describe("applyVerdict", () => {
       "https://www.smartcompany.com.au/pearler",
       { rates: RATES },
     );
-    expect(au.amount.currency).toBe("USD");
-    expect(au.verification?.status).toBe("corrected");
+    expect(au.amount).toMatchObject({ currency: "AUD", usd_millions: 10.4 });
+    expect(au.verification?.status).toBe("confirmed");
   });
 
   test("primarySource skips corroboration sources; the prompt carries the record", () => {

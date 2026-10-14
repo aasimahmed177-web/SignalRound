@@ -256,6 +256,24 @@ describe("applyReconciliation", () => {
     );
     expect(bare.amount.as_written).toBe("€17.2m");
     expect(bare.amount.currency).toBe("EUR");
+    // The read-back's bare "$" is the same bare "$" the page read as Australian dollars, or left unsure: no US dollars.
+    for (const currency of ["AUD", null]) {
+      const local = applyReconciliation(
+        record({ amount: { value: 11, currency, as_written: "$11 million", usd_millions: null, fx_rate: null, fx_date: null } }),
+        {
+          ...AGREES,
+          amount: { stated: true, value: "$11 million", source: "https://example.com/archa", quote: "Archa raised $11 million" },
+        },
+        OPTS,
+      );
+      expect(local.amount.currency).toBe(currency);
+    }
+    const euro = applyReconciliation(
+      record({ amount: { value: 17.2, currency: "EUR", as_written: "€17.2m", usd_millions: 19.1, fx_rate: 0.9, fx_date: "2026-09-02" } }),
+      { ...AGREES, amount: { stated: true, value: "$17.2m", source: "https://en.wowtale.net/gimlet", quote: "raised $17.2m" } },
+      OPTS,
+    );
+    expect(euro.amount.currency).toBe("USD");
     const gone = applyReconciliation(record(), { ...AGREES, amount: { stated: false, value: null, source: null, quote: null } }, OPTS);
     expect(gone.amount.as_written).toBeNull();
     expect(gone.amount.usd_millions).toBeNull();
