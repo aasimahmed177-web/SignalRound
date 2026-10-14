@@ -48,7 +48,9 @@ describe("a row a person published", () => {
     expect(after?.disposition).toBe("publish");
   });
 
-  test("goes back to review when the doubting reading states another amount", async () => {
+  // A single page's other amount no longer moves a row a person placed (tests/settled-rows.test.ts): the
+  // row keeps its figure and its place, and the reading's page joins its sources.
+  test("keeps its amount and stays published when the doubting reading states another amount", async () => {
     const { db, id } = await published();
     await persistRecords(
       db,
@@ -62,6 +64,6 @@ describe("a row a person published", () => {
       "history-2",
       { history: true, companyId: "ramp.com" },
     );
-    expect((await row(db, id))?.disposition).toBe("review");
+    expect(await row(db, id)).toMatchObject({ disposition: "publish", amountAsWritten: "$300M" });
   });
 });

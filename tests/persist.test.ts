@@ -291,7 +291,12 @@ describe("persistRecords", () => {
     expect(rows[0].lead_investors).toEqual(["Fund One"]);
     expect(rows[0].sources.map((s) => s.host)).toEqual(["reuters.com"]);
 
-    const corrected = { ...acme, amount: { ...acme.amount, as_written: "$25M", value: 25, usd_millions: 25 } };
+    // A published row takes a corrected figure only from a read-back that confirmed it on two pages (tests/settled-rows.test.ts).
+    const corrected = {
+      ...acme,
+      amount: { ...acme.amount, as_written: "$25M", value: 25, usd_millions: 25 },
+      verification: { status: "confirmed" as const, notes: [], url: "https://reuters.com/acme", sources_seen: 2 },
+    };
     const third = await persistRecords(db, [corrected], "series-a-b", "run-3");
     expect(third).toMatchObject({ updated: 1, changedIds: [acme.id] });
     // A change to a row nobody has read is not news to anyone: it stays new.
@@ -1616,7 +1621,8 @@ describe("valuations and source dates on the live feed", () => {
       ...p,
     });
 
-  test("a valuation borrowed from another round's sentence is dropped, clears the stored one, and flags the row", async () => {
+  // On a published row the stored valuation stays for a person to settle: the row is flagged (tests/settled-rows.test.ts).
+  test("a valuation borrowed from another round's sentence is dropped from the reading, and flags the published row", async () => {
     const handle = await testDb();
     await persistRecords(
       handle,
@@ -1628,7 +1634,7 @@ describe("valuations and source dates on the live feed", () => {
     await handle.execute(sql`update funding_rounds set valuation_as_written = '$1.3 billion'`);
     await persistRecords(handle, [corgi({ valuation_as_written: "$1.3 billion" })], "series-a-b", "run-2");
     const [row] = await handle.select().from(schema.fundingRounds);
-    expect(row).toMatchObject({ valuationAsWritten: null, disposition: "flagged" });
+    expect(row).toMatchObject({ valuationAsWritten: "$1.3 billion", disposition: "flagged" });
     expect((row.verification as { notes: string[] }).notes).toContain(
       "valuation $1.3 billion dropped: it is stated for another round ($160 million)",
     );
@@ -1702,7 +1708,8 @@ describe("money provenance, merges, and the visibility gate", () => {
     expect(row.valuationAsWritten).toBeNull();
   });
 
-  test("a read-back that finds no valuation for this round retracts the stored one", async () => {
+  // A published row keeps the valuation for a person to settle, and is flagged (tests/settled-rows.test.ts).
+  test("a read-back that finds no valuation for this round flags the published row that states one", async () => {
     const handle = await testDb();
     await persistRecords(handle, [cyera({ valuation_as_written: "$12 billion", valuation_claims: [claim] })], "late", "run-1");
     await checkedPublication(handle, cyera().id);
@@ -1713,7 +1720,7 @@ describe("money provenance, merges, and the visibility gate", () => {
       "run-2",
     );
     const [row] = await handle.select().from(schema.fundingRounds);
-    expect(row).toMatchObject({ valuationAsWritten: null, valuationClaims: null, disposition: "flagged" });
+    expect(row).toMatchObject({ valuationAsWritten: "$12 billion", disposition: "flagged" });
   });
 
   test("a read-back that finds no valuation leaves a pinned one, and the published row, as they are", async () => {

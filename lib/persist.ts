@@ -980,6 +980,8 @@ export interface MergeRow extends RoundIdentity {
   hold: string | null;
   /** Facts a person set by hand (fix-records), which nothing automatic moves. */
   pinned: Pinned | null;
+  /** A person placed the row (published or flagged it by hand: the audit reads "human"). */
+  audited?: boolean;
 }
 
 /** The facts fix-records pins on a row: a redate's day, a restage's stage, a valuation (null pins it blank), a certainty. */
@@ -1009,6 +1011,75 @@ function storedClaims(row: Pick<MergeRow, "valuationAsWritten" | "valuationClaim
 /** Two claims are one when the same page states the same figure. */
 function sameClaim(a: ValuationClaim, b: ValuationClaim): boolean {
   return a.url === b.url && a.value === b.value;
+}
+
+/** A stored day's span: a month's reading holds any day in that month, a week's any day of that week. */
+function withinStoredDay(stored: { announcedOn: string; datePrecision: string }, day: string): boolean {
+  if (stored.datePrecision === "month") return day.slice(0, 7) === stored.announcedOn.slice(0, 7);
+  if (stored.datePrecision === "week") return Math.abs(Date.parse(day) - Date.parse(stored.announcedOn)) <= 6 * 86_400_000;
+  return false;
+}
+
+/**
+ * Puts a settled row's facts back on a reading that merges into it: its amount, currency, stage, certainty,
+ * day, and valuation stand, and only a fact the row lacks is taken from the reading, or a finer day inside
+ * the row's own month or week. The company's own release still lifts a reported round to announced, and a
+ * pinned valuation stays the pin's.
+ * True when the reading stated one of those facts otherwise than the row.
+ */
+export function keepSettledFacts(stored: MergeRow, r: FeedRecord, opts: { released?: boolean } = {}): boolean {
+  let differs = false;
+  if (stored.amountAsWritten !== null) {
+    if (
+      r.amount.as_written !== null &&
+      (r.amount.currency !== stored.amountCurrency || r.amount.value === null || r.amount.value !== stored.amountValue)
+    )
+      differs = true;
+    r.amount = {
+      value: stored.amountValue,
+      currency: stored.amountCurrency,
+      as_written: stored.amountAsWritten,
+      usd_millions: stored.amountUsdMillions,
+      fx_rate: stored.fxRate === null ? null : Number(stored.fxRate),
+      fx_date: stored.fxDate,
+    };
+  }
+  if (stored.stage !== "other" || r.stage === "other") {
+    if (r.stage !== stored.stage) differs = true;
+    r.stage = stored.stage as FeedRecord["stage"];
+    r.stage_as_written = stored.stageAsWritten;
+    r.is_extension = stored.isExtension ?? r.is_extension;
+  }
+  if (!(opts.released && r.certainty === "announced")) {
+    if ((r.certainty ?? "announced") !== stored.certainty) differs = true;
+    r.certainty = stored.certainty;
+  }
+  if (stored.announcedOn !== null && stored.datePrecision !== "unknown") {
+    const finer =
+      r.announced_date !== null &&
+      DATE_PRECISION_RANK[r.date_precision] > (DATE_PRECISION_RANK[stored.datePrecision as FeedRecord["date_precision"]] ?? 0) &&
+      withinStoredDay({ announcedOn: stored.announcedOn, datePrecision: stored.datePrecision }, r.announced_date);
+    if (!finer) {
+      if (
+        r.announced_date !== null &&
+        r.announced_date !== stored.announcedOn &&
+        r.date_precision === "day" &&
+        stored.datePrecision === "day"
+      )
+        differs = true;
+      r.announced_date = stored.announcedOn;
+      r.date_precision = stored.datePrecision as FeedRecord["date_precision"];
+      r.date_basis = (stored.dateBasis ?? undefined) as FeedRecord["date_basis"];
+      r.undated = false;
+    }
+  }
+  if (stored.valuationAsWritten !== null && !(stored.pinned && "valuation" in stored.pinned)) {
+    if (r.valuation_as_written !== null && r.valuation_as_written !== stored.valuationAsWritten) differs = true;
+    r.valuation_as_written = stored.valuationAsWritten;
+    r.valuation_claims = stored.valuationClaims ?? [];
+    delete r.valuation_ruled_out;
+  }
+  return differs;
 }
 
 /** Stored rounds with their company's identity and their sources, for dedupe and merges. */
@@ -1081,6 +1152,7 @@ export async function roundsForMerge(handle: Db, where?: SQL): Promise<MergeRow[
     history: round.history,
     hold: round.hold,
     pinned: round.pinned ?? null,
+    audited: round.audit?.status === "human",
     freshnessCheckedOn: round.freshnessCheckedOn,
     verificationNotes: (round.verification as { notes?: string[] } | null)?.notes ?? [],
   }));
@@ -1408,6 +1480,19 @@ export async function persistRecords(
       r.date_basis = (prev.dateBasis ?? undefined) as FeedRecord["date_basis"];
       r.undated = false;
     }
+    // A published row, or one a person checked, is settled: a reading that merges into it adds its sources
+    // and fills what the row lacks, and moves none of its facts. Revolut's published £6.75M Series A came
+    // back as "$10 million", expected, in review, from one TechCrunch page that said the company "is
+    // raising" it. Only a read-back that confirmed the round on two pages or more may correct a published
+    // row, and never one a person checked: that row keeps its facts and is flagged for a person.
+    const checkedByPerson = Boolean(prev && (prev.audited || (prev.pinned && Object.keys(prev.pinned).length > 0)));
+    const settledRow = Boolean(prev && (prev.disposition === "publish" || checkedByPerson));
+    const corroborated =
+      (r.verification?.status === "confirmed" || r.verification?.status === "corrected") && (r.verification.sources_seen ?? 0) >= 2;
+    const guarded = prev && settledRow && (!corroborated || checkedByPerson) ? prev : null;
+    // A valuation the rules rule out (another round's sentence states it) is a contradiction a person settles.
+    const ruledOut = Boolean(guarded?.valuationAsWritten && r.valuation_ruled_out && !(guarded.pinned && "valuation" in guarded.pinned));
+    const contested = guarded ? (keepSettledFacts(guarded, r, { released }) && corroborated) || ruledOut : false;
     // What the store already verified about this company: a reading with no amount that falls below
     // it, or is known only from a list, starts in review (a trend story's OpenAI "Series A").
     const me = recordIdentity(r);
@@ -1646,8 +1731,13 @@ export async function persistRecords(
           // A post-only reading never moves a row the pipeline or a person already placed, and no reading
           // moves a held row: it waits for a person (lib/late-report.ts). "Reported later" only marks a
           // round its own page dates long before it was seen as history, not news; it holds nothing.
-          disposition:
-            options.startIn === "flagged"
+          // A settled row is never moved by a reading it guards against (keepSettledFacts); a person's row
+          // that a corroborated reading contradicts goes to flagged, in front of a person.
+          disposition: guarded
+            ? contested
+              ? sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} = 'publish' THEN 'flagged'::disposition ELSE ${fundingRounds.disposition} END`
+              : fundingRounds.disposition
+            : options.startIn === "flagged"
               ? fundingRounds.disposition
               : options.startIn
                 ? sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} = 'review' THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
@@ -1662,7 +1752,7 @@ export async function persistRecords(
                     }) THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`
                   : sql`CASE WHEN ${unheld} AND ${fundingRounds.disposition} IN ('review', 'flagged') THEN ${disposition}::disposition ELSE ${fundingRounds.disposition} END`,
           // A reading that holds the row in review withdraws what it asked for at the publication gate.
-          ...(disposition === "review" ? { pendingDisposition: null } : {}),
+          ...(disposition === "review" && !guarded ? { pendingDisposition: null } : {}),
         })
         .where(eq(fundingRounds.id, r.id))
         .returning({ id: fundingRounds.id });
