@@ -249,6 +249,26 @@ describe("persistence, the rescore, and the reads", () => {
     expect(await trendingRoundIds(handle, new Date(NOW.getTime() + 73 * HOUR))).toEqual([]);
   });
 
+  test("a round found since to be an earlier round leaves the lane and gives up its rank, so the ranks shown run on", async () => {
+    const handle = await db();
+    const setHistory = (history: boolean) =>
+      handle.update(schema.fundingRounds).set({ history }).where(eq(schema.fundingRounds.id, acmeId));
+    await setHistory(true);
+    await rescore(handle, NOW);
+    expect((await followRounds(handle, NOW)).map((r) => r.roundId)).not.toContain(acmeId);
+    const [acmeRow] = await handle.select().from(schema.trendingRounds).where(eq(schema.trendingRounds.roundId, acmeId));
+    expect(acmeRow).toMatchObject({ rank: null, label: false, score: 0 });
+    expect((await trendingMarks(handle, [betaId], NOW)).get(betaId)?.rank).toBe(1);
+    const body = (await (await roundsGet(new Request("http://app.test/api/v1/rounds?sort=trending"))).json()) as {
+      data: Array<{ id: string; trending: { rank: number } | null }>;
+    };
+    expect(body.data.map((r) => [r.id, r.trending?.rank])).toEqual([[betaId, 1]]);
+
+    await setHistory(false);
+    await rescore(handle, NOW);
+    expect((await trendingMarks(handle, [acmeId, betaId], NOW)).get(acmeId)).toMatchObject({ rank: 1, label: true });
+  });
+
   test("the company page shows the company's own post first, then its investor's, one post per voice", async () => {
     const handle = await db();
     const [acme] = await roundsOnX(handle, [acmeId]);

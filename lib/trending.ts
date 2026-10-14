@@ -151,8 +151,9 @@ export async function followRounds(handle: Db, now: Date): Promise<FollowedRound
     .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
     .where(and(gt(trendingRounds.firstSeenAt, since), inArray(fundingRounds.disposition, ["publish", "flagged"])))
     .orderBy(desc(trendingRounds.firstSeenAt));
-  // A round re-dated to long before it was taken up is not searched again: its conversation is over.
-  const kept = rows.filter(({ t, r }) => !announcedBeforeFollow(r.announcedOn, t.firstSeenAt));
+  // A round re-dated to long before it was taken up, or found since to be an earlier round reported
+  // late, is not searched again: its conversation is over.
+  const kept = rows.filter(({ t, r }) => !r.history && !announcedBeforeFollow(r.announcedOn, t.firstSeenAt));
   const leads = await leadInvestorNames(
     handle,
     kept.map(({ t }) => t.roundId),
@@ -383,6 +384,7 @@ export async function rescore(handle: Db, now: Date): Promise<RescoreSummary> {
     .select({
       t: trendingRounds,
       announcedOn: fundingRounds.announcedOn,
+      history: fundingRounds.history,
       amountValue: fundingRounds.amountValue,
       amountCurrency: fundingRounds.amountCurrency,
       name: companies.name,
@@ -393,9 +395,11 @@ export async function rescore(handle: Db, now: Date): Promise<RescoreSummary> {
     .innerJoin(fundingRounds, eq(fundingRounds.id, trendingRounds.roundId))
     .innerJoin(companies, eq(companies.id, fundingRounds.companyId))
     .where(and(gt(trendingRounds.firstSeenAt, since), inArray(fundingRounds.disposition, ["publish", "flagged"])));
-  // A round re-dated to well before it was first seen (a repair, a corrected read-back) is old news the
-  // lane would not have taken up: it leaves Trending, and the stale flag that pointed at its date clears.
-  const aged = followed.filter((r) => announcedBeforeFollow(r.announcedOn, r.t.firstSeenAt));
+  // A round re-dated to well before it was first seen (a repair, a corrected read-back), or found since
+  // to be an earlier round reported late (a history row, which the trending list never shows), is old
+  // news the lane would not have taken up: it leaves Trending, gives up its rank, and the stale flag
+  // that pointed at its date clears.
+  const aged = followed.filter((r) => r.history || announcedBeforeFollow(r.announcedOn, r.t.firstSeenAt));
   for (const r of aged) {
     await handle
       .update(trendingRounds)
