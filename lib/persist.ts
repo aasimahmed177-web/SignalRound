@@ -2290,7 +2290,7 @@ export function publicRoundQuery<Q extends RoundQuery>(q: Q): Q {
 }
 
 /** The company a name or a site names exactly: its domain (a URL works too), its name key, or its name. */
-function companyNamed(raw: string): SQL {
+export function companyNamed(raw: string): SQL {
   const needle = raw
     .trim()
     .toLowerCase()

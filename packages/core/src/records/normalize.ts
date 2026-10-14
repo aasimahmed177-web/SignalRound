@@ -809,6 +809,28 @@ export function samePageKey(url: string): string {
 }
 
 /**
+ * The article a URL names, its AMP copy included: samePageKey with an amp. host, an /amp path segment
+ * at either end, a .amp suffix, and an amp or outputType=amp parameter taken off. "securityweek.com/a/amp"
+ * and "https://www.securityweek.com/a/?utm_source=x" are one article; the key is for comparing, never for fetching.
+ */
+export function articleKey(url: string): string {
+  try {
+    const u = new URL(canonicalUrl(url));
+    u.hostname = u.hostname.replace(/^amp\./i, "");
+    u.pathname = u.pathname
+      .replace(/^\/amp(?=\/)/i, "")
+      .replace(/\/amp(?:\.html?)?\/?$/i, "")
+      .replace(/\.amp(\.html?)?$/i, "$1");
+    for (const [k, v] of [...u.searchParams.entries()]) {
+      if (/^amp$/i.test(k) || (/^outputtype$/i.test(k) && /^amp$/i.test(v))) u.searchParams.delete(k);
+    }
+    return samePageKey(u.toString());
+  } catch {
+    return samePageKey(url);
+  }
+}
+
+/**
  * True when `date` falls inside [windowStart, now + 1 day], and before `windowEnd` when one is
  * given. A day of slack at each open end covers timezones; `windowEnd` is exclusive and strict,
  * so a month sweep keeps that month's announcements and nothing from the first of the next.

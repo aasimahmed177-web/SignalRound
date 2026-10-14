@@ -25,6 +25,7 @@ import {
   apiTopLeads,
   companyProfileOrNear,
   investorProfileOrNear,
+  newsCompany,
   parseNewsCursor,
   TOP_WINDOWS,
   type TopWindow,
@@ -309,7 +310,7 @@ const handler = createMcpHandler(
       {
         title: "Get a company profile",
         description:
-          "One company's funding: who it is, what it raised (announced and reported rounds), its valuation history (valuation_history: the latest stated valuation and every one before it, kept apart from what it raised), every round the feed lists for it, newest first, with leads, the official announcement, and its valuation where one is citable, and its investors, leads first. It takes the company's id, domain or name as written (Hugging Face, Alice & Bob). An id one edit from a single company reads that company, with matched_from and a note; any other miss, or a name more than one company goes by, is an error naming up to five companies to retry with.",
+          "One company's funding: who it is, what it raised (total_raised_usd_millions: the sum of its announced and reported rounds on record), what it says it raised (stated_total_raised: its own stated funding to date from its newest round that states one, with the day, sentence and source, and exceeds_rounds_sum when that is above the sum, so an earlier round is missing from the record), its valuation history (valuation_history: the latest stated valuation and every one before it, kept apart from what it raised), every round the feed lists for it, newest first, with leads, the official announcement, and its valuation where one is citable, and its investors, leads first. It takes the company's id, domain or name as written (Hugging Face, Alice & Bob). An id one edit from a single company reads that company, with matched_from and a note; any other miss, or a name more than one company goes by, is an error naming up to five companies to retry with.",
         inputSchema: z.object({
           id: z
             .string()
@@ -413,9 +414,14 @@ const handler = createMcpHandler(
       {
         title: "List funding news",
         description:
-          "The latest articles about the rounds the feed lists, newest first, each with its publisher, its day, an excerpt when it reports one round, and the rounds it reports. Filter by sector, date, or free text over company names and headlines. Returns a cursor for the next page.",
+          "The latest articles about the rounds the feed lists, newest first, each with its publisher, its day, and the rounds it reports, each with the sentence its record cites as evidence (from any of the round's sources, not necessarily this article). One article under several addresses (an AMP copy, tracking parameters) is listed once. Filter by company (its id, domain or name, as get_company_profile takes it: every article about its rounds, earlier ones included), sector, date, or free text over company names and headlines. Returns a cursor for the next page.",
         inputSchema: z.object({
           q: z.string().max(200).optional().describe("Free text over company names and article titles"),
+          company: z
+            .string()
+            .max(200)
+            .optional()
+            .describe("One company, read as get_company_profile reads it: its id (ramp.com), a domain, or its name"),
           sector: sectorParam,
           since: z
             .string()
@@ -438,7 +444,18 @@ const handler = createMcpHandler(
         if (!q.ok) return refusal(q.error);
         const cursor = args.cursor ? parseNewsCursor(args.cursor) : undefined;
         if (cursor === null) return refusal('cursor must be the next_cursor of the previous page ("YYYY-MM-DD|url")');
-        return text(await apiNews(handle, { since: since.value, sector: sector.value, q: q.value, cursor, limit: args.limit ?? 20 }));
+        const named = args.company?.trim() ? await newsCompany(handle, args.company) : undefined;
+        if (named && "error" in named) return { ...text(named), isError: true };
+        const { matched_from, note } = named ?? {};
+        const page = await apiNews(handle, {
+          since: since.value,
+          sector: sector.value,
+          q: q.value,
+          companyId: named?.id,
+          cursor,
+          limit: args.limit ?? 20,
+        });
+        return text(matched_from ? { ...page, matched_from, note } : page);
       }),
     );
 

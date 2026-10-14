@@ -317,7 +317,11 @@ describe("/api/v1/news", () => {
     const delta = body.data.find((a) => a.url === "https://news.example/delta") as { rounds: Array<Record<string, unknown>> };
     expect(delta.rounds[0]).toMatchObject({ company: "Delta", certainty: "expected" });
     const alpha = body.data.find((a) => a.url === "https://news.example/alpha");
-    expect(alpha).toMatchObject({ publisher: "news.example", excerpt: "Alpha raised $20M led by Fund One and Fund Two." });
+    expect(alpha).toMatchObject({
+      publisher: "news.example",
+      excerpt: null,
+      rounds: [{ company: "Alpha", evidence: "Alpha raised $20M led by Fund One and Fund Two." }],
+    });
   });
 
   test("a social post is a source on its round, kept in storage, but never a news item", async () => {

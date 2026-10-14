@@ -27,9 +27,12 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       ["sector", "One sector, such as ai, fintech, or developer tools"],
       ["q", "Free text over company names, descriptions, and investors"],
       ["company", "One company by domain or exact name"],
-      ["since", "Rounds announced on or after a YYYY-MM-DD day"],
+      ["since", "Rounds announced on or after a day: YYYY-MM-DD, a month as YYYY-MM, today, yesterday, or days back such as 7d"],
       ["min_usd", "Minimum amount in USD millions"],
-      ["sort", "amount (largest first, announced rounds ahead of the rest) or trending (most discussed now)"],
+      [
+        "sort",
+        "amount (published announced rounds first, then every other round; each part largest first) or trending (most discussed now)",
+      ],
       ["format", "json (default), csv, or jsonl"],
       ["limit, cursor", "Page size up to 200, and next_cursor from the previous page"],
     ],
@@ -63,7 +66,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     path: "/api/v1/companies/{id}",
     summary:
       "One company's funding: who it is, what it raised, its stated valuations, every round with its leads and announcement, and its investors.",
-    returns: "{ id, name, domain, total_raised_usd_millions, valuation_history, latest_round, rounds, investors, … }",
+    returns: "{ id, name, domain, total_raised_usd_millions, stated_total_raised, valuation_history, latest_round, rounds, investors, … }",
     params: [["id", "The company's id, as in its page address: /companies/ramp is ramp"]],
     example: (o) => ["# Everything on record for one company", `curl "${o}/api/v1/companies/ramp"`].join("\n"),
   },
@@ -102,13 +105,21 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   {
     id: "news",
     path: "/api/v1/news",
-    summary: "The articles behind the rounds, newest first, each with its publisher, day, and the rounds it reports.",
+    summary: "The articles behind the rounds, newest first, each with its publisher, day, and the rounds it reports with their evidence.",
     returns: "{ data: [{ title, url, publisher, published_on, excerpt, rounds }], next_cursor }",
     params: [
       ["q", "A company name or a word in the headline"],
-      ["sector, since", "Articles about rounds in one sector, or published on or after a day"],
+      ["company", "One company by id, domain, or name: the articles about its rounds"],
+      ["sector, since", "Articles about rounds in one sector, or published on or after a day, in the forms since takes on /api/v1/rounds"],
       ["limit, cursor", "Page size up to 100, and next_cursor from the previous page"],
     ],
-    example: (o) => ["# The latest fintech funding news", `curl "${o}/api/v1/news?sector=fintech&limit=10"`].join("\n"),
+    example: (o) =>
+      [
+        "# The latest fintech funding news",
+        `curl "${o}/api/v1/news?sector=fintech&limit=10"`,
+        "",
+        "# The coverage of one company's rounds",
+        `curl "${o}/api/v1/news?company=ramp.com"`,
+      ].join("\n"),
   },
 ];

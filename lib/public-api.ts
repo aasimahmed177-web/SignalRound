@@ -3,11 +3,21 @@
 // counts, amounts, dates, and a link to the page on the site, never a round's internal id or any
 // operator detail. An investor is named by its URL slug ("sequoia-capital-india").
 
-import { investorKeyForMerge, isListPage, normalizeCompanyKey, normalizeInvestorKey, type Stage, sectorMembers } from "@fireround/core";
+import {
+  articleKey,
+  investorKeyForMerge,
+  isListPage,
+  normalizeCompanyKey,
+  normalizeInvestorKey,
+  type Stage,
+  samePageKey,
+  sectorMembers,
+} from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { getCompany } from "./company.ts";
+import { totalToDate } from "./company-groups.ts";
 import { companySlug } from "./company-ids.ts";
 import { type CompanySort, likeTerm, listCompanies, listInvestors } from "./directory.ts";
 import { companyRedirect, investorRedirect } from "./entity-exists.ts";
@@ -15,6 +25,7 @@ import { getInvestor, investorTypeLabel } from "./investor.ts";
 import { companyHref, investorHref, investorIdFromParam, investorSlug } from "./links.ts";
 import { NOT_NEWS_HOSTS } from "./news.ts";
 import { siteOrigin } from "./origin.ts";
+import { companyNamed, type RoundRow } from "./persist.ts";
 import { caught } from "./stats.ts";
 
 const { fundingRounds, companies, companyAliases, investors, roundInvestors, sources, roundSources } = schema;
@@ -112,6 +123,43 @@ export function bareSite(raw: string): string {
   return m[1].toLowerCase();
 }
 
+/** A sentence that states the company's funding to date, not one series' running total or a round still closing. */
+const COMPANY_TOTAL =
+  /\b(?:total(?:\s+(?:disclosed|known|reported|equity|outside|external))?\s+(?:funding|capital|financing|investment|raised|amount raised)|raised\s+(?:a\s+)?total|in total|cumulative\s+(?:funding|financing|capital)|to[- ]date|so far|since\s+(?:its\s+|the\s+company'?s?\s+)?(?:launch|inception|founding|founded|start))\b/i;
+const SERIES_TOTAL =
+  /\btotal\s+(?:series\s+[a-z]\d*|seed|pre-seed|round)\b|\bcumulative\s+amount\s+(?:raised\s+)?(?:in|of)\s+(?:the|its)\s+series\b|\b(?:series\s+[a-z]\d*|round)\s+(?:total|to\s+a\s+total)\b/i;
+
+/**
+ * The company's own stated funding to date, from its newest announced or reported round that states
+ * one in USD beside its money (Harmonic Security's "$76 million" beside its $50M Series B), or null.
+ * rounds_sum_usd_millions adds the rounds on record up to that day, so exceeds_rounds_sum says an
+ * earlier round is missing from the record (beyond a 2% rounding margin).
+ */
+export function statedTotalRaised(rounds: RoundRow[]) {
+  const closed = rounds.filter((r) => r.certainty === "announced" || r.certainty === "reported");
+  const stating = closed.find(
+    (r) =>
+      totalToDate(r) !== null &&
+      (r.amount_scope === "cumulative" ||
+        (COMPANY_TOTAL.test(r.financing_total_quote ?? "") && !SERIES_TOTAL.test(r.financing_total_quote ?? ""))),
+  );
+  const usdMillions = stating ? totalToDate(stating) : null;
+  if (!stating || usdMillions === null) return null;
+  const through = closed.filter((r) => !stating.announced_on || (r.announced_on !== null && r.announced_on <= stating.announced_on));
+  const sum = Math.round(through.reduce((n, r) => n + (r.amount.usd_millions ?? 0), 0) * 1000) / 1000;
+  return {
+    usd_millions: usdMillions,
+    as_written: stating.financing_total_as_written,
+    quote: stating.financing_total_quote,
+    stated_on: stating.announced_on,
+    stage: stating.stage,
+    stage_as_written: stating.stage_as_written,
+    source: stating.primary_source?.url ?? stating.sources[0]?.url ?? null,
+    rounds_sum_usd_millions: sum,
+    exceeds_rounds_sum: usdMillions > sum * 1.02,
+  };
+}
+
 /**
  * A company's funding, by its id, or by a domain (a URL works too), earlier id, or name it is also known by (as its page
  * redirects them): who it is, what it raised (announced and reported rounds only, as its page
@@ -163,6 +211,7 @@ export async function apiCompanyProfile(handle: Db, wanted: string) {
     sector: company.sector,
     headquarters: company.hq,
     total_raised_usd_millions: page.totals.usd_millions_raised,
+    stated_total_raised: statedTotalRaised(page.rounds),
     valuation_history: { latest: valuations[0] ?? null, stated: valuations },
     latest_round: rounds[0] ?? null,
     rounds,
@@ -587,9 +636,26 @@ export interface ApiNewsQuery {
   since?: string;
   sector?: string;
   q?: string;
+  /** One company's id (newsCompanyId): only articles about its rounds, its earlier rounds included. */
+  companyId?: string;
   /** "YYYY-MM-DD|url" from the previous page's next_cursor. */
   cursor?: { day: string; url: string };
   limit: number;
+}
+
+/**
+ * The company a news request names, read the way the company profile reads it (companyProfileOrNear):
+ * its id, domain, earlier id, or name, or the one name a single edit away (with matched_from and note);
+ * else the profile's 404 body naming the companies to retry with.
+ */
+export async function newsCompany(
+  handle: Db,
+  raw: string,
+): Promise<{ id: string; matched_from?: string; note?: string } | ReturnType<typeof notFound>> {
+  const found = await companyProfileOrNear(handle, raw.trim().toLowerCase());
+  if ("error" in found) return found;
+  const { matched_from, note } = found as { matched_from?: string; note?: string };
+  return { id: found.id, ...(matched_from ? { matched_from, note } : {}) };
 }
 
 /** "YYYY-MM-DD|url": the last article's day and URL, the order the list is read in. */
@@ -601,20 +667,34 @@ export function parseNewsCursor(raw: string): { day: string; url: string } | nul
 /**
  * The latest articles about the rounds the feed lists, newest first: each with its publisher, its
  * day, and the rounds it reports, each round with its certainty (an expected round is news too, and
- * says so). Filings (a Form D) are records, not news, and are left out, as are
- * pages that only recall an earlier round, and roundups, newsletters, and listicles (isListPage): a
- * source on each round they list, but not an article about any one company.
+ * says so) and the sentence its record cites. Filings (a Form D) are records, not news, and are left out, as are
+ * pages that only recall an earlier round, untitled pages, and roundups, newsletters, and listicles (isListPage): a
+ * source on each round they list, but not an article about any one company. One article read under
+ * several addresses (its AMP copy, a tracking parameter) is listed once (articleKey). A request that names a
+ * company (companyId, or a q that names one exactly) counts its earlier rounds too, as /api/v1/rounds does.
  */
 export async function apiNews(handle: Db, q: ApiNewsQuery) {
+  const named = q.companyId
+    ? [q.companyId]
+    : q.q
+      ? (await handle.select({ id: companies.id }).from(companies).where(companyNamed(q.q))).map((c) => c.id)
+      : [];
+  const current = named.length
+    ? sql`(r.history = false or r.company_id in (${sql.join(
+        named.map((id) => sql`${id}`),
+        sql`, `,
+      )}))`
+    : sql`r.history = false`;
   // A page that states no day of its own is dated by the newest round it reports, never later than the
   // day it was read: a profile or library page read today about a round from last month is not today's news.
-  const day = sql<string>`coalesce(nullif(left(${sources.publishedAt}, 10), ''), least(to_char(${sources.fetchedAt} at time zone 'UTC', 'YYYY-MM-DD'), (select max(r.announced_on) from round_sources rs join funding_rounds r on r.id = rs.round_id where rs.source_id = sources.id and r.disposition in ('publish', 'flagged') and r.history = false and r.certainty <> 'unconfirmed')))`;
+  const day = sql<string>`coalesce(nullif(left(${sources.publishedAt}, 10), ''), least(to_char(${sources.fetchedAt} at time zone 'UTC', 'YYYY-MM-DD'), (select max(r.announced_on) from round_sources rs join funding_rounds r on r.id = rs.round_id where rs.source_id = sources.id and r.disposition in ('publish', 'flagged') and ${current} and r.certainty <> 'unconfirmed')))`;
   const roundConds = [
     sql`rs.source_id = ${sources.id}`,
     sql`r.disposition in ('publish', 'flagged')`,
-    sql`r.history = false`,
+    current,
     sql`r.certainty <> 'unconfirmed'`,
   ];
+  if (q.companyId) roundConds.push(sql`r.company_id = ${q.companyId}`);
   if (q.sector)
     roundConds.push(
       sql`c.sector in (${sql.join(
@@ -624,8 +704,10 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
     );
   if (q.q) roundConds.push(sql`(c.name ilike ${likeTerm(q.q)} or ${sources.title} ilike ${likeTerm(q.q)})`);
   const reports = sql`exists (select 1 from round_sources rs join funding_rounds r on r.id = rs.round_id join companies c on c.id = r.company_id where ${sql.join(roundConds, sql` and `)})`;
-  // Read in batches until a page and one more survive the list-page rule, so the cursor stays exact.
-  const rows: Array<{ id: string; url: string; host: string; title: string | null; day: string }> = [];
+  // Read in batches until a page and one more survive the list-page rule and the copies fold, so the cursor stays exact.
+  type Article = { id: string; url: string; host: string; title: string | null; day: string; sourceIds: string[] };
+  const rows: Article[] = [];
+  const byKey = new Map<string, Article>();
   let after = q.cursor;
   for (;;) {
     const batch = await handle
@@ -644,6 +726,7 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
             NOT_NEWS_HOSTS.map((h) => sql`${h}`),
             sql`, `,
           )})`,
+          sql`btrim(coalesce(${sources.title}, '')) <> ''`,
           reports,
           q.since ? sql`${day} >= ${q.since}` : undefined,
           after ? sql`(${day}, ${sources.id}) < (${after.day}, ${after.url})` : undefined,
@@ -651,13 +734,27 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
       )
       .orderBy(desc(day), desc(sources.id))
       .limit(2 * (q.limit + 1));
-    for (const r of batch) if (!isListPage({ url: r.url, title: r.title }, null, r.rounds)) rows.push(r);
+    for (const r of batch) {
+      if (isListPage({ url: r.url, title: r.title }, null, r.rounds)) continue;
+      const key = articleKey(r.url);
+      const kept = byKey.get(key);
+      if (!kept) {
+        const article = { id: r.id, url: r.url, host: r.host, title: r.title, day: r.day, sourceIds: [r.id] };
+        byKey.set(key, article);
+        rows.push(article);
+        continue;
+      }
+      kept.sourceIds.push(r.id);
+      // The page itself over its AMP copy.
+      if (articleKey(kept.url) !== samePageKey(kept.url) && articleKey(r.url) === samePageKey(r.url))
+        Object.assign(kept, { url: r.url, host: r.host, title: r.title });
+    }
     const last = batch[batch.length - 1];
     if (rows.length > q.limit || batch.length < 2 * (q.limit + 1) || !last) break;
     after = { day: last.day, url: last.id };
   }
   const page = rows.slice(0, q.limit);
-  const ids = page.map((r) => r.id);
+  const ids = page.flatMap((r) => r.sourceIds);
   const links = ids.length
     ? await handle
         .select({
@@ -682,7 +779,7 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
           and(
             inArray(roundSources.sourceId, ids),
             inArray(fundingRounds.disposition, ["publish", "flagged"]),
-            eq(fundingRounds.history, false),
+            named.length ? or(eq(fundingRounds.history, false), inArray(fundingRounds.companyId, named)) : eq(fundingRounds.history, false),
             sql`${fundingRounds.certainty} <> 'unconfirmed'`,
           ),
         )
@@ -699,15 +796,21 @@ export async function apiNews(handle: Db, q: ApiNewsQuery) {
   const last = page[page.length - 1];
   return {
     data: page.map((a) => {
-      const linked = links.filter((l) => l.sourceId === a.id);
+      const linked = [...new Map(links.filter((l) => a.sourceIds.includes(l.sourceId)).map((l) => [l.roundId, l])).values()];
       return {
         title: a.title,
         url: a.url,
         publisher: a.host.replace(/^www\./, ""),
         published_on: a.day,
-        // The round's own sentence when the article reports one round; a roundup has no single excerpt.
-        excerpt: linked.length === 1 ? (linked[0]?.quotes[0] ?? null) : null,
-        rounds: linked.map((l) => ({ ...roundRef(l), certainty: l.certainty, sector: l.sector, lead_investors: leadsOf(l.roundId) })),
+        // No article's own description is stored, so none is shown as one; each round carries its own evidence.
+        excerpt: null,
+        rounds: linked.map((l) => ({
+          ...roundRef(l),
+          certainty: l.certainty,
+          sector: l.sector,
+          lead_investors: leadsOf(l.roundId),
+          evidence: l.quotes[0] ?? null,
+        })),
       };
     }),
     next_cursor: rows.length > q.limit && last ? `${last.day}|${last.id}` : null,

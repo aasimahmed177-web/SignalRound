@@ -151,6 +151,7 @@ describe("each tool answers what its route answers", () => {
     ["list_companies", { since: "30d" }, companiesGet, "/api/v1/companies?since=30d"],
     ["top_investors", { window: "quarter" }, topGet, "/api/v1/investors/top?window=quarter"],
     ["list_news", { since: "7d" }, newsGet, "/api/v1/news?since=7d"],
+    ["list_news", { company: "zeta-health" }, newsGet, "/api/v1/news?company=zeta-health"],
   ] as const)("%s %j", async (name, args, handler, path) => {
     const { status, body } = await http(handler, path);
     expect(status).toBe(200);
@@ -207,6 +208,11 @@ describe("misses and bad values", () => {
     }
     const far = JSON.parse((await tool("get_investor", { id: "fund-sixxx" })).text) as { error: string };
     expect(far.error).toMatch(/Did you mean Fund Six \(id fund-six\)\?$/);
+    const news = await http(newsGet, "/api/v1/news?company=zetta.example");
+    expect(news.status).toBe(404);
+    const newsMiss = await tool("list_news", { company: "zetta.example" });
+    expect(newsMiss.isError).toBe(true);
+    expect(JSON.parse(newsMiss.text)).toEqual(news.body);
     const typo = await tool("get_company_profile", { id: "zetta" });
     expect(typo.isError).toBeFalsy();
     expect(JSON.parse(typo.text)).toMatchObject({ id: "zeta.example", matched_from: "zetta" });

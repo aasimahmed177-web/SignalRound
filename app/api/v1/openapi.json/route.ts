@@ -556,7 +556,7 @@ export function GET(request: Request) {
               name: "sort",
               in: "query",
               description:
-                "amount orders by USD: published rounds announced on the record first, then flagged, expected, reported, and unconfirmed rounds, each part largest first with unknown amounts last; trending lists only the rounds the Trending lane is following (first seen in the last 72 hours), most discussed first; absent is newest announced first",
+                "amount orders by USD in two parts, not by amount alone: first the published rounds announced on the record, then every other round (reported, expected, flagged, and unconfirmed) together; each part runs largest first with unknown amounts last, so a $400M reported round lists after a $100M announced one. Read certainty on each row to tell them apart; trending lists only the rounds the Trending lane is following (first seen in the last 72 hours), most discussed first; absent is newest announced first",
               schema: { type: "string", enum: ["amount", "trending"] },
             },
             {
@@ -731,7 +731,38 @@ export function GET(request: Request) {
                       total_raised_usd_millions: {
                         type: "number",
                         description:
-                          "Stated USD amounts of its announced and reported rounds; expected and unconfirmed rounds are left out",
+                          "Stated USD amounts of its announced and reported rounds; expected and unconfirmed rounds are left out. A round missing from the record is missing from this sum: compare stated_total_raised",
+                      },
+                      stated_total_raised: {
+                        type: ["object", "null"],
+                        description:
+                          'The company\'s own stated funding to date, from its newest announced or reported round that states one in USD beside its money ("bringing its total funding to $76 million"); null when none does. Kept apart from total_raised_usd_millions, which is the sum of the rounds on record',
+                        properties: {
+                          usd_millions: { type: "number", description: "The stated total in millions of USD" },
+                          as_written: { type: "string", description: "The total as the source writes it" },
+                          quote: { type: ["string", "null"], description: "The sentence that states it" },
+                          stated_on: {
+                            type: ["string", "null"],
+                            format: "date",
+                            description: "The announcement day of the round that states it",
+                          },
+                          stage: { type: "string", enum: [...STAGES], description: "The stage of the round that states it" },
+                          stage_as_written: { type: "string" },
+                          source: {
+                            type: ["string", "null"],
+                            description: "The official announcement of the round that states it, else its first source",
+                          },
+                          rounds_sum_usd_millions: {
+                            type: "number",
+                            description:
+                              "The stated USD amounts of its announced and reported rounds on record up to and including stated_on",
+                          },
+                          exceeds_rounds_sum: {
+                            type: "boolean",
+                            description:
+                              "True when usd_millions is more than 2% above rounds_sum_usd_millions: an earlier round is likely missing from the record, so total_raised_usd_millions is short",
+                          },
+                        },
                       },
                       valuation_history: {
                         type: "object",
@@ -1013,7 +1044,7 @@ export function GET(request: Request) {
           operationId: "listNews",
           summary: "The latest funding news, newest first",
           description:
-            "The articles behind the rounds the feed lists: each with its title, publisher, day, and the rounds it reports (with amount, stage, certainty, and leads). A roundup reports several rounds; a single-round article carries the round's own sentence as its excerpt. Regulatory filings and social posts (X, Instagram, LinkedIn and the like) are not listed.",
+            "The articles behind the rounds the feed lists: each with its title, publisher, day, and the rounds it reports (with amount, stage, certainty, leads, and the sentence the round's record cites as evidence). One article under several addresses (its AMP copy, tracking parameters) is listed once, and a page with no title is not listed. Regulatory filings and social posts (X, Instagram, LinkedIn and the like) are not listed.",
           parameters: [
             {
               name: "since",
@@ -1023,12 +1054,32 @@ export function GET(request: Request) {
               schema: { type: "string" },
             },
             { name: "sector", in: "query", description: "Articles about rounds in one sector", schema: { type: "string" } },
-            { name: "q", in: "query", description: "A company name or a word in the headline", schema: { type: "string", maxLength: 200 } },
+            {
+              name: "q",
+              in: "query",
+              description:
+                "A company name or a word in the headline. A q that names a company exactly (its name or domain) also lists the articles about its earlier rounds",
+              schema: { type: "string", maxLength: 200 },
+            },
+            {
+              name: "company",
+              in: "query",
+              description:
+                "One company, read as /api/v1/companies/{id} reads it: its id, a domain (a URL of its site works too), an earlier id, or its name. Only the articles linked to that company's rounds, earlier rounds included. An id one edit from a single company reads that company and says so (matched_from, note); any other miss, or a name more than one company goes by, is a 404 naming up to five companies to retry with, as the profile's is",
+              schema: { type: "string", maxLength: 200 },
+            },
             { name: "limit", in: "query", description: "At most 100", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
             { name: "cursor", in: "query", description: "next_cursor from the previous page", schema: { type: "string" } },
           ],
           responses: {
             "400": BadRequest,
+            "404": {
+              description:
+                "company matches no company with a published round, or the name belongs to more than one. did_you_mean (and the message) names up to five companies to retry with, as /api/v1/companies/{id} does",
+              content: {
+                "application/json": { schema: { type: "object", properties: { error: { type: "string" }, did_you_mean: DidYouMean } } },
+              },
+            },
             "200": {
               description: "One page of articles",
               content: {
@@ -1050,7 +1101,11 @@ export function GET(request: Request) {
                               description:
                                 "The article's own day; for a page that states none, the day of the newest round it reports, never later than the day it was read",
                             },
-                            excerpt: { type: ["string", "null"] },
+                            excerpt: {
+                              type: ["string", "null"],
+                              description:
+                                "Null: no article's own description is stored, and a round's sentence is never shown as one. Kept for older clients; read evidence on each of rounds instead",
+                            },
                             rounds: {
                               type: "array",
                               items: {
@@ -1062,6 +1117,11 @@ export function GET(request: Request) {
                                       certainty: { type: "string", enum: [...ROUND_CERTAINTIES] },
                                       sector: { type: ["string", "null"] },
                                       lead_investors: { type: "array", items: { type: "string" } },
+                                      evidence: {
+                                        type: ["string", "null"],
+                                        description:
+                                          "The sentence the round's record cites, from whichever of its sources states it; not necessarily this article's text",
+                                      },
                                     },
                                   },
                                 ],
@@ -1071,6 +1131,12 @@ export function GET(request: Request) {
                         },
                       },
                       next_cursor: { type: ["string", "null"] },
+                      matched_from: {
+                        type: "string",
+                        description:
+                          "Present only when company matched nothing and the articles are those of the one company a single edit away; company as asked",
+                      },
+                      note: { type: "string", description: "Present with matched_from: says which company was read instead" },
                     },
                   },
                 },
