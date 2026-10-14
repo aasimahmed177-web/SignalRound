@@ -440,6 +440,55 @@ describe("promotion", () => {
     expect(JSON.stringify(ledger.outcome)).toContain("undated round on the company's own site");
   });
 
+  test("a page that states the round without a day takes the dossier's month, and every empty reading names its reason", async () => {
+    const handle = await testDb();
+    const companyId = await seed(handle);
+    const [key] = await queueCompanyHistory(handle, companyId);
+    const empty = "https://news.example/footprint-profile";
+    const unlabeled = "https://news.example/footprint-figures";
+    const undated = "https://press.example/footprint-seed";
+    const { reader: r } = reader({
+      search: [
+        { url: empty, title: "Footprint raises $6M seed", via: "search" },
+        { url: unlabeled, title: "Footprint raises $6M seed", via: "search" },
+        { url: undated, title: "Footprint raises $6M seed led by Index Ventures", via: "search" },
+      ],
+      pages: {
+        [empty]: [],
+        [unlabeled]: [item(unlabeled, round({ round_type_as_written: "" }))],
+        [undated]: [item(undated, round({ announced_date: null }))],
+      },
+    });
+    expect(await promotePrior(handle, r, companyId, key, "history:test")).toMatchObject({ status: "promoted" });
+    expect(await historyRow(handle)).toMatchObject([{ announcedOn: "2022-08-01", datePrecision: "month" }]);
+    const [ledger] = await handle.select().from(historyPromotions);
+    expect(JSON.stringify(ledger.outcome)).toContain("no rounds kept (no round on the page)");
+    expect(JSON.stringify(ledger.outcome)).toContain("no rounds kept (unlabeled 1)");
+  });
+
+  test("a page with no day does not take the dossier's date once a page read before it dated the round elsewhere", async () => {
+    const handle = await testDb();
+    const companyId = await seed(handle);
+    const [key] = await queueCompanyHistory(handle, companyId);
+    const dated = "https://news.example/2023/06/20/footprint-seed";
+    const undated = "https://press.example/footprint-seed";
+    const { reader: r, calls } = reader({
+      search: [
+        { url: dated, title: "Footprint raises $6M seed", via: "search" },
+        { url: undated, title: "Footprint raises $6M seed led by Index Ventures", via: "search" },
+      ],
+      pages: {
+        [dated]: [{ ...item(dated, round({ announced_date: "2023-06-20" })), page_date: "2023-06-20" }],
+        [undated]: [item(undated, round({ announced_date: null }))],
+      },
+    });
+    expect(await promotePrior(handle, r, companyId, key, "history:test")).toMatchObject({ status: "no_source" });
+    expect(calls.verify).toBe(0);
+    const [ledger] = await handle.select().from(historyPromotions);
+    expect(JSON.stringify(ledger.outcome)).toContain("refused: date");
+    expect(JSON.stringify(ledger.outcome)).toContain("refused: undated");
+  });
+
   test("an own-site release that says the company today announced the round dates an undated prior by its day", async () => {
     const handle = await testDb();
     const undated = { ...SEED_PRIOR, announced_date: null };

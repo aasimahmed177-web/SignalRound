@@ -831,6 +831,10 @@ describe("money", () => {
     expect(amountIsRoundTotal("Quantum Motion extends Series C, expands $160m round")).toBe(true);
     expect(amountIsRoundTotal("bringing the Series B round to $200M")).toBe(true);
     expect(amountIsRoundTotal("Frenos raised $1.52 million in a seed extension round")).toBe(false);
+    // A new investor joining a round names the round's size, not new money (1KOMMA5°'s July 2025 extension).
+    const joining = "1KOMMA5° welcomes Sabanci Climate Ventures as a new investor, extending its €150 million pre-IPO round.";
+    expect(evidenceSaysExtension(joining)).toBe(true);
+    expect(amountIsRoundTotal(joining)).toBe(true);
   });
 
   test("text the parser cannot read as money is not shown as the amount", () => {
@@ -2071,7 +2075,8 @@ describe("background rounds: history a page recalls beside its news", () => {
     // Different currencies are not compared, and a round with no amount is left to the extractor's flag.
     expect(backgroundByPageShape({ title, roundsOnPage: 2, amountValue: 150, amountCurrency: "EUR" })).toBe(false);
     expect(backgroundByPageShape({ title, roundsOnPage: 2, amountValue: null, amountCurrency: null })).toBe(false);
-    // Through the resolver: the smaller mention on the same article is dropped as background.
+    // Through the resolver: the smaller mention on the same article is not kept; read through as history,
+    // it stops at the check that the page is no source for it, and that is the reason it drops.
     const { kept, dropped } = resolveRounds(
       [
         {
@@ -2095,7 +2100,7 @@ describe("background rounds: history a page recalls beside its news", () => {
       ],
       { stages: ["series_b", "series_d_plus"], windowStart: WEEK, now: NOW, rates: { date: "2026-09-02", perUsd: {} } },
     );
-    expect(dropped.background).toBe(1);
+    expect(dropped.unrelatedSource).toBe(1);
     expect(kept.map((r) => r.company_key)).toEqual(["zhipu"]);
   });
 });
@@ -2208,6 +2213,8 @@ describe("resolveRounds", () => {
       otherStage: 1,
       notARound: 0,
       background: 1,
+      pastPeriod: 0,
+      headlineFigure: 0,
       rumor: 1,
       outOfWindow: 1,
       undatedTimeline: 0,
@@ -2215,6 +2222,7 @@ describe("resolveRounds", () => {
       nonArticle: 0,
       unnamed: 0,
       unrelatedSource: 0,
+      unlabeled: 0,
     });
     expect(kept).toHaveLength(2);
     const acme = kept.find((r) => r.company_key === "acme");
@@ -2405,5 +2413,83 @@ describe("same round: the window two sightings must fall in", () => {
     );
     expect(sameRoundWindow({ stage: "seed", announced_date: null }, { stage: "seed", announced_date: "2026-09-09" })).toBe(true);
     expect(sameRoundWindow({ stage: "seed", announced_date: null }, { stage: "pre_seed", announced_date: "2026-09-09" })).toBe(false);
+  });
+});
+
+describe("why a round drops, as the history ledger names it", () => {
+  const opts = { stages: ["seed" as const, "series_a" as const], windowStart: WEEK, now: NOW, rates: { date: "2026-09-02", perUsd: {} } };
+  const page = {
+    url: "https://news.example/2026/09/03/acme",
+    host: "news.example",
+    title: "Acme raises $20M Series A",
+    published: "2026-09-03",
+  };
+  const at = (r: ExtractedRound) => ({ round: r, source: page, page_kind: "article" as const, page_date: "2026-09-03" });
+
+  test("a round the page recalls is tallied by the check that stopped its read-through, or by why it reads as recalled", () => {
+    // The extractor reads the seed as history; read through, its own day is long before the window.
+    const old = round({
+      company_name: "Acme",
+      round_type_as_written: "seed",
+      amount_as_written: "$3M",
+      announced_date: "2024-03-12",
+      is_background: true,
+      evidence_quote: "Acme raised a $3M seed on March 12, 2024.",
+    });
+    expect(resolveRounds([at(old)], opts).dropped).toMatchObject({ background: 0, outOfWindow: 1 });
+    // The headline's first figure is not the round's: the page reads as another round's news.
+    const worth = { ...page, title: "Acme is now worth $1 billion after its $20 million Series A" };
+    const news = round({
+      company_name: "Acme",
+      round_type_as_written: "Series A",
+      amount_as_written: "$20 million",
+      announced_date: "2026-09-03",
+      evidence_quote: "Acme raised $20 million in a Series A.",
+    });
+    expect(resolveRounds([{ ...at(news), source: worth }], opts).dropped).toMatchObject({ background: 0, headlineFigure: 1 });
+    // The sentence places the round in a past year.
+    const recap = round({
+      company_name: "Acme",
+      round_type_as_written: "seed",
+      amount_as_written: "$3M",
+      evidence_quote: "In 2019, Acme raised a $3M seed.",
+    });
+    expect(resolveRounds([at(recap)], opts).dropped).toMatchObject({ background: 0, pastPeriod: 1 });
+  });
+
+  test("a reading with no round label is counted, not skipped", () => {
+    expect(resolveRounds([at(round({ company_name: "Acme", round_type_as_written: "" }))], opts).dropped.unlabeled).toBe(1);
+  });
+
+  test("the history lane reads a staged round on an article or release from the lead's time by its sentence, whatever its shape", () => {
+    const release = {
+      url: "https://www.prnewswire.com/news-releases/harness-valuation-soars-to-3-7-billion-with-230-million-in-series-d-funding-301532740.html",
+      host: "prnewswire.com",
+      published: "2022-04-26",
+    };
+    const harness = {
+      round: round({
+        company_name: "Harness",
+        round_type_as_written: "Series D",
+        amount_as_written: "$175 million",
+        announced_date: "2022-04-26",
+        evidence_quote: "The round includes $175 million in equity and $55 million in debt financing.",
+      }),
+      source: release,
+      page_kind: "press_release" as const,
+      page_date: "2022-04-26",
+    };
+    const lane = { stages: ["series_d_plus" as const], windowStart: new Date("2021-03-22T00:00:00Z"), now: NOW };
+    const leadSpan = { from: new Date("2022-04-26T00:00:00Z"), to: new Date("2022-04-26T00:00:00Z") };
+    expect(isDataPointQuote(harness.round.evidence_quote)).toBe(true);
+    expect(resolveRounds([harness], lane).dropped.nonArticle).toBe(1);
+    expect(resolveRounds([harness], { ...lane, leadSpan }).kept.map((r) => [r.stage, r.announced_date])).toEqual([
+      ["series_d_plus", "2022-04-26"],
+    ]);
+    // A page months from the lead's day, a round with no stage, or a roundup still reads as a listing's.
+    expect(resolveRounds([{ ...harness, page_date: "2022-09-30" }], { ...lane, leadSpan }).dropped.nonArticle).toBe(1);
+    const stageless = { ...harness, round: { ...harness.round, round_type_as_written: "funding round" } };
+    expect(resolveRounds([stageless], { ...lane, stagelessBands: ["late" as const], leadSpan }).dropped.nonArticle).toBe(1);
+    expect(resolveRounds([{ ...harness, page_kind: "roundup" as const }], { ...lane, leadSpan }).dropped.nonArticle).toBe(1);
   });
 });

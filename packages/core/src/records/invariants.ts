@@ -21,7 +21,7 @@ export interface SiblingRound {
 }
 
 /** A label that names a tranche of a series: "Series B1", "Series B-2", "C-1". */
-function trancheLabel(label: string): boolean {
+export function trancheLabel(label: string): boolean {
   return /\bseries\s+[a-k][-\s]?\d\b|\b[a-k]-\d\b/i.test(label);
 }
 

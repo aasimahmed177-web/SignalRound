@@ -14,6 +14,7 @@ import {
   priorStage,
   promotable,
   rankHistoryCandidates,
+  withLeadDate,
   withPriorExtension,
 } from "./history.ts";
 import type { FeedRecord } from "./schema.ts";
@@ -274,11 +275,33 @@ describe("matchPriorRound", () => {
     });
   });
 
-  test("a page that dates nothing never matches, even on the amount: the next page is read", () => {
-    // Adaptive's own post announces "$6.5 million" with no day and no label; TechCrunch dates the seed.
-    const r = rec({ stage: "other", stage_as_written: "Funding", announced_date: null, date_precision: "unknown" });
-    expect(matchPriorRound(prior({}), r, footprint)).toEqual({ ok: false, reason: "undated" });
+  test("a page that dates nothing matches on its stage only when the dossier has the date, and takes the dossier's month", () => {
+    // Flexport's own post states its $20M Series A with no date; the dossier dates the round.
+    const r = rec({ announced_date: null, date_precision: "unknown" });
+    expect(matchPriorRound(prior({}), r, footprint)).toEqual({ ok: true, score: 5, evidence: ["amount", "stage", "lead"] });
+    // A lead's day is a claim no page here makes (two leads for Flexport's Series A said August 7 and August 19): the month stands.
+    expect(withLeadDate(r, prior({}))).toMatchObject({
+      announced_date: "2022-08-01",
+      date_precision: "month",
+      date_basis: "result",
+      undated: false,
+    });
+    expect(withLeadDate(r, prior({ announced_date: "2022-08" }))).toMatchObject({ announced_date: "2022-08-01", date_precision: "month" });
+    // A dossier year is no date a record keeps, and no dossier date leaves nothing to place it by.
+    expect(matchPriorRound(prior({ announced_date: "2022" }), r, footprint)).toEqual({ ok: false, reason: "undated" });
+    expect(withLeadDate(r, prior({ announced_date: "2022" })).announced_date).toBeNull();
     expect(matchPriorRound(prior({ announced_date: null }), r, footprint)).toEqual({ ok: false, reason: "undated" });
+    // The page must name the round: an amount alone (Adaptive's own "$6.5 million", no label) or another stage at the same amount is not it.
+    const amountOnly = rec({ stage: "other", stage_as_written: "Funding", announced_date: null, date_precision: "unknown" });
+    expect(matchPriorRound(prior({}), amountOnly, footprint)).toEqual({ ok: false, reason: "undated" });
+    const seriesA = rec({ stage: "series_a", stage_as_written: "Series A", announced_date: null, date_precision: "unknown" });
+    expect(matchPriorRound(prior({}), seriesA, footprint)).toEqual({ ok: false, reason: "undated" });
+    // Nor is a tranche of the series: Upscale's undated Series A-1 post against a dossier's Series A.
+    const a1 = rec({ stage: "series_a", stage_as_written: "Series A-1", announced_date: null, date_precision: "unknown" });
+    expect(matchPriorRound(prior({ stage_as_written: "Series A" }), a1, footprint)).toEqual({ ok: false, reason: "undated" });
+    expect(matchPriorRound(prior({ stage_as_written: "Series A-1" }), a1, footprint)).toMatchObject({ ok: true });
+    // A dated record keeps its own day.
+    expect(withLeadDate(rec({ announced_date: "2022-08-10" }), prior({})).announced_date).toBe("2022-08-10");
   });
 
   test("a lead alone is never enough", () => {

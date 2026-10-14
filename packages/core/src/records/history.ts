@@ -7,6 +7,7 @@
 
 import { businessWords, hostCovered, searchName, sharesBusinessWords } from "../firecrawl/enrich.ts";
 import type { PageVerdict } from "../llm/jev.ts";
+import { trancheLabel } from "./invariants.ts";
 import {
   canonicalUrl,
   classifyStage,
@@ -392,7 +393,8 @@ const DATE_SLACK_STRONG_DAYS = 400;
  * Whether a round a page reports is the dossier's prior round. The company first, and the page tied to
  * it rather than to a namesake (historySourceTie); then a day (a page
  * that dates nothing cannot place the round, and its row would only wait in review while the ledger
- * called the round done, so the next page is read instead); then no
+ * called the round done, so the next page is read instead), unless the dossier knows the round's day or
+ * month: then the page must name the round's stage, and the record takes the dossier's month (withLeadDate); then no
  * contradiction (two amounts in one currency more than a quarter apart, a day outside the dossier's
  * span with its slack, conflicting amounts under different equity labels, a debt or grant reading)
  * and at least one positive agreement: the same specific stage (and the same extension flag),
@@ -413,7 +415,7 @@ export function matchPriorRound(
   const tie = historySourceTie(prior, record, company, releaseDateline);
   if (!tie.ok) return tie;
   if (record.stage === "debt" || record.stage === "grant" || record.stage === "secondary") return { ok: false, reason: "stage" };
-  if (!record.announced_date) return { ok: false, reason: "undated" };
+  if (!record.announced_date && !leadMonth(prior)) return { ok: false, reason: "undated" };
   const evidence: string[] = [];
   let score = 0;
 
@@ -470,6 +472,11 @@ export function matchPriorRound(
     score += 2;
     evidence.push("stage");
   }
+  // A page with no day of its own must name the round itself: its stage, and the same tranche of it. An
+  // amount alone ("Uber Transit has invested $2.41 million") does not say whose money it is or which round,
+  // and with no day to tell them apart a Series A-1 is not the Series A (Upscale's came five months later).
+  if (!day && (!stageAgrees || trancheLabel(prior.stage_as_written) !== trancheLabel(record.stage_as_written)))
+    return { ok: false, reason: "undated" };
   if (evidence.length === 0) return { ok: false, reason: "weak" };
   if (lead) {
     score += 1;
@@ -477,6 +484,25 @@ export function matchPriorRound(
   }
   if (stage && recordStageKnown && stage.stage !== record.stage) evidence.push("stage label differs; announcement wins");
   return { ok: true, score, evidence };
+}
+
+/** The month the dossier dates the round to, when it names a day or a month (a year is no date a record keeps). */
+function leadMonth(prior: Pick<PriorRound, "announced_date">): string | null {
+  const range = priorDateRange(prior.announced_date);
+  return range && range.precision !== "year" ? `${range.from.toISOString().slice(0, 7)}-01` : null;
+}
+
+/**
+ * A record the page states without a day, dated by the dossier (Flexport's own post on its Series A
+ * carries no date; the dossier's August 2015 does). A lead's day is a claim no page here makes, and two
+ * leads for one round often name days a week apart (Flexport's 2015-08-07 and 2015-08-19), so the
+ * record takes the lead's month: a month is an upper bound the persist rules let any stated day refine.
+ * The date is borrowed, so its basis is the weakest a dated record has.
+ */
+export function withLeadDate(record: FeedRecord, prior: Pick<PriorRound, "announced_date">): FeedRecord {
+  const month = leadMonth(prior);
+  if (record.announced_date || !month) return record;
+  return { ...record, announced_date: month, date_precision: "month", date_basis: "result", undated: false };
 }
 
 /**

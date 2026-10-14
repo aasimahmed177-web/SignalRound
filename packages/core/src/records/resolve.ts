@@ -105,7 +105,19 @@ export interface ResolveOptions {
    * round. Elsewhere it drops as background and rides on the later record as `earlier_rounds`.
    */
   keepEarlierRounds?: boolean;
+  /**
+   * The span of the day the history lane's lead gives the round. A single-story article or release
+   * published within a month of it is that time's news: a round on it with a named stage is read as the
+   * page's report even when its sentence's shape reads as a listing's data point (TechCrunch's 2016
+   * headline "Revolut grabs $10 million for its mobile foreign exchange service", Harness's "The round
+   * includes $175 million in equity and $55 million in debt financing"). A page published months later
+   * that mentions the round, a roundup, a round with no stage, and a directory's title or URL still drop it.
+   */
+  leadSpan?: { from: Date; to: Date };
 }
+
+/** How far a page's own day may sit from the lead's span and still be that time's news. */
+const LEAD_SPAN_SLACK_MS = 31 * 86_400_000;
 
 export interface ResolveResult {
   kept: FeedRecord[];
@@ -115,7 +127,12 @@ export interface ResolveResult {
     otherStage: number;
     /** Stageless readings that are not a venture round: a fund close, an offering by a listed company, a buyout, a facility. */
     notARound: number;
+    /** Rounds the page recalls as history (the extractor's reading, or an earlier round beside a later one), not its news. */
     background: number;
+    /** Rounds whose sentence places them in a season or month before the window: a profile's or a follow-on story's history. */
+    pastPeriod: number;
+    /** Rounds on a single-story page whose headline states a figure far from the round's amount: the headline's round is another. */
+    headlineFigure: number;
     rumor: number;
     outOfWindow: number;
     undatedTimeline: number;
@@ -127,6 +144,8 @@ export interface ResolveResult {
     unnamed: number;
     /** Rounds whose page is no source for the company: a job posting, a front page, an aggregator's other story, or a page that never names it (see sourceFit). */
     unrelatedSource: number;
+    /** Readings with no company or no round label: the extractor named a figure but no round to read. */
+    unlabeled: number;
   };
 }
 
@@ -330,7 +349,7 @@ export function evidenceSaysExtension(evidence: string | null | undefined): bool
       e,
     ) ||
     /\b(?:investment|financing|funding)\s+is\s+an?\s+extension\s+of\s+(?:the\s+)?(?:recent\s+|prior\s+|previous\s+)?round\b/i.test(e) ||
-    /\b(?:extends?|extended|extending|expands?|expanded|expanding)\s+(?:its\s+|the\s+|their\s+|an?\s+)?(?:\$[\d.,]+\s*(?:m|mn|million|b|bn|billion)?\s+)?(?:oversubscribed\s+)?(?:series [a-z]\b|seed\b|pre-seed\b|round\b|financing\b|raise\b)/i.test(
+    /\b(?:extends?|extended|extending|expands?|expanded|expanding)\s+(?:its\s+|the\s+|their\s+|an?\s+)?(?:(?:\$|€|£)[\d.,]+\s*(?:m|mn|million|b|bn|billion)?\s+)?(?:oversubscribed\s+)?(?:pre-?ipo\s+)?(?:series [a-z]\b|seed\b|pre-seed\b|round\b|financing\b|raise\b)/i.test(
       e,
     ) ||
     /\b(?:additional|follow[ -]?on)\s+investment\s+(?:in|into|of)\s+(?:the\s+)?(?:seed|series\s+[a-z])\b/i.test(e) ||
@@ -351,7 +370,7 @@ export function amountIsRoundTotal(evidence: string | null | undefined): boolean
     /\b(?:expand(?:s|ed|ing)?|extend(?:s|ed|ing)?|bring(?:s|ing)?|brought|tak(?:es|ing|en)|took|grow(?:s|ing)?|grew)\b[^.]{0,60}?\b(?:round|series [a-z]|seed|financing|raise)\b[^.]{0,30}?\bto\s+(?:\$|€|£|us\$|[a-z]{3}\s?)?\d/i.test(
       e,
     ) ||
-    /\b(?:expand(?:s|ed)?|extend(?:s|ed)?)\s+(?:its\s+|the\s+)?(?:\$|€|£|us\$)\s?[\d.,]+\s*(?:m|mn|million|b|bn|billion)?\s+(?:series [a-z]\s+)?(?:round|raise|financing)\b/i.test(
+    /\b(?:expand(?:s|ed|ing)?|extend(?:s|ed|ing)?)\s+(?:its\s+|the\s+)?(?:\$|€|£|us\$)\s?[\d.,]+\s*(?:m|mn|million|b|bn|billion)?\s+(?:series [a-z]\s+|pre-?ipo\s+)?(?:round|raise|financing)\b/i.test(
       e,
     ) ||
     /\btotal (?:round|raise|funding) (?:to|of)\b/i.test(e)
@@ -938,6 +957,9 @@ export function sameRoundWindow(
 
 /** The tally a dropped round lands in; the run summary and the tests read the counts by these names. */
 type DropReason = keyof ResolveResult["dropped"];
+/** The tallies of a round the page recalls rather than reports; such a round is read through, in case a later round on the page carries it. */
+type RecallReason = Extract<DropReason, "background" | "pastPeriod" | "headlineFigure">;
+const RECALL_REASONS: ReadonlySet<DropReason> = new Set<RecallReason>(["background", "pastPeriod", "headlineFigure"]);
 
 export function resolveRounds(items: ExtractedItem[], opts: ResolveOptions): ResolveResult {
   const ctx = pageContext(items, opts);
@@ -945,6 +967,8 @@ export function resolveRounds(items: ExtractedItem[], opts: ResolveOptions): Res
     otherStage: 0,
     notARound: 0,
     background: 0,
+    pastPeriod: 0,
+    headlineFigure: 0,
     rumor: 0,
     outOfWindow: 0,
     undatedTimeline: 0,
@@ -952,14 +976,14 @@ export function resolveRounds(items: ExtractedItem[], opts: ResolveOptions): Res
     nonArticle: 0,
     unnamed: 0,
     unrelatedSource: 0,
+    unlabeled: 0,
   };
   const rejected: ResolveResult["rejected"] = [];
   // One record per company and stage across the batch; a second reading of the same round merges in.
   const byKey = new Map<string, FeedRecord>();
-  const recalled: FeedRecord[] = [];
+  const recalled: Array<{ record: FeedRecord; why: RecallReason }> = [];
   for (const item of items) {
     const reading = readItem(item, ctx);
-    if (reading === null) continue;
     if (typeof reading === "string") {
       dropped[reading]++;
       if (reading === "notARound") {
@@ -978,7 +1002,7 @@ export function resolveRounds(items: ExtractedItem[], opts: ResolveOptions): Res
     }
     const fresh = recordFor(reading);
     if (reading.recalled) {
-      recalled.push(fresh);
+      recalled.push({ record: fresh, why: reading.recalled });
       continue;
     }
     const existing = byKey.get(keyOf(fresh));
@@ -987,8 +1011,13 @@ export function resolveRounds(items: ExtractedItem[], opts: ResolveOptions): Res
   const { kept, earlier } = dropEarlierRounds([...byKey.values()], ctx);
   const tiers = { ...DEFAULT_TIERS, ...opts.publisherTiers };
   const settled = mergeAliases(kept).map((r) => settleRecord(r, tiers));
-  const placed = placeEarlierRounds(settled, [...earlier, ...recalled], opts.keepEarlierRounds === true, tiers);
-  dropped.background += placed.background;
+  const placed = placeEarlierRounds(
+    settled,
+    [...earlier.map((record) => ({ record, why: "background" as const })), ...recalled],
+    opts.keepEarlierRounds === true,
+    tiers,
+  );
+  for (const why of placed.dropped) dropped[why]++;
   return { kept: sortForFeed(placed.records), rejected, dropped };
 }
 
@@ -1046,8 +1075,8 @@ interface Reading {
   amountScope: AmountScope | null;
   total: { asWritten: string; quote: string } | null;
   date: Dated;
-  /** The page recalls the round as history (the extractor's `is_background`, a past season, the headline's other figure), not as its news. */
-  recalled?: boolean;
+  /** Why the page reads as recalling the round rather than reporting it (the extractor's `is_background`, a past season, the headline's other figure). */
+  recalled?: RecallReason;
 }
 
 /**
@@ -1055,15 +1084,15 @@ interface Reading {
  * names the tally it lands in, so the order here is the order the counts depend on. Null when there
  * was nothing to read.
  */
-function readItem(item: ExtractedItem, ctx: PageContext): Reading | DropReason | null {
+function readItem(item: ExtractedItem, ctx: PageContext): Reading | DropReason {
   const round = groundRound(item, ctx);
-  if (round === null || typeof round === "string") return round;
+  if (typeof round === "string") return round;
   const reading = readRound(item, round, ctx);
-  if (reading !== "background") return reading;
+  if (typeof reading !== "string" || !RECALL_REASONS.has(reading)) return reading;
   // A recalled round is read through like the news, so the later round on its page can carry it
-  // (placeEarlierRounds); it still counts as background whatever else would have dropped it.
+  // (placeEarlierRounds); when the read stops, the check that stopped it is the reason it drops.
   const recalled = readRound(item, { ...round, is_background: false }, { ...ctx, recalling: true });
-  return typeof recalled === "string" ? "background" : { ...recalled, recalled: true };
+  return typeof recalled === "string" ? recalled : { ...recalled, recalled: reading as RecallReason };
 }
 
 function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext): Reading | DropReason {
@@ -1084,7 +1113,17 @@ function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext)
     const host = sourced.source.host.replace(/^www\./, "");
     if ((tiers[sourced.source.host] ?? tiers[host] ?? 0.3) < 0.7) return "rumor";
   }
-  if (readsAsListing(sourced.source, round)) return "nonArticle";
+  const span = ctx.opts.leadSpan;
+  const pageDay = parseStatedDate(item.page_date)?.getTime();
+  const newsOfTheTime =
+    span !== undefined &&
+    pageDay !== undefined &&
+    pageDay >= span.from.getTime() - LEAD_SPAN_SLACK_MS &&
+    pageDay <= span.to.getTime() + LEAD_SPAN_SLACK_MS &&
+    (sourced.pageKind === "article" || sourced.pageKind === "press_release") &&
+    !isListPage(sourced.source, sourced.pageKind, ctx.roundsPerPost.get(sourced.source.url) ?? 0) &&
+    !classified.stageless;
+  if (readsAsListing(sourced.source, round, !newsOfTheTime)) return "nonArticle";
   const date = dateRound(item, round, sourced, ctx);
   if (typeof date === "string") return date;
   const priced = priceRound(round, sourced, { ...classified, announced: date.announcedIso, named: item.valuation_named === true }, ctx);
@@ -1125,12 +1164,12 @@ function readRound(item: ExtractedItem, round: ExtractedRound, ctx: PageContext)
 }
 
 /**
- * The round as the page states it, or why it is no round of this page's: no evidence in the page's
- * own text, a sentence that is a neighbour's, a name that names no one. Null when the extractor gave
- * no company or no round label: nothing to read, and nothing to count.
+ * The round as the page states it, or why it is no round of this page's: no company or no round label
+ * from the extractor, no evidence in the page's own text, a sentence that is a neighbour's, a name that
+ * names no one.
  */
-function groundRound(item: ExtractedItem, ctx: PageContext): ExtractedRound | DropReason | null {
-  if (!item.round?.company_name || !item.round.round_type_as_written) return null;
+function groundRound(item: ExtractedItem, ctx: PageContext): ExtractedRound | DropReason {
+  if (!item.round?.company_name || !item.round.round_type_as_written) return "unlabeled";
   // A round the page's own text never states is another article's, read off a sidebar.
   if (item.grounded === false) return "ungrounded";
   const itemUrl = itemSource(item.source, cleanText(item.round.source_url)).url;
@@ -1241,11 +1280,12 @@ function classifyRound(
  * A directory, a ranking, or a tracker states rounds as data, never as news; so does a page whose
  * evidence for a round is a table row or a verbless data point rather than a sentence, whatever its
  * title says (a trend story's "Xpeng Robotics -- $900M Series A" was a round from a month before it).
- * ... unless the page is a weekly or monthly roundup, whose rows are this period's rounds.
+ * ... unless the page is a weekly or monthly roundup, whose rows are this period's rounds, or the quote's
+ * shape is not to be read (`byQuoteShape` false: the history lane's article or release from the round's time).
  */
-function readsAsListing(source: RoundSource, round: ExtractedRound): boolean {
+function readsAsListing(source: RoundSource, round: ExtractedRound, byQuoteShape: boolean): boolean {
   const roundupByTitle = WEEKLY_LIST.test(source.title ?? "") || WEEKLY_LIST.test(source.url) || MONTHLY_LIST.test(source.title ?? "");
-  const notASentence = isTableRowQuote(round.evidence_quote) || isDataPointQuote(round.evidence_quote);
+  const notASentence = byQuoteShape && (isTableRowQuote(round.evidence_quote) || isDataPointQuote(round.evidence_quote));
   return isDirectoryTitle(source.title) || !isArticleUrl(source.url) || (notASentence && !roundupByTitle);
 }
 
@@ -1375,7 +1415,7 @@ function dateRound(item: ExtractedItem, round: ExtractedRound, sourced: Sourced,
   const publishedAt = parseDate(source.published, ctx.now);
   if (publishedAt && publishedAt.getTime() < ctx.opts.windowStart.getTime() - STALE_PAGE_GRACE_MS) return "outOfWindow";
   // A profile or a follow-on story places the round in a past season or month: history, not news.
-  if (!own && !ctx.recalling && mentionsPastPeriod(round.evidence_quote, ctx.opts.windowStart)) return "background";
+  if (!own && !ctx.recalling && mentionsPastPeriod(round.evidence_quote, ctx.opts.windowStart)) return "pastPeriod";
   // A month-dated round gets no grace at the window's edge: a June list read in July is June.
   const monthBeforeWindow = precision === "month" && announced !== null && announced.getTime() < ctx.opts.windowStart.getTime();
   if (!undated && (monthBeforeWindow || !withinWindow(announced, ctx.opts.windowStart, ctx.now, ctx.opts.windowEnd))) return "outOfWindow";
@@ -1479,7 +1519,7 @@ function priceRound(
         sideFinancing?.value === null || !sideFinancing ? null : { value: sideFinancing.value, currency: sideFinancing.currency },
     })
   ) {
-    return "background";
+    return "headlineFigure";
   }
   const usd = convertToUsd(parsed.value, parsed.currency, ctx.opts.rates ?? null, amountText);
   // A valuation is this round's only with its own sentence, checked against the round (valuation.ts).
@@ -1693,13 +1733,13 @@ const STEALTH_LAUNCH = /\b(?:out of|from|in) stealth\b/i;
  */
 function placeEarlierRounds(
   records: FeedRecord[],
-  earlier: FeedRecord[],
+  earlier: Array<{ record: FeedRecord; why: RecallReason }>,
   keep: boolean,
   tiers: Record<string, number>,
-): { records: FeedRecord[]; background: number } {
+): { records: FeedRecord[]; dropped: RecallReason[] } {
   const out = [...records];
-  let background = 0;
-  for (const e of earlier) {
+  const dropped: RecallReason[] = [];
+  for (const { record: e, why } of earlier) {
     const page = e.sources[0]?.url;
     const rung = EQUITY_ORDER[e.stage];
     const at =
@@ -1722,14 +1762,14 @@ function placeEarlierRounds(
       !said.some((text) => STEALTH_LAUNCH.test(text)) ||
       (e.date_basis === "stated" && e.announced_date !== later.announced_date)
     ) {
-      background++;
+      dropped.push(why);
       continue;
     }
     if (keep) {
       out.push(settleRecord(e, tiers));
       continue;
     }
-    background++;
+    dropped.push("background");
     const prior = {
       stage_as_written: e.stage_as_written,
       amount_as_written: e.amount.as_written,
@@ -1740,7 +1780,7 @@ function placeEarlierRounds(
     };
     out[at] = { ...later, earlier_rounds: [...(later.earlier_rounds ?? []), prior] };
   }
-  return { records: out, background };
+  return { records: out, dropped };
 }
 
 /** Once every reading is in: the website against every source, the surest date among them, one set of firms, then the score. */

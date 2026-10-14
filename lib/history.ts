@@ -66,6 +66,7 @@ import {
   searchCredits,
   settleDate,
   verdictSummary,
+  withLeadDate,
   withPriorExtension,
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
@@ -803,6 +804,8 @@ export async function readCandidates(
   ]);
   const tried: PageTry[] = [];
   let credits = 0;
+  // A page already read that states the round on a day outside the lead's span: the lead's date is in doubt.
+  let datedAway = false;
   for (const c of candidates) {
     const extraction = await reader.extract([{ url: c.url, title: c.title, published: c.published, query: `history: ${subject.name}` }]);
     credits += extractionCredits(extraction.pages.filter((p) => p.ok).map((p) => p.url));
@@ -824,14 +827,22 @@ export async function readCandidates(
       // The lead's own page may be the only announcement its round got (a stealth launch's seed beside
       // its Series A); any other page recalling an earlier round dates it by a day that is not its own.
       keepEarlierRounds: Boolean(prior.source_url) && canonicalUrl(c.url) === canonicalUrl(prior.source_url ?? ""),
+      // An article from the time of a dated lead's round is read as the report it is, whatever its sentence's shape.
+      leadSpan: priorDateRange(prior.announced_date) ?? undefined,
     });
     if (resolved.kept.length === 0) {
-      const d = resolved.dropped;
+      // Every empty reading says why: the rounds the resolver dropped, the rounds the page's text does
+      // not bear out, or a page the extractor read no round on at all.
+      const d = { ...resolved.dropped, unquoted: page.unquoted ?? 0 };
       const why = Object.entries(d)
         .filter(([, n]) => n > 0)
         .map(([k, n]) => `${k} ${n}`)
         .join(", ");
-      tried.push({ url: c.url, result: d.rumor > 0 ? REPORTED_NOT_ANNOUNCED : `no rounds kept${why ? ` (${why})` : ""}` });
+      tried.push({
+        url: c.url,
+        result:
+          d.rumor > 0 ? REPORTED_NOT_ANNOUNCED : `no rounds kept (${why || (page.error ? "unreadable reading" : "no round on the page")})`,
+      });
       continue;
     }
     const identity = historyIdentity(subject);
@@ -846,7 +857,12 @@ export async function readCandidates(
       continue;
     }
     const dateline = releaseDateline(extraction.items);
-    const verdicts = resolved.kept.map((r) => ({ r, m: matchPriorRound(prior, r, identity, dateline) }));
+    // A page with no day of its own takes the lead's month (withLeadDate), unless a page read before it dated
+    // the round away from the lead (Marqeta's Series D: the lead said October 2016, FT Partners July 2017).
+    const verdicts = resolved.kept.map((r) => {
+      const m = matchPriorRound(prior, r, identity, dateline);
+      return { r, m: m.ok && !r.announced_date && datedAway ? { ok: false as const, reason: "undated" as const } : m };
+    });
     const best = verdicts
       .filter((v): v is { r: FeedRecord; m: { ok: true; score: number; evidence: string[] } } => v.m.ok)
       .sort((a, b) => b.m.score - a.m.score)[0];
@@ -859,7 +875,7 @@ export async function readCandidates(
     }
     if (best) {
       tried.push({ url: c.url, result: `matched (${best.m.evidence.join(", ")})` });
-      let record = asCompanyRecord(best.r, subject);
+      let record = asCompanyRecord(withLeadDate(best.r, prior), subject);
       // A company's own newsletter (tldraw.substack.com) reads as a roundup, whose day is only its week;
       // the company announcing the round there today makes the post's day the round's.
       if (ownSite && record.date_precision === "week" && record.evidence_quotes.some((q) => ANNOUNCES_NOW.test(q)))
@@ -905,6 +921,7 @@ export async function readCandidates(
       return { record, url: c.url, tried, credits, releaseDateline: dateline };
     }
     const reasons = [...new Set(verdicts.map((v) => (v.m.ok ? "" : v.m.reason)).filter(Boolean))];
+    if (reasons.includes("date")) datedAway = true;
     tried.push({ url: c.url, result: `refused: ${reasons.join(", ")}` });
   }
   return { record: null, url: null, tried, credits };
@@ -1126,7 +1143,7 @@ export async function finishPromotion(
   }
   const again = matchPriorRound(
     prior,
-    asCompanyRecord(checked, subject),
+    asCompanyRecord(withLeadDate(checked, prior), subject),
     historyIdentity(tiedBy(subject, plan.origin)),
     reading.releaseDateline ?? null,
   );
@@ -1140,7 +1157,7 @@ export async function finishPromotion(
     });
     return { ...base, sourced: true, credits, reason };
   }
-  const record = await priceAtDay(reader, withPriorExtension(prior, asCompanyRecord(checked, subject)));
+  const record = await priceAtDay(reader, withPriorExtension(prior, asCompanyRecord(withLeadDate(checked, prior), subject)));
   if (!includeRecent && record.announced_date && Date.parse(record.announced_date) > now.getTime() - HISTORY_RECENT_DAYS * DAY) {
     const next = new Date(Date.parse(record.announced_date) + (HISTORY_RECENT_DAYS + 1) * DAY);
     await writeLedger(handle, companyId, key, {

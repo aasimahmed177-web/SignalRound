@@ -43,7 +43,16 @@ export const NOT_ARTICLE_ERROR = "not an article URL";
 
 export interface ExtractResult {
   items: ExtractedItem[];
-  pages: Array<{ url: string; ok: boolean; rounds: number; ungrounded: number; cached: boolean; error?: string }>;
+  pages: Array<{
+    url: string;
+    ok: boolean;
+    rounds: number;
+    ungrounded: number;
+    /** Rounds the extractor read that the page's own text does not bear out (no evidence sentence, or no company named), set aside before any item. */
+    unquoted?: number;
+    cached: boolean;
+    error?: string;
+  }>;
   creditsEstimated: number;
   /** Targets declined before any scrape: site roots, section indexes, paginated lists, directory hosts. */
   notArticle: number;
@@ -684,7 +693,8 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
         ...(opts.maxAge !== undefined ? { maxAge: opts.maxAge } : {}),
       });
       const quoted = QuotedPage.safeParse(doc.json);
-      const parsed = RoundsPageLenient.safeParse(quoted.success ? groundQuotedPage(quoted.data, doc.markdown ?? "") : doc.json);
+      const grounded = quoted.success ? groundQuotedPage(quoted.data, doc.markdown ?? "") : null;
+      const parsed = RoundsPageLenient.safeParse(grounded ?? doc.json);
       const now = opts.now ?? new Date();
       // The page's own publish date: its published-time metadata when the publisher set it (the
       // CMS wrote it, so it is never a year read off a navigation menu, which the extractor has
@@ -756,6 +766,7 @@ export async function extractRounds(client: Firecrawl, targets: ExtractTarget[],
         ok: true,
         rounds: rounds.length,
         ungrounded: pageRounds.filter((i) => i.grounded === false).length,
+        unquoted: quoted.success ? quoted.data.rounds.length - (grounded?.rounds.length ?? 0) : 0,
         cached: doc.metadata?.cacheState === "hit",
         error: parsed.success ? undefined : parsed.error.message,
       };

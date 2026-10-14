@@ -419,6 +419,45 @@ describe("extractRounds", () => {
     expect(result.items[0].grounded).toBe(true);
   });
 
+  test("a round whose sentence the page does not carry is set aside before any item, and counted", async () => {
+    const invented = "Ollie raised $40 million in a Series B led by Nobody Capital.";
+    const doc = {
+      markdown: ARTICLE,
+      json: {
+        page_kind: "article",
+        page_date: "2026-09-03",
+        rounds: [
+          {
+            ...OLLIE,
+            evidence_quote: invented,
+            amount_scope: "round",
+            financing_total_as_written: null,
+            financing_total_quote: null,
+            valuation_quote: null,
+            debt_quote: null,
+            field_quotes: {
+              company: invented,
+              website: null,
+              description: null,
+              stage: invented,
+              amount: invented,
+              financing_total: null,
+              valuation: null,
+              date: null,
+              headquarters: null,
+              sector: null,
+              lead_investors: [],
+              other_investors: [],
+            },
+          },
+        ],
+      },
+    };
+    const result = await extractRounds(fakeClient(doc), [{ url: OLLIE_URL }], { now: NOW });
+    expect(result.items).toHaveLength(0);
+    expect(result.pages[0]).toMatchObject({ ok: true, rounds: 0, unquoted: 1 });
+  });
+
   test("asks for markdown beside the json format, titles the source from the page, and flags the sidebar round", async () => {
     const calls: Array<Record<string, unknown>> = [];
     const client = fakeClient(
