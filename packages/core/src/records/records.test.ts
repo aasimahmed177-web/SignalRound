@@ -40,7 +40,7 @@ import {
   windowStartFor,
   withinWindow,
 } from "./normalize.ts";
-import { backgroundByPageShape, headlineAmount } from "./page-shape.ts";
+import { backgroundByPageShape, headlineAmount, headlineAmounts } from "./page-shape.ts";
 import type { ExtractedItem } from "./resolve.ts";
 import {
   amountInEvidence,
@@ -2044,6 +2044,20 @@ describe("background rounds: history a page recalls beside its news", () => {
     expect(headlineAmount(title)).toEqual({ value: 3700, currency: "USD" });
     expect(headlineAmount("Acme raises 40 million euros")).toEqual({ value: 40, currency: "EUR" });
     expect(headlineAmount("Acme raises a Series B")).toBeNull();
+    // A headline that leads with the valuation names the round second: the round it names is its news.
+    const worth = "Nubank is now worth $4 billion after Tencent's $180 million investment";
+    expect(headlineAmounts(worth)).toEqual([
+      { value: 4000, currency: "USD", otherMoney: true },
+      { value: 180, currency: "USD", otherMoney: false },
+    ]);
+    const nubank = { title: worth, roundsOnPage: 1, amountValue: 180, amountCurrency: "USD", everyFigure: true };
+    expect(backgroundByPageShape(nubank)).toBe(false);
+    expect(backgroundByPageShape({ ...nubank, amountValue: 20 })).toBe(true);
+    // Revenue, a valuation, or a contract is never the round's figure.
+    const arr = "Cursor raises $900 million Series C; hits $500 million ARR";
+    expect(backgroundByPageShape({ title: arr, roundsOnPage: 2, amountValue: 350, amountCurrency: "USD", everyFigure: true })).toBe(true);
+    // Outside the history lane the first figure alone still decides.
+    expect(backgroundByPageShape({ ...nubank, everyFigure: false })).toBe(true);
     expect(backgroundByPageShape({ title, roundsOnPage: 2, amountValue: 150, amountCurrency: "USD" })).toBe(true);
     expect(
       backgroundByPageShape({
@@ -2484,6 +2498,8 @@ describe("why a round drops, as the history ledger names it", () => {
       evidence_quote: "Acme raised $20 million in a Series A.",
     });
     expect(resolveRounds([{ ...at(news), source: worth }], opts).dropped).toMatchObject({ background: 0, headlineFigure: 1 });
+    // The history lane reads every figure the headline states: the Series A it names second is the page's news.
+    expect(resolveRounds([{ ...at(news), source: worth }], { ...opts, everyHeadlineFigure: true }).kept).toHaveLength(1);
     // The sentence places the round in a past year.
     const recap = round({
       company_name: "Acme",

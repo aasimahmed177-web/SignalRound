@@ -829,6 +829,8 @@ export async function readCandidates(
       keepEarlierRounds: Boolean(prior.source_url) && canonicalUrl(c.url) === canonicalUrl(prior.source_url ?? ""),
       // An article from the time of a dated lead's round is read as the report it is, whatever its sentence's shape.
       leadSpan: priorDateRange(prior.announced_date) ?? undefined,
+      // A headline that leads with the valuation names the round second; the match against the lead guards the rest.
+      everyHeadlineFigure: true,
     });
     if (resolved.kept.length === 0) {
       // Every empty reading says why: the rounds the resolver dropped, the rounds the page's text does

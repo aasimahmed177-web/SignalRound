@@ -119,6 +119,8 @@ export interface ResolveOptions {
    * that mentions the round, a roundup, a round with no stage, and a directory's title or URL still drop it.
    */
   leadSpan?: { from: Date; to: Date };
+  /** Hold a round against every figure its page's headline states, not only the first (see backgroundByPageShape). The history lane sets it. */
+  everyHeadlineFigure?: boolean;
 }
 
 /** How far a page's own day may sit from the lead's span and still be that time's news. */
@@ -1569,6 +1571,7 @@ function priceRound(
   if (
     !ctx.recalling &&
     backgroundByPageShape({
+      everyFigure: ctx.opts.everyHeadlineFigure === true,
       title: source.title,
       roundsOnPage: ctx.roundsPerPost.get(source.url) ?? 1,
       amountValue: parsed.value,
