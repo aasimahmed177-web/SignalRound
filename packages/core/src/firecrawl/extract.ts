@@ -127,15 +127,21 @@ export function sourceTitle(title: string | undefined, url: string, companyNames
   return shared >= TITLE_RENDERS_SLUG * words(slugText).length ? title : undefined;
 }
 
-/** Lower case, markdown link and image syntax reduced to their text, punctuation gone, whitespace collapsed. */
+/**
+ * Lower case, markdown link and image syntax reduced to their text, punctuation gone, whitespace
+ * collapsed. Letters of every script stay, and each Han, kana or Hangul character is a token of its
+ * own: Chinese and Japanese write no spaces, so a quote's words are runs inside the page's longer runs.
+ */
 export function normalizeForGrounding(value: string): string {
   return value
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu, " $& ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -468,9 +474,10 @@ const MONTH_NAMES = [
 ];
 
 /**
- * Whether the page's text writes this day: ISO or slashed ("2026-09-25", "2026/09/25"), a month and a
- * day either way round with or without the year ("September 25, 2026", "25 Sept 2026", "Sep. 25"), or
- * numeric with the year ("09/25/2026", "25.09.2026"). Pure.
+ * Whether the page's text writes this day: ISO or slashed ("2026-09-25", "2026/09/25", also inside
+ * emphasis, "_2026-09-25 07:31_"), a month and a day either way round with or without the year
+ * ("September 25, 2026", "25 Sept 2026", "Sep. 25", "9月25日", "9월 25일"), or numeric with the year
+ * ("09/25/2026", "25.09.2026"). Pure.
  */
 export function textWritesDay(markdown: string, day: Date): boolean {
   const y = day.getUTCFullYear();
@@ -482,7 +489,8 @@ export function textWritesDay(markdown: string, day: Date): boolean {
   const mm = `0?${m}`;
   const month = `(?:${full}|${abbr}\\.?)`;
   const forms = [
-    `\\b${y}[-/]${pad(m)}[-/]${pad(d)}\\b`,
+    `(?<!\\d)${y}[-/]${pad(m)}[-/]${pad(d)}(?!\\d)`,
+    `(?<!\\d)${mm}\\s*[月월]\\s*${dd}\\s*[日일]`,
     `\\b${month}\\s+${dd}(?:st|nd|rd|th)?\\b`,
     `\\b${dd}(?:st|nd|rd|th)?\\s+(?:of\\s+)?${month}\\b`,
     `\\b${mm}/${dd}/${y}\\b`,
@@ -527,7 +535,8 @@ export function writtenDay(value: string | null | undefined, markdown: string | 
 
 /**
  * Whether the page writes this day together with its year: ISO, numeric with the year, a month and day
- * with the year after it ("Oct. 9, 2023", "9 October 2023"), or the month and year alone ("October 2023"). Pure.
+ * with the year after it ("Oct. 9, 2023", "9 October 2023") or before it ("2023年10月9日", "2023년 10월 9일"),
+ * or the month and year alone ("October 2023"). Pure.
  */
 function textWritesDayWithYear(markdown: string, day: Date): boolean {
   const y = day.getUTCFullYear();
@@ -539,7 +548,8 @@ function textWritesDayWithYear(markdown: string, day: Date): boolean {
   const mm = `0?${m}`;
   const month = `(?:${full}|${abbr}\\.?)`;
   const forms = [
-    `\\b${y}[-/]${pad(m)}[-/]${pad(d)}\\b`,
+    `(?<!\\d)${y}[-/]${pad(m)}[-/]${pad(d)}(?!\\d)`,
+    `(?<!\\d)${y}\\s*[年년]\\s*${mm}\\s*[月월]\\s*${dd}\\s*[日일]`,
     `\\b${month}\\s+${dd}(?:st|nd|rd|th)?,?\\s+${y}\\b`,
     `\\b${dd}(?:st|nd|rd|th)?\\s+(?:of\\s+)?${month},?\\s+${y}\\b`,
     `\\b${month},?\\s+${y}\\b`,

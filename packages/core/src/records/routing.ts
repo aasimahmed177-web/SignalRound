@@ -89,10 +89,12 @@ const NOT_A_ROUND_LABEL: Array<[RegExp, string]> = [
  * What the round's sentence must do for a stageless reading: say that money came in. "Acme raised $20
  * million", "secures $450m financing", "led by Bain". A data point in an analysis ("It is followed by
  * Engitix ($25 million)", "Vinpearl's $255 million round was about three-quarters of that") names a
- * figure and no raise, and without a label to go on it is not read as one.
+ * figure and no raise, and without a label to go on it is not read as one. Chinese, Japanese and Korean
+ * write no spaces, so their words count anywhere ("完成新一轮融资", "資金調達を実施", "투자 유치"); Japanese
+ * 融資 is a loan and is not one of them.
  */
 const RAISE_STATED =
-  /\b(?:rais(?:es|ed|ing)|secur(?:es|ed|ing)|clos(?:es|ed|ing)|land(?:s|ed)|bag(?:s|ged)|announc(?:es|ed|ing)|complet(?:es|ed)|receiv(?:es|ed)|obtain(?:s|ed)|pull(?:s|ed|ing) in|nets?|netted|garner(?:s|ed)|attract(?:s|ed)|nab(?:s|bed)|snag(?:s|ged)|scor(?:es|ed)|gets?|got|gotten|putting|puts?|emerg(?:es|ed|ing) from stealth|launch(?:es|ed|ing) with|led by|co-led|leads|leading|invest(?:s|ed|ing|ment)?|backed|injects?|fundraise|financing|funding)\b|\b(?:l[eè]ve|lev[ée]e|a lev[ée]|boucle|sammelt|erh[äa]lt|finanzierung\w*|investiert|recauda|levanta|ronda|financiaci[oó]n|inversi[oó]n|raccoglie|raccolt[aeio]|chiude|chiuso|finanziamento|investimento|capta|rodada|aporte)/i;
+  /\b(?:rais(?:es|ed|ing)|secur(?:es|ed|ing)|clos(?:es|ed|ing)|land(?:s|ed)|bag(?:s|ged)|announc(?:es|ed|ing)|complet(?:es|ed)|receiv(?:es|ed)|obtain(?:s|ed)|pull(?:s|ed|ing) in|nets?|netted|garner(?:s|ed)|attract(?:s|ed)|nab(?:s|bed)|snag(?:s|ged)|scor(?:es|ed)|gets?|got|gotten|putting|puts?|emerg(?:es|ed|ing) from stealth|launch(?:es|ed|ing) with|led by|co-led|leads|leading|invest(?:s|ed|ing|ment)?|backed|injects?|fundraise|financing|funding)\b|\b(?:l[eè]ve|lev[ée]e|a lev[ée]|boucle|inject|r[ée]uni|tour de table|au capital|sammelt|erh[äa]lt|finanzierung\w*|investiert|recauda|levanta|ronda|financiaci[oó]n|inversi[oó]n|raccoglie|raccolt[aeio]|chiude|chiuso|finanziamento|investimento|capta|rodada|aporte)|融资|募资|领投|获投|投资|增资|資金調達|出資|増資|投資|투자|펀딩|조달/i;
 
 /** Money raised for someone else, or by many at once: a charity drive, a cohort's combined total, a fund's deployed capital. */
 const NOT_A_RAISE: Array<[RegExp, string]> = [

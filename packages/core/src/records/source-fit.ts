@@ -9,6 +9,7 @@ import {
   ARTICLE_HOST_EXCEPTIONS,
   canonicalUrl,
   isArticleUrl,
+  isCjkWord,
   isJobPostingUrl,
   NON_ARTICLE_HOSTS,
   normalizeCompanyKey,
@@ -205,7 +206,7 @@ function nameForms(subject: SourceSubject): NameForm[] {
   for (const name of names) {
     const key = normalizeCompanyKey(name);
     if (!key || forms.some((f) => f.key === key)) continue;
-    const distinctive = key.split(" ").filter((t) => t.length >= 3 && !GENERIC_NAME_WORDS.has(t));
+    const distinctive = key.split(" ").filter((t) => (t.length >= 3 || isCjkWord(t)) && !GENERIC_NAME_WORDS.has(t));
     forms.push({ key, distinctive });
   }
   return forms;
@@ -225,7 +226,9 @@ function namesForm(text: string, form: NameForm, prefix: boolean): boolean {
   const words = body.split(" ");
   const present = new Set(words);
   const hit = (t: string) =>
-    present.has(t) || (prefix && words.some((w) => (t.length >= 4 && w.startsWith(t)) || (w.length >= 5 && t.startsWith(w))));
+    present.has(t) ||
+    (isCjkWord(t) && body.includes(t)) ||
+    (prefix && words.some((w) => (t.length >= 4 && w.startsWith(t)) || (w.length >= 5 && t.startsWith(w))));
   return form.distinctive.filter(hit).length >= Math.ceil(form.distinctive.length / 2);
 }
 

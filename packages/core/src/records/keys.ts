@@ -13,13 +13,24 @@ const CORPORATE_SUFFIX_TAIL =
  */
 const LEGAL_SUFFIX_TAIL = /\s(inc|llc|ltd|limited|corp|corporation|co|gmbh|ag|sas|sa|bv|plc|pte|pty|oy|ab|srl)$/;
 
-function foldKey(name: string, tail: RegExp): string {
+/**
+ * Han, kana and Hangul, with the katakana long-vowel mark: a name written in them ("零一万物", "무신사")
+ * has no ASCII letters to fold to, so a company key keeps them rather than keying to nothing. A run of
+ * them is a word of its own, so a Latin name inside Chinese text ("企业MiniMax已完成") stays a word.
+ */
+const CJK_RUN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u30fc]+/gu;
+const CJK_KEY_CHARS = /[^a-z0-9\s\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u30fc]/gu;
+const ASCII_KEY_CHARS = /[^a-z0-9\s]/g;
+
+function foldKey(name: string, tail: RegExp, strip: RegExp = ASCII_KEY_CHARS): string {
   let key = name
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
+    .normalize("NFC")
     .toLowerCase()
     .replace(/&/g, " and ")
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(strip, " ")
+    .replace(CJK_RUN, " $& ")
     .replace(/\s+/g, " ")
     .trim();
   // Suffixes come off the tail one at a time while a word remains before them: "Acme Labs Inc" is
@@ -32,9 +43,9 @@ function foldKey(name: string, tail: RegExp): string {
   return key;
 }
 
-/** Canonical key for a company name: lowercase, ASCII, suffixes and punctuation removed. */
+/** Canonical key for a company name: lowercase, ASCII or CJK letters and digits, suffixes and punctuation removed. */
 export function normalizeCompanyKey(name: string): string {
-  return foldKey(name, CORPORATE_SUFFIX_TAIL);
+  return foldKey(name, CORPORATE_SUFFIX_TAIL, CJK_KEY_CHARS);
 }
 
 /**

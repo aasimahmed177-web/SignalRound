@@ -19,6 +19,15 @@ export function cleanText(value: string | null | undefined): string | null {
   return s;
 }
 
+/**
+ * Whether a name's word is Chinese, Japanese or Korean of two or more characters. Those languages leave
+ * no space around a name, and Korean attaches its particles ("무신사가"), so such a word counts
+ * anywhere inside a text rather than only as a word of it.
+ */
+export function isCjkWord(token: string): boolean {
+  return token.length >= 2 && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(token);
+}
+
 export interface NamesCompanyOptions {
   /** Tokens of the name shorter than this do not count: "and", "the", "co" name nobody. Default 1, every token counts. */
   minTokenLength?: number;
@@ -50,7 +59,9 @@ export function namesCompany(text: string | null | undefined, name: string, opts
   const words = body.split(" ");
   const present = new Set(words);
   const hit = (t: string) =>
-    present.has(t) || (opts.prefix === true && words.some((w) => w.startsWith(t) || (t.startsWith(w) && w.length >= 4)));
+    present.has(t) ||
+    (isCjkWord(t) && body.includes(t)) ||
+    (opts.prefix === true && words.some((w) => w.startsWith(t) || (t.startsWith(w) && w.length >= 4)));
   return tokens.filter(hit).length >= (opts.share ?? 0.5) * tokens.length;
 }
 
@@ -96,11 +107,11 @@ export function classifyStage(label: string): StageClassification {
   // label stays on the record as stage_as_written, so the reader sees "Form D (equity)".
   if (/\bform d\b/.test(t)) return /\b(?:safe|simple agreement for future equity)\b/.test(t) ? done("convertible") : done("other");
 
-  if (/\bpre[\s-]*seed\b/.test(t) || /\bangel\b/.test(t)) return done("pre_seed");
+  if (/\bpre[\s-]*seed\b/.test(t) || /\bangel\b|天使|エンジェル|엔젤/.test(t)) return done("pre_seed");
   if (/\bpre[\s-]*a\b/.test(t)) return done("pre_a");
   // "Pre-Series A" is the bridge between seed and A, not a pre-seed.
   if (/\bpre[\s-]*series\b/.test(t)) return done("bridge");
-  if (/\bseed\b/.test(t)) return done("seed");
+  if (/\bseed\b|种子|種子|シード|시드/.test(t)) return done("seed");
   if (/\bbridge\b/.test(t)) return done("bridge");
   if (/\b(debt|venture debt|credit facility|growth capital facility|multi[ -]year facility|loan)\b/.test(t)) return done("debt");
   if (/\bgrant\b/.test(t)) return done("grant");
@@ -108,10 +119,11 @@ export function classifyStage(label: string): StageClassification {
   if (/\bsecondary\b/.test(t)) return done("secondary");
   if (/\bundisclosed\b/.test(t)) return done("undisclosed");
 
-  // "Série A" and "Serie B" are the French, Spanish, and Italian for a lettered round.
-  const m = /\bs[eé]ries?[\s-]*([a-z])(?:\d|\b)/.exec(t);
+  // "Série A" and "Serie B" are the French, Spanish, and Italian for a lettered round; "C轮", "シリーズA"
+  // and "시리즈C" the Chinese, Japanese, and Korean.
+  const m = /\bs[eé]ries?[\s-]*([a-z])(?:\d|\b)|(?<![a-z])([a-j])\+?\d*\s*[轮輪]|(?:シリーズ|시리즈)\s*([a-j])(?![a-z])/.exec(t);
   if (m) {
-    const letter = m[1];
+    const letter = m[1] ?? m[2] ?? m[3] ?? "";
     if (letter === "a") return done("series_a");
     if (letter === "b") return done("series_b");
     if (letter === "c") return done("series_c");
@@ -659,6 +671,14 @@ const MONEY_FIGURE =
 const ROUND_CLAUSE =
   /\b(?:rais(?:e|es|ed|ing)|secur(?:e|es|ed|ing)|clos(?:e|es|ed|ing)|land(?:s|ed|ing)?|bag(?:s|ged)?|nab(?:s|bed)?|snag(?:s|ged)?|pull(?:s|ed)? in|announc(?:e|es|ed|ing)|complet(?:e|es|ed|ing)|receiv(?:e|es|ed|ing)|obtain(?:s|ed)?|attract(?:s|ed)?|garner(?:s|ed)?|gets?|got|win(?:s)?|won|led|leads?|co-?led|backed|invest(?:s|ed|ing)?|inject(?:s|ed)?|fund(?:s|ed|ing)|net(?:s|ted)|scor(?:e|es|ed)|lock(?:s|ed)? in|rak(?:e|es|ed) in|clinch(?:es|ed)?|seal(?:s|ed)?|pick(?:s|ed)? up|haul(?:s|ed)?|draw(?:s|n)?|drew|captur(?:e|es|ed)|bring(?:s)? in|brought in|tak(?:e|es) in|took in|extend(?:s|ed)?|expand(?:s|ed)?|add(?:s|ed)?|allocat(?:e|es|ed)|participat(?:e|es|ed)|join(?:s|ed|ing)?|contribut(?:e|es|ed)|unveil(?:s|ed)?|reveal(?:s|ed)?|disclos(?:e|es|ed)|confirm(?:s|ed)?|emerg(?:e|es|ed|ing)|launch(?:es|ed|ing)?|debut(?:s|ed)?|came out|comes out|sold|sells|reported|has|have|had|was|were|is|are)\b/i;
 
+/**
+ * The same clause in French, Spanish, Italian, Portuguese and German ("a bouclé", "vient de lever",
+ * "recauda", "raccoglie", "sammelt"), and Chinese, Japanese and Korean, whose sentences carry no English
+ * verb at all and would otherwise all read as data points.
+ */
+const ROUND_CLAUSE_ELSEWHERE =
+  /\b(?:annon[cç]\w*|boucl\w*|l[eè]v\w*|r[ée]ali[sz]\w*|r[ée]uni\w*|inject\w*|ajout\w*|entre|obtien\w*|obtenu|finalis\w*|poursui\w*|vient|recaud\w*|levant\w*|cerr\w*|cierr\w*|anunci\w*|consigu\w*|sammel\w*|erh[äa]lt|erhielt|abgeschlossen|raccogli\w*|raccolt\w*|chiud\w*|ottien\w*|capt\w*|receb\w*)\b|完成|获得|获投|宣布|领投|融资|募资|調達|実施|発表|完了|유치|완료|했다/i;
+
 /** A word that names a round: its stage, or the round itself. "Megarounds" in a trend story's headline is not one. */
 const ROUND_WORD = /\b(?:pre[\s-]?seed|seed|series[\s-]+[a-z]\b|round|funding|financing|investment|raise)\b/i;
 
@@ -672,7 +692,7 @@ const ROUND_WORD = /\b(?:pre[\s-]?seed|seed|series[\s-]+[a-z]\b|round|funding|fi
  * either way, and a quote of a word or two is a label; neither is one.
  */
 export function isDataPointQuote(quote: string | null | undefined): boolean {
-  if (!quote || ROUND_CLAUSE.test(quote)) return false;
+  if (!quote || ROUND_CLAUSE.test(quote) || ROUND_CLAUSE_ELSEWHERE.test(quote)) return false;
   if (MONEY_FIGURE.test(quote)) return true;
   return !ROUND_WORD.test(quote) && quote.trim().split(/\s+/).length >= 3;
 }
@@ -1128,10 +1148,53 @@ const SPELLED_AMOUNT = new RegExp(
   "gi",
 );
 
+/** Chinese, Japanese and Korean count large figures in ten-thousands and hundred-millions. */
+const CJK_AMOUNT_UNITS: Record<string, number> = {
+  千万: 1e7,
+  천만: 1e7,
+  百万: 1e6,
+  백만: 1e6,
+  万: 1e4,
+  萬: 1e4,
+  만: 1e4,
+  亿: 1e8,
+  億: 1e8,
+  억: 1e8,
+};
+const CJK_AMOUNT = new RegExp(`(\\d+(?:[.,]\\d+)*)\\s*(${Object.keys(CJK_AMOUNT_UNITS).join("|")})`, "g");
+/** A currency written after a figure in Chinese, Japanese or Korean, as the English word parseAmount reads. */
+const CJK_CURRENCIES: Record<string, string> = {
+  美元: "US dollars",
+  美金: "US dollars",
+  달러: "US dollars",
+  港元: "HKD",
+  港币: "HKD",
+  港幣: "HKD",
+  欧元: "euros",
+  歐元: "euros",
+  英镑: "pounds",
+  英鎊: "pounds",
+  日元: "yen",
+  日圓: "yen",
+  円: "yen",
+  人民币: "yuan",
+  人民幣: "yuan",
+  元: "yuan",
+  원: "won",
+};
+const CJK_CURRENCY = new RegExp(`(\\d|million)\\s*(${Object.keys(CJK_CURRENCIES).join("|")})`, "g");
+
 export function normalizeAmountText(text: string): string {
   let normalized = text
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
+    .replace(CJK_AMOUNT, (_, figure: string, unit: string) => {
+      const millions = (Number(figure.replace(/,/g, "")) * (CJK_AMOUNT_UNITS[unit] ?? 1)) / 1e6;
+      return `${Math.round(millions * 1e6) / 1e6} million `;
+    })
+    .replace(CJK_CURRENCY, (_, before: string, currency: string) => `${before} ${CJK_CURRENCIES[currency]}`)
+    .replace(/(?<!\d)\d{1,3}(?: \d{3})+(?!\d)/g, (figure) => figure.replace(/ /g, ""))
     .replace(/ß/g, "ss")
     .replace(/(\d)-(?=(?:million|billion|thousand)\b)/gi, "$1 ")
     .replace(/\b(?:millones|millon|millionen|millions|milioni|milione|milhoes|milhao|mio\.?)\b/gi, "million")
