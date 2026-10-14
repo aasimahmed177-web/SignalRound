@@ -403,11 +403,14 @@ export async function publisherDomain(handle: Db, domain: string, companyKey: st
 /**
  * The company row a record with this domain belongs to. When another row already owns the
  * domain, the candidate is folded into it and the owner's id comes back; otherwise the candidate.
+ * A candidate with a domain of its own is another company: it is never folded, and keeps the record.
  */
 export async function claimDomain(handle: Db, candidateId: string, domain: string | null): Promise<string> {
   if (!domain) return candidateId;
   const [owner] = await handle.select({ id: companies.id }).from(companies).where(eq(companies.domain, domain)).limit(1);
   if (!owner || owner.id === candidateId) return candidateId;
+  const [candidate] = await handle.select({ domain: companies.domain }).from(companies).where(eq(companies.id, candidateId)).limit(1);
+  if (candidate?.domain && candidate.domain !== domain) return candidateId;
   await mergeCompanies(handle, candidateId, owner.id);
   return owner.id;
 }
@@ -1111,7 +1114,12 @@ export async function persistRecords(
     const me = recordIdentity(r);
     const collision =
       candidates.some((c) => c.nameKey === r.company_key) && !candidates.some((c) => c.nameKey === r.company_key && identityAgrees(c, r));
-    if (collision && !options.companyId) {
+    // A round id is the name key plus the round, so a namesake can hold this very id. When its company's
+    // domain is not the reading's, the row is the namesake's (Odyssey Energy's, not Odyssey the world-model
+    // lab's), whichever lane reads it: the history lane's known company does not make it this company's.
+    const holder = candidates.find((c) => c.id === r.id);
+    const namesakeHolds = Boolean(holder?.domain && r.company_domain && holder.domain !== r.company_domain);
+    if ((collision && !options.companyId) || namesakeHolds) {
       const fork = `${r.id}:identity:${r.company_domain ?? registrableDomain(r.sources[0]?.url) ?? "unknown"}`;
       r.id = (await tombstoneTargets(handle, [fork])).get(fork) ?? fork;
     }
