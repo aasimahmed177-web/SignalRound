@@ -145,7 +145,10 @@ const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
  * printed with its parent's name is NVentures; SoftBank's first Vision Fund numbered is the Vision Fund; a firm's
  * operating or legal entity ("Sequoia Capital Operations", "Wellington Management Company", "BoxGroup Services") is the
  * firm; a person printed with a title ("Kleiner Perkins Chairman John Doerr") is the person; an arm under its old or
- * legal name is the arm ("Google Capital" is CapitalG, "Microsoft's Venture Fund" is M12).
+ * legal name is the arm ("Google Capital" is CapitalG, "Microsoft's Venture Fund" is M12); CPP Investments, "Canada Pension
+ * Plan" and "CPPIB" are the Canada Pension Plan Investment Board; a firm's name printed split or joined ("SVAngel", "Signal
+ * Fire", "Prosperity 7"), its spelled-out old name ("Charles River Ventures", "Technology Crossover Ventures", "Data Collective")
+ * or its short form ("QIA", "JP Morgan", "The Invus Group") is the firm.
  */
 const RENAMED: Record<string, string> = {
   "andreessen horowitz csx": "andreessen horowitz speedrun",
@@ -175,6 +178,21 @@ const RENAMED: Record<string, string> = {
   "google capital": "capitalg",
   "microsoft venture": "m12",
   "microsoft ventures": "m12",
+  "canada pension plan": "canada pension plan investment board",
+  cppib: "canada pension plan investment board",
+  svangel: "sv angel",
+  "black rock": "blackrock",
+  "charles river": "crv",
+  "technology crossover": "tcv",
+  qia: "qatar investment authority",
+  "data collective": "dcvc",
+  "peakx v": "peak xv",
+  "jp morgan": "j p morgan",
+  gsquared: "g squared",
+  "the invus": "invus",
+  "signal fire": "signalfire",
+  "prosperity 7": "prosperity7",
+  "next view": "nextview",
 };
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */

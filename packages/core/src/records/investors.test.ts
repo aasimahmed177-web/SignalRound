@@ -596,6 +596,24 @@ describe("rule 4: one firm, one entry", () => {
       ["BoxGroup Services", "BoxGroup"],
       ["Nexus VP", "Nexus Venture Partners"],
       ["Kleiner Perkins Chairman John Doerr", "John Doerr"],
+      ["CPP Investments", "Canada Pension Plan Investment Board"],
+      ["Canada Pension Plan Investment Board (CPP Investments)", "CPP Investments"],
+      ["CPPIB", "CPP Investments"],
+      ["Canada Pension Plan", "CPP Investments"],
+      ["CPP Investment Board", "CPP Investments"],
+      ["SVAngel", "SV Angel"],
+      ["Black Rock", "BlackRock"],
+      ["Charles River Ventures (CRV)", "CRV"],
+      ["Technology Crossover Ventures (TCV)", "TCV"],
+      ["QIA", "Qatar Investment Authority (QIA)"],
+      ["Data Collective (DCVC)", "DCVC"],
+      ["PeakX V", "Peak XV Partners"],
+      ["JP Morgan", "J.P. Morgan"],
+      ["GSquared", "G Squared"],
+      ["The Invus Group", "Invus"],
+      ["Signal Fire", "SignalFire"],
+      ["Prosperity 7 Ventures", "Prosperity7 Ventures"],
+      ["Next View", "NextView Ventures"],
     ])
       expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
     expect(investorKeyForMerge("Sequoia Capital China")).not.toBe(investorKeyForMerge("Sequoia Capital"));
@@ -607,6 +625,7 @@ describe("rule 4: one firm, one entry", () => {
     // Only the whole name: a fund that starts with the short form keeps its own key.
     expect(investorKeyForMerge("YC Continuity Fund")).not.toBe(investorKeyForMerge("Y Combinator"));
     expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));
+    expect(investorKeyForMerge("Charles River Laboratories")).not.toBe(investorKeyForMerge("CRV"));
   });
 
   test("an investing arm named as its parent plus a vehicle word is its own investor: Bain Capital Ventures is not Bain Capital", () => {
