@@ -82,7 +82,8 @@ const INVESTOR_GENERIC_TAIL =
  * Investing arms named as their parent plus a vehicle word or a strategy, where the parent invests on its own. Each is
  * its own investor, as NVentures is not NVIDIA: the tail stays on ("Bain Capital Ventures" is not Bain Capital, "Google
  * Ventures" is GV and not Google), and the one-firm rules in investors.ts never fold an arm into its parent or a
- * sibling ("Bain Capital Crypto"). An arm publishers name either way stays keyed as its parent ("Qualcomm Ventures" is
+ * sibling ("Bain Capital Crypto"). A firm whose bare name another firm holds is listed the same way: Fuel Ventures in
+ * London and Fuel Venture Capital in Miami are not Fuel Capital in San Francisco. An arm publishers name either way stays keyed as its parent ("Qualcomm Ventures" is
  * Qualcomm, "Point72 Ventures" is Point72).
  */
 export const INVESTOR_ARMS = new Set([
@@ -93,6 +94,8 @@ export const INVESTOR_ARMS = new Set([
   "google capital",
   "microsoft venture",
   "microsoft ventures",
+  "fuel ventures",
+  "fuel venture capital",
 ]);
 
 /**

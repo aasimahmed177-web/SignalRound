@@ -617,6 +617,9 @@ describe("rule 4: one firm, one entry", () => {
       ["Google Ventures", "Google"],
       ["Google Capital", "Google"],
       ["Microsoft's Venture Fund", "Microsoft"],
+      ["Fuel Ventures", "Fuel Capital"],
+      ["Fuel Venture Capital", "Fuel Capital"],
+      ["Fuel Ventures", "Fuel Venture Capital"],
     ])
       expect(investorKeyForMerge(arm), `${arm} vs ${parent}`).not.toBe(investorKeyForMerge(parent));
     for (const [a, b] of [
@@ -627,6 +630,8 @@ describe("rule 4: one firm, one entry", () => {
       ["Microsoft's Venture Fund", "M12"],
       ["Microsoft Ventures", "M12"],
       ["Bain Capital, LP", "Bain Capital"],
+      ["Fuel Ventures Ltd", "Fuel Ventures"],
+      ["Fuel Capital", "Fuel"],
     ])
       expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
     // A firm's own two names still meet: the vehicle word is part of the arm's name only.
@@ -637,6 +642,7 @@ describe("rule 4: one firm, one entry", () => {
     expect(investorKeyForMerge("Point72 Ventures")).toBe(investorKeyForMerge("Point72"));
     expect(dedupeInvestorNames(["Bain Capital", "Bain Capital Ventures"])).toHaveLength(2);
     expect(dedupeInvestorNames(["Bain Capital", "Bain Capital Crypto"])).toHaveLength(2);
+    expect(dedupeInvestorNames(["Fuel Capital", "Fuel Ventures"])).toHaveLength(2);
     expect(dedupeInvestorNames(["Bain Capital Ventures", "Bain Capital Ventures (BCV)"])).toHaveLength(1);
   });
 
