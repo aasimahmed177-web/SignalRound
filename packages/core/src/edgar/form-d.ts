@@ -234,6 +234,15 @@ export function primaryDocUrl(hit: Pick<FormDHit, "cik" | "adsh">): string {
   return `${EDGAR_ARCHIVES_URL}/${Number(hit.cik)}/${hit.adsh.replace(/-/g, "")}/primary_doc.xml`;
 }
 
+/**
+ * The filing's form view: EDGAR's rendering of primary_doc.xml as the form, offering and sales amounts
+ * included. The source a round cites, so a reader and the read-back see the figure; the index page lists
+ * only the documents and would leave the read-back nothing to confirm the amount with.
+ */
+export function formViewUrl(hit: Pick<FormDHit, "cik" | "adsh">): string {
+  return `${EDGAR_ARCHIVES_URL}/${Number(hit.cik)}/${hit.adsh.replace(/-/g, "")}/xslFormDX01/primary_doc.xml`;
+}
+
 export interface FormDPerson {
   name: string;
   relationships: string[];
@@ -484,8 +493,19 @@ export function formDHeadquarters(filing: FormDFiling): string | null {
   return [city, region].filter(Boolean).join(", ") || null;
 }
 
+/** The security types the form names; anything else in securityTypes is an issuer's own description of "other". */
+const FORM_SECURITY_TYPES = new Set(["equity", "debt", "options", "securities to be acquired"]);
+
+/**
+ * The round's label: the form's own security types, with an issuer's free-text description of an
+ * "other" type shown as "other" (a unit offering's terms are not a stage).
+ */
 export function formDLabel(filing: FormDFiling): string {
-  const types = filing.securityTypes.filter((t) => t !== "pooled investment fund interests");
+  const types = [
+    ...new Set(
+      filing.securityTypes.filter((t) => t !== "pooled investment fund interests").map((t) => (FORM_SECURITY_TYPES.has(t) ? t : "other")),
+    ),
+  ];
   return types.length > 0 ? `Form D (${types.join(", ")})` : "Form D";
 }
 
@@ -517,11 +537,12 @@ export function formDTitle(filing: Pick<FormDFiling, "issuer">, hit: Pick<FormDH
 /**
  * A kept filing as the extraction item the resolver takes. The stage rule for "Form D" maps to
  * `other` (see classifyStage), so the lane's workflow passes stages that include it. A first sale
- * yet to occur is dated by the filing instead, so the record is never undated. The source carries
- * the filing's own title and date, so it never renders as a bare EDGAR URL.
+ * yet to occur is dated by the filing instead, so the record is never undated. The source is the form
+ * view, which states the amounts, with the filing's own title and date, so it never renders as a bare
+ * EDGAR URL. The seen ledger keys on the index URL (runFormD's handled).
  */
 export function formDItem(filing: FormDFiling, hit: FormDHit): ExtractedItem {
-  const url = filingIndexUrl(hit);
+  const url = formViewUrl(hit);
   const amountAsWritten = `$${usd.format(filing.totalAmountSold ?? 0)}`;
   const announced = filing.dateOfFirstSale ?? hit.fileDate;
   return {

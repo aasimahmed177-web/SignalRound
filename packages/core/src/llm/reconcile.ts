@@ -10,7 +10,7 @@ import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { mapLimit } from "../firecrawl/credits.ts";
 import { groundingCheck } from "../firecrawl/extract.ts";
-import { applyCorrection, samePage } from "../records/correction.ts";
+import { applyCorrection, samePage, textsStateMoney } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
 import { investorMentions, type LeadRound, leadOfAnotherRound, soleInvestor, statedRole } from "../records/investors.ts";
 import { FIGURE, moneyKindFromSentence } from "../records/money-kind.ts";
@@ -297,7 +297,13 @@ export function applyReconciliation(record: FeedRecord, v: Reconciliation, opts:
       announcement: v.is_announcement,
       companyMatches: v.company_matches,
       stage,
-      amount: { ...amount, fillsEmpty: true },
+      amount: {
+        ...amount,
+        fillsEmpty: true,
+        readStatesMoney: opts.pages
+          ? textsStateMoney(opts.pages.map((p) => `${p.title ?? ""}\n${p.markdown.slice(0, PAGE_CHARS)}`))
+          : undefined,
+      },
       valuation,
       date: {
         ...date,

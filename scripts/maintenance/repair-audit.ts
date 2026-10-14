@@ -71,7 +71,7 @@ function preferredSource(row: AuditRow): AuditRow["sources"][number] | null {
     .map((source) => {
       const host = hostOf(source.url);
       const onOwnSite = own.some((site) => hostOf(site) === host);
-      const filing = host.endsWith("sec.gov") && /-index\.htm$/i.test(source.url);
+      const filing = host.endsWith("sec.gov") && /(?:-index\.htm|\/primary_doc\.xml)$/i.test(source.url);
       const wire = /(?:prnewswire|businesswire|globenewswire)\.com$/.test(host);
       const aboutCompany =
         namesCompany(source.title, row.company, { share: 0.5 }) ||

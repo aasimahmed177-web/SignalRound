@@ -13,6 +13,7 @@ import {
   filingIndexUrl,
   formDResolveStart,
   formDSpanChunks,
+  formViewUrl,
   primaryDocUrl,
   searchFormD,
   searchUrl,
@@ -36,6 +37,7 @@ describe("EDGAR addressing", () => {
     const hit = { cik: "0001706556", adsh: "0001706556-26-000003" };
     expect(primaryDocUrl(hit)).toBe("https://www.sec.gov/Archives/edgar/data/1706556/000170655626000003/primary_doc.xml");
     expect(filingIndexUrl(hit)).toBe("https://www.sec.gov/Archives/edgar/data/1706556/000170655626000003/0001706556-26-000003-index.htm");
+    expect(formViewUrl(hit)).toBe("https://www.sec.gov/Archives/edgar/data/1706556/000170655626000003/xslFormDX01/primary_doc.xml");
   });
 
   test("the User-Agent comes from EDGAR_USER_AGENT with a default", () => {

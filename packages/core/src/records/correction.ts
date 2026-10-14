@@ -7,6 +7,7 @@
 
 import { convertToUsd, type RateTable } from "./fx.ts";
 import { dedupeInvestorNames, investedInRound, leadOfAnotherRound, normalizeInvestorName } from "./investors.ts";
+import { FIGURE } from "./money-kind.ts";
 import { canonicalUrl, classifyStage, dateFromUrl, hostOf, parseAmount, parseStatedDate } from "./normalize.ts";
 import { MONTHLY_LIST, reconcileInvestorLists, scoreConfidence, WEEKLY_LIST } from "./resolve.ts";
 import type { FeedRecord } from "./schema.ts";
@@ -34,6 +35,12 @@ export interface Correction {
      * figure for a tranche was the round's cumulative total); the reconciler cites the sentence it read.
      */
     fillsEmpty: boolean;
+    /**
+     * Whether the text read states any money figure, or says the terms were not disclosed. False keeps a
+     * stored amount the verdict found on no page: a page with no number in it (a filing's index, a cookie
+     * wall, a missing page) says nothing against one. Undefined when the caller has no text (the judge).
+     */
+    readStatesMoney?: boolean;
   };
   date: Stated & {
     /**
@@ -96,6 +103,20 @@ function echoesListDate(r: FeedRecord, d: Date, url: string | null): boolean {
     Math.abs(d.getTime() - pageOwnDay.getTime()) <= 86_400_000 &&
     listDay.getTime() === pageOwnDay.getTime()
   );
+}
+
+const FIGURE_ANY = new RegExp(FIGURE.source, "i");
+const FIGURE_WORDS =
+  /\d[\d,.]*\s*(?:million|billion|trillion|crore|lakh|mn|bn|mln|millones|millions|milliards?|mio\.?|mrd\.?|yuan|won|yen|euros?|dollars|pounds|rupees)\b|\d\s*[亿万]/i;
+const UNDISCLOSED =
+  /\b(?:undisclosed|not (?:been )?(?:disclosed|revealed)|did(?: not|n't) (?:disclose|reveal)|declined to (?:disclose|reveal|say)|without disclosing|terms were not)\b/i;
+
+/**
+ * Whether any of the texts states a money figure ("$2.6 million", "€15m", "10 billion won") or says the
+ * terms were not disclosed. A filing's index page lists file sizes and numbers, never a figure.
+ */
+export function textsStateMoney(texts: string[]): boolean {
+  return texts.some((t) => FIGURE_ANY.test(t) || FIGURE_WORDS.test(t) || UNDISCLOSED.test(t));
 }
 
 /** One page under two spellings of its URL: the scheme, a www, and a trailing slash say nothing. */
@@ -176,9 +197,10 @@ export function applyCorrection(record: FeedRecord, c: Correction, opts: Correct
     }
   }
 
-  // Amount: what no page states is not the round's; what a page states differently replaces.
+  // Amount: what no page states is not the round's, unless no page read states any figure at all; what a
+  // page states differently replaces.
   if (!c.amount.value) {
-    if (r.amount.as_written !== null) {
+    if (r.amount.as_written !== null && c.amount.readStatesMoney !== false) {
       notes.push(`amount ${r.amount.as_written} not stated for this round`);
       r.amount = { value: null, currency: null, as_written: null, usd_millions: null, fx_rate: null, fx_date: null };
       corrected = true;

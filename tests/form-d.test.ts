@@ -15,6 +15,7 @@ import {
   formDIsCorporation,
   formDItem,
   formDTitle,
+  formViewUrl,
   hitIsPooledFund,
   hitIsPublicIssuer,
   materialChange,
@@ -560,13 +561,13 @@ describe("formDItem and resolveRounds", () => {
       company_description: null,
       sector: null,
       valuation_as_written: null,
-      source_url: filingIndexUrl(hitOf(FIXTURES[0])),
+      source_url: formViewUrl(hitOf(FIXTURES[0])),
     });
     expect(item.round.evidence_quote).toBe(
       "Acme Robotics, Inc. reported in a Form D filed 2026-09-03 that it sold $4,600,000 of equity securities under Regulation D of a $5,000,000 offering (first sale 2026-08-28; 12 investors; Other Technology).",
     );
     expect(item.source).toEqual({
-      url: filingIndexUrl(hitOf(FIXTURES[0])),
+      url: formViewUrl(hitOf(FIXTURES[0])),
       host: "sec.gov",
       title: "Form D: Acme Robotics, Inc.",
       published: "2026-09-03",
@@ -622,6 +623,26 @@ describe("formDItem and resolveRounds", () => {
     );
     expect(pending.round.announced_date).toBe("2026-09-03");
     expect(pending.round.evidence_quote).toContain("first sale yet to occur");
+  });
+
+  test("the source is the form view, which states the amounts; the seen ledger keeps the index URL", () => {
+    const hit = hitOf(FIXTURES[0]);
+    const item = formDItem(parseFormD(FIXTURES[0].xml), hit);
+    expect(item.source.url).toBe(formViewUrl(hit));
+    expect(item.source.url).toMatch(/\/xslFormDX01\/primary_doc\.xml$/);
+    expect(item.round.source_url).toBe(item.source.url);
+    expect(filingIndexUrl(hit)).toMatch(/-index\.htm$/);
+  });
+
+  test("a unit offering's own description of its securities is not the label (Bullfrog Gold, 2026-10-13)", () => {
+    const filing = live("bullfrog-gold-units");
+    expect(filing.totalAmountSold).toBe(1208988);
+    expect(filing.securityTypes).toContain(
+      "each unit consists of 1 cm sh and 1/2 cm sh purchase wrt. each wrt is exercisable to acquire 1 cm sh at a price of cad$0.30 until 10/05/2028.",
+    );
+    expect(formDItem(filing, hitOf(FIXTURES[0])).round.round_type_as_written).toBe(
+      "Form D (equity, options, securities to be acquired, other)",
+    );
   });
 });
 
