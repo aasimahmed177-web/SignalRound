@@ -49,6 +49,22 @@ export interface InvestorRepairPlan {
   conflicts: Array<{ id: string; name: string; into: string; intoName: string }>;
 }
 
+/** Nouns that name a kind of vehicle, not which one: "Fund", "Capital", "Venture Partners". */
+const VEHICLE_WORDS = new Set([
+  "fund",
+  "funds",
+  "capital",
+  "venture",
+  "ventures",
+  "partners",
+  "group",
+  "holdings",
+  "management",
+  "investment",
+  "investments",
+  "vc",
+]);
+
 /** Words that say nothing about which firm a name is. */
 const FILLER_WORDS = new Set(["the", "of", "and", "s", "co", "company", "inc", "llc", "ltd"]);
 
@@ -83,11 +99,12 @@ function compatible(a: string, b: string): boolean {
  * under its own name: "Toyota's Woven Capital" is the "Woven Capital" row, "Nvidia's NVentures" the
  * "NVentures" row. Name rules alone cannot tell this from a possessive inside a name ("Monk's Hill
  * Ventures"), so it needs a row with exactly the vehicle's words to exist ("Sovereign's Capital" is
- * not "Capital Group").
+ * not "Capital Group"), and a vehicle of its own name: in "Founder's Fund", "Let's Venture" or
+ * "Sovereign's Capital" the possessive is the name, and the bare "Fund" after it is not the "Fund+" row.
  */
 function ownedVehicleKey(name: string, namesByKey: Map<string, string>): string | null {
   const vehicle = /^.+?['\u2019]s\s+([A-Z0-9].*)$/.exec(name)?.[1]?.trim();
-  if (!vehicle) return null;
+  if (!vehicle || [...nameWords(vehicle)].every((w) => VEHICLE_WORDS.has(w))) return null;
   const key = investorKeyForMerge(vehicle);
   const stored = namesByKey.get(key);
   if (!stored) return null;

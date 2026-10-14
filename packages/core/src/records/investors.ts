@@ -889,7 +889,8 @@ const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
 /**
  * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
  * speedrun; "YC" alone is Y Combinator; Sequoia's Indian and Chinese arms are printed with and without "Capital"; a firm's
- * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm.
+ * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm; T. Rowe Price's adviser, "T. Rowe Price
+ * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund.
  */
 const RENAMED: Record<string, string> = {
   "andreessen horowitz csx": "andreessen horowitz speedrun",
@@ -906,6 +907,8 @@ const RENAMED: Record<string, string> = {
   kpcb: "kleiner perkins",
   "kleiner perkins caufield and byers": "kleiner perkins",
   "kleiner perkins caufield byers": "kleiner perkins",
+  "t rowe price associates": "t rowe price",
+  founder: "founders",
 };
 
 /** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */

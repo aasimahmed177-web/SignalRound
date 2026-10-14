@@ -582,9 +582,15 @@ describe("rule 4: one firm, one entry", () => {
       ["KPCB", "Kleiner Perkins"],
       ["Kleiner Perkins Caufield & Byers", "Kleiner Perkins"],
       ["Kleiner Perkins Caufield Byers (KPCB)", "Kleiner Perkins"],
+      ["T. Rowe Price Associates", "T. Rowe Price"],
+      ["T. Rowe Price Associates, Inc.", "T. Rowe Price"],
+      ["Founder’s Fund", "Founders Fund"],
+      ["Founder's Fund", "Founders Fund"],
     ])
       expect(investorKeyForMerge(a), `${a} vs ${b}`).toBe(investorKeyForMerge(b));
     expect(investorKeyForMerge("Sequoia Capital China")).not.toBe(investorKeyForMerge("Sequoia Capital"));
+    expect(investorKeyForMerge("Founder Collective")).not.toBe(investorKeyForMerge("Founders Fund"));
+    expect(investorKeyForMerge("Founder’s Co-op")).not.toBe(investorKeyForMerge("Founders Fund"));
     // Only the whole name: a fund that starts with the short form keeps its own key.
     expect(investorKeyForMerge("YC Continuity Fund")).not.toBe(investorKeyForMerge("Y Combinator"));
     expect(investorKeyForMerge("Sequoia India Seed Fund")).not.toBe(investorKeyForMerge("Sequoia Capital India"));

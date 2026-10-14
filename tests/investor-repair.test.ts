@@ -122,6 +122,52 @@ describe("repair-investors", () => {
     expect(links.filter((l) => l.investorId === "d e shaw")).toHaveLength(1);
   });
 
+  test("a possessive that is part of the name is not an owner's vehicle", async () => {
+    const db = await testDb();
+    const round = record({ company_name: "Acme", lead_investors: ["Fund One"] });
+    await persistRecords(db, [round], "series-a-b", "run-1");
+    const { investors, roundInvestors } = schema;
+    await db.insert(investors).values([
+      { id: "founder s", name: "Founder’s Fund" },
+      { id: "founders", name: "Founders Fund" },
+      { id: "fund", name: "Fund+" },
+      { id: "let s", name: "Let’s Venture" },
+      { id: "venture", name: "Venture" },
+      { id: "sovereign s", name: "Sovereign’s Capital" },
+      { id: "capital", name: "Capital" },
+      { id: "builders", name: "Builders’ Fund" },
+      { id: "monk hill", name: "Monk's Hill Ventures" },
+      { id: "toyota s woven", name: "Toyota’s Woven Capital" },
+      { id: "woven", name: "Woven Capital" },
+    ]);
+    await db
+      .insert(roundInvestors)
+      .values(
+        [
+          "founder s",
+          "founders",
+          "fund",
+          "let s",
+          "venture",
+          "sovereign s",
+          "capital",
+          "builders",
+          "monk hill",
+          "toyota s woven",
+          "woven",
+        ].map((investorId) => ({ roundId: round.id, investorId, role: "participant" as const })),
+      );
+    const plan = await planInvestorRepair(db);
+    // An owner's vehicle still folds; "Fund", "Venture" and "Capital" alone are nobody's vehicle.
+    expect(plan.merge.map((m) => [m.id, m.into]).sort()).toEqual([
+      ["let s", "let"],
+      ["sovereign s", "sovereign"],
+      ["toyota s woven", "woven"],
+    ]);
+    // The key now sends "Founder's Fund" to Founders Fund; the words differ, so the stored row waits for a person.
+    expect(plan.conflicts.map((c) => [c.id, c.into])).toEqual([["founder s", "founders"]]);
+  });
+
   test("a folded investor's old id leads to the firm's row, through later folds, and a live id never redirects", async () => {
     const db = await testDb();
     const round = record({ company_name: "Acme", lead_investors: ["Fund One"] });
