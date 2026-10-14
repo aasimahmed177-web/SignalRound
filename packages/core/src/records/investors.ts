@@ -1250,8 +1250,15 @@ const VERB_GAP = /^-?[\s,]*(?:and\s+|&\s+)?(?:(?:[A-Z0-9][\w'’.&-]*|\([^)]*\))
 /** An appositive after a name: ", the Boston firm," or " – known for its portfolio – ". */
 const APPOSITIVE = /^\s*(?:,\s+(?:a|an|the|its|which|who)\s[^,;]{0,100},|\s[-\u2013\u2014]\s[^-\u2013\u2014;]{0,140}\s[-\u2013\u2014])\s*/i;
 
-/** Words that describe the investors a lead marker names: "new key industry", "Arc's existing", "a group of investors,". */
-const LEAD_DESCRIBED = /^\s*(?:(?!(?:and|or|that|which|who)\b)(?:[a-z][\w-]*|[A-Z][\w.&-]*['’]s)\s+)*(?:[a-z][\w-]*,\s*)?$/;
+/**
+ * Words that describe the investors a lead marker names: "new key industry", "Arc's existing", "a group
+ * of investors,", "a handful of hedge funds and P/E firms". An "and" or "or" joins two kinds of firm only
+ * between plain lowercase words; a name on either side ("Acme and others", "a16z and others") ends it.
+ */
+const DESCRIBING_WORD = "(?:[a-z][\\w-]*|[A-Z][\\w.&-]*['’]s|[A-Z]{1,3}/[A-Z]{1,3})";
+const LEAD_DESCRIBED = new RegExp(
+  `^\\s*(?:(?!(?:and|or|that|which|who)\\b)${DESCRIBING_WORD}\\s+(?:(?<=\\b[a-z]+\\s+)(?:and|or)\\s+(?=[a-z]+\\s|[A-Z]{1,3}/))?)*(?:[a-z][\\w-]*,\\s*)?$`,
+);
 
 /**
  * The marker that speaks for a name at `index`: the nearest marker before it inside its sentence

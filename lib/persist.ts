@@ -1606,13 +1606,6 @@ export async function persistRecords(
     }
     summary.persistedIds.push(r.id);
 
-    // A judged record's lists are the page's word on this round and replace what the row had; an
-    // unjudged reading (a filing, an off-plan alert) accumulates, except onto a row a reader already
-    // verified: its lists are what the sources support, and an unread name would sit on a published
-    // row unchecked. The reading's sources still attach, so the next read-back sees them.
-    const rowVerified = prev?.verificationStatus === "confirmed" || prev?.verificationStatus === "corrected";
-    if (judged || !rowVerified) await syncRoundInvestors(handle, r.id, r.lead_investors, r.other_investors, { replace: judged });
-
     // A page the round already links under another spelling (http for https, www or not) is not linked twice.
     const linked = new Map(
       (
@@ -1623,6 +1616,15 @@ export async function persistRecords(
           .where(eq(roundSources.roundId, r.id))
       ).map((l) => [samePageKey(l.id), l.id]),
     );
+    // A judged record's lists are its pages' word on this round and replace what the row had, when it
+    // read every page the row cites; a judged reading of only some of them (a later article beside the
+    // release) adds to the row, since a firm its pages leave out may be one the release names leading.
+    // An unjudged reading (a filing, an off-plan alert) accumulates, except onto a row a reader already
+    // verified: its lists are what the sources support, and an unread name would sit on a published
+    // row unchecked. The reading's sources still attach, so the next read-back sees them.
+    const rowVerified = prev?.verificationStatus === "confirmed" || prev?.verificationStatus === "corrected";
+    const readAll = [...linked.keys()].every((page) => r.sources.some((s) => samePageKey(canonicalUrl(s.url)) === page));
+    if (judged || !rowVerified) await syncRoundInvestors(handle, r.id, r.lead_investors, r.other_investors, { replace: judged && readAll });
     for (const s of r.sources) {
       const sourceId = canonicalUrl(s.url);
       const already = linked.get(samePageKey(sourceId));

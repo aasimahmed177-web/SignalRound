@@ -1598,6 +1598,17 @@ describe("a lead list ends where it names its firms", () => {
       ["NFX", "Left Lane Capital", "Y Combinator"],
     ],
     [
+      "goat: investors a lead marker names, described as two kinds of firm",
+      "The raise was led by a handful of hedge funds and P/E firms including Park West Asset Management, Franklin Templeton, Adage Capital Management, Ulysses Management and funds & accounts advised by T. Rowe Price Associates, Inc.",
+      [
+        "Park West Asset Management",
+        "Franklin Templeton",
+        "Adage Capital Management",
+        "Ulysses Management",
+        "funds & accounts advised by T. Rowe Price Associates",
+      ],
+    ],
+    [
       "yardstik: from co-leads",
       "We just secured $4 million in capital as part of seed financing from co-leads Rally Ventures and Crosslink Capital.",
       ["Rally Ventures", "Crosslink Capital"],
@@ -1615,5 +1626,16 @@ describe("a lead list ends where it names its firms", () => {
     ],
   ])("%s keeps its leads", (_case, evidence, leads) => {
     expect(clean([], leads, evidence).lead_investors).toEqual(leads);
+  });
+
+  test("a name, not a describing word, ends the investors a lead marker describes", () => {
+    for (const evidence of [
+      "The round was led by a16z and others including Beta Ventures.",
+      "The round was led by Acme Capital and a group of investors including Beta Ventures.",
+    ])
+      expect(clean([], ["Beta Ventures"], evidence).lead_investors, evidence).toEqual([]);
+    expect(clean([], ["Beta Ventures"], "It was led by existing and new investors including Beta Ventures.").lead_investors).toEqual([
+      "Beta Ventures",
+    ]);
   });
 });

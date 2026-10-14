@@ -1134,6 +1134,51 @@ describe("persistRecords", () => {
     expect(row.other_investors).toEqual(["Exor Ventures"]);
   });
 
+  test("a judged reading of one page leaves the investors another of the row's pages names: Impulse Space's lead stays", async () => {
+    const db = await testDb();
+    // Production's Impulse Space Series C: its release names Linse Capital leading, and a later article
+    // on the same round, read and confirmed alone, names no investors. The row lost every investor.
+    const release = record({
+      company_name: "Impulse Space",
+      company_domain: "impulsespace.com",
+      company_website: "https://www.impulsespace.com",
+      stage: "series_c",
+      lead_investors: ["Linse Capital"],
+      other_investors: ["DFJ Growth", "Founders Fund"],
+      sources: [
+        {
+          url: "https://www.impulsespace.com/updates/series-c",
+          host: "impulsespace.com",
+          title: "Impulse Space Secures $300 Million Series C",
+        },
+      ],
+    });
+    await persistRecords(db, [release], "growth", "run-1");
+    const article = {
+      ...release,
+      lead_investors: [],
+      other_investors: [],
+      sources: [{ url: "https://spacenews.example/impulse-300m", host: "spacenews.example", title: "Impulse Space raises $300 million" }],
+      verification: { status: "confirmed" as const, notes: [], url: "https://spacenews.example/impulse-300m" },
+    };
+    await persistRecords(db, [article], "growth", "run-2", { history: true });
+    const [row] = (await listRounds(db, { includeReview: true })).rows.filter((r) => r.company.name === "Impulse Space");
+    expect(row.lead_investors).toEqual(["Linse Capital"]);
+    expect(row.other_investors.sort()).toEqual(["DFJ Growth", "Founders Fund"]);
+    expect(row.sources).toHaveLength(2);
+
+    // A reading of every page the row cites is still the whole word: a firm none of them names leaves.
+    await persistRecords(
+      db,
+      [{ ...release, other_investors: ["DFJ Growth"], sources: [...release.sources, ...article.sources] }],
+      "growth",
+      "run-3",
+    );
+    const [again] = (await listRounds(db, { includeReview: true })).rows.filter((r) => r.company.name === "Impulse Space");
+    expect(again.lead_investors).toEqual(["Linse Capital"]);
+    expect(again.other_investors).toEqual(["DFJ Growth"]);
+  });
+
   test("a lead the verifier demotes stays demoted: the row's old lead link does not come back as a lead", async () => {
     const db = await testDb();
     // Production's Easy Aerial row: its verdict said "not leads: Insight Partners, Entrée Capital" and the row still showed both leading.
