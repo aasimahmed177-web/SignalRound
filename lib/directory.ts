@@ -235,7 +235,7 @@ export async function listCompanies(
     .innerJoin(fundingRounds, eq(fundingRounds.companyId, companies.id))
     .where(where)
     .groupBy(companies.id)
-    .orderBy(...companyOrder(query.sort ?? "latest"))
+    .orderBy(...(query.q ? [nameRank(companies.name, query.q)] : []), ...companyOrder(query.sort ?? "latest"))
     .limit(size)
     .offset(win.offset);
   const latest = await latestRounds(
@@ -322,7 +322,7 @@ export async function listInvestors(
     .innerJoin(fundingRounds, eq(fundingRounds.id, roundInvestors.roundId))
     .where(where)
     .groupBy(investors.id)
-    .orderBy(...investorOrder(query.sort ?? "latest"))
+    .orderBy(...(query.q ? [nameRank(investors.name, query.q)] : []), ...investorOrder(query.sort ?? "latest"))
     .limit(size)
     .offset(win.offset);
 
@@ -383,7 +383,7 @@ export interface SearchHit {
   logo_url: string | null;
 }
 
-/** Exact name, then prefix, then a word inside the name, then anywhere: what a reader typing a name expects at the top. */
+/** Exact name, then prefix, then a word inside the name, then anywhere: what a reader typing a name expects at the top, in the palette and the directories alike. */
 function nameRank(column: typeof companies.name | typeof investors.name, q: string): SQL {
   const bare = q.replace(/[%_\\]/g, "");
   return sql`case when lower(${column}) = ${bare.toLowerCase()} then 0 when ${column} ilike ${`${bare}%`} then 1 when ${column} ilike ${`% ${bare}%`} then 2 else 3 end`;

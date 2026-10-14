@@ -2,7 +2,7 @@
 // a name key for an investor) and can hold spaces and dots, so every href encodes them and
 // every page decodes its param. An investor's spaces become hyphens in its URL (investorSlug).
 
-import { normalizeInvestorKey } from "@fireround/core/client";
+import { investorKeyForMerge } from "@fireround/core/client";
 
 export function companyHref(id: string): string {
   return `/companies/${encodeURIComponent(id)}`;
@@ -11,7 +11,7 @@ export function companyHref(id: string): string {
 /**
  * An investor's URL segment: its id with hyphens for spaces ("sequoia-capital-india", not
  * "sequoia%20capital%20india"). An investor id is a name key, lowercase letters, digits, and single
- * spaces (normalizeInvestorKey), so it never holds a hyphen and the slug reads back exactly.
+ * spaces (investorKeyForMerge), so it never holds a hyphen and the slug reads back exactly.
  */
 export function investorSlug(id: string): string {
   return encodeURIComponent(id.trim().replace(/\s+/g, "-"));
@@ -43,7 +43,7 @@ export function legacyInvestorPath(pathname: string): string | null {
 
 /** Rows carry investor names, not ids; the key is how persistence keys them, so it is the id. */
 export function investorHrefByName(name: string): string {
-  return investorHref(normalizeInvestorKey(name));
+  return investorHref(investorKeyForMerge(name));
 }
 
 /** A route param as Next hands it over, whether or not it arrived still percent-encoded. */

@@ -130,6 +130,13 @@ describe("listCompanies", () => {
     expect((await listCompanies(db, { q: "%" })).total).toBe(2);
   });
 
+  test("a search puts the company of that name first, ahead of bigger raises that only mention it", async () => {
+    const { db } = await seed();
+    await db.update(schema.companies).set({ description: "An Acme competitor" }).where(eq(schema.companies.name, "Beta"));
+    expect((await listCompanies(db, { q: "acme", sort: "raised" })).rows.map((c) => c.name)).toEqual(["Acme", "Beta"]);
+    expect((await listCompanies(db, { sort: "raised" })).rows.map((c) => c.name)).toEqual(["Beta", "Acme"]);
+  });
+
   test("pages", async () => {
     const { db } = await seed();
     const second = await listCompanies(db, { pageSize: 1, page: 2 });
@@ -164,6 +171,12 @@ describe("listInvestors", () => {
     expect((await listInvestors(db, { sort: "rounds" })).rows[0].name).toBe("Big Fund");
     expect((await listInvestors(db, { sort: "name" })).rows.map((i) => i.name)).toEqual(["Angel Co", "Big Fund", "North Fund"]);
     expect((await listInvestors(db, { q: "north" })).rows.map((i) => i.name)).toEqual(["North Fund"]);
+  });
+
+  test("a search puts names that start with the query first", async () => {
+    const { db } = await seed();
+    await db.update(schema.investors).set({ name: "Fund Co" }).where(eq(schema.investors.name, "Angel Co"));
+    expect((await listInvestors(db, { q: "fund", sort: "name" })).rows.map((i) => i.name)).toEqual(["Fund Co", "Big Fund", "North Fund"]);
   });
 
   test("an investor's resolved domain reaches the index and the command palette; unknown stays null", async () => {

@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { missingPage } from "@/lib/not-found";
 
@@ -10,9 +11,19 @@ import { missingPage } from "@/lib/not-found";
  * The 404 card both not-found boundaries share. It reads the address the reader typed, so a missing
  * company says so and offers a company search started with the words from the link; any other miss
  * searches the rounds. A plain GET form: it works before hydration and needs no state.
+ *
+ * The root boundary is prerendered, so the server never knows the address (a miss the proxy rewrites
+ * renders it too). The server's copy hydrates first and the address's copy follows, so the two never
+ * disagree mid-hydration.
  */
 export function NotFoundBody() {
-  const page = missingPage(usePathname());
+  const pathname = usePathname();
+  const hydrated = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
+  const page = missingPage(hydrated ? pathname : null);
   return (
     <section className="rounded-12 border border-border-faint bg-card p-8 sm:p-10">
       <div className="text-mono-x-small text-black-alpha-32">[ 404 ]</div>
@@ -48,3 +59,5 @@ export function NotFoundBody() {
     </section>
   );
 }
+
+const subscribeNever = () => () => {};

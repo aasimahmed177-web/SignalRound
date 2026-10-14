@@ -81,3 +81,52 @@ export function normalizeInvestorKey(name: string): string {
   }
   return key;
 }
+
+/** Short forms publishers use for a firm, expanded inside the merge key only. */
+export const INVESTOR_ALIASES: Record<string, string> = {
+  a16z: "andreessen horowitz",
+  gv: "google ventures",
+  gsk: "glaxosmithkline",
+  cpp: "canada pension plan",
+  nea: "new enterprise associates",
+  ivp: "institutional venture partners",
+  lsvp: "lightspeed venture partners",
+};
+
+/** Misspellings of a firm that sources have printed, keyed as the firm ("Sequioa Capital" on a Chai Discovery listing). */
+const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
+
+/**
+ * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
+ * speedrun; "YC" alone is Y Combinator; Sequoia's Indian and Chinese arms are printed with and without "Capital"; a firm's
+ * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm; T. Rowe Price's adviser, "T. Rowe Price
+ * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund.
+ */
+const RENAMED: Record<string, string> = {
+  "andreessen horowitz csx": "andreessen horowitz speedrun",
+  yc: "y combinator",
+  ycombinator: "y combinator",
+  "yc continuity": "y combinator continuity",
+  "sequoia india": "sequoia capital india",
+  "sequoia china": "sequoia capital china",
+  "sequoia global equities": "sequoia capital global equities",
+  dst: "dst global",
+  institutional: "institutional venture partners",
+  usv: "union square",
+  peakxv: "peak xv",
+  kpcb: "kleiner perkins",
+  "kleiner perkins caufield and byers": "kleiner perkins",
+  "kleiner perkins caufield byers": "kleiner perkins",
+  "t rowe price associates": "t rowe price",
+  founder: "founders",
+};
+
+/** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
+export function investorKeyForMerge(name: string): string {
+  const key = normalizeInvestorKey(name)
+    .split(" ")
+    .map((t) => INVESTOR_ALIASES[t] ?? MISSPELLED[t] ?? t)
+    .join(" ")
+    .trim();
+  return RENAMED[key] ?? key;
+}

@@ -186,6 +186,11 @@ describe("repair-investors", () => {
     expect(await investorRedirect(db, "kleiner perkins ventures")).toBe("kleiner perkins");
     expect(await investorRedirect(db, "kleiner perkins")).toBeNull();
     expect(await investorRedirect(db, "nobody")).toBeNull();
+    // A guessed slug that spells the firm's full name, or its short form, reaches the firm.
+    expect(await investorRedirect(db, "kleiner perkins capital")).toBe("kleiner perkins");
+    expect(await investorRedirect(db, "Kleiner Perkins")).toBe("kleiner perkins");
+    expect(await investorRedirect(db, "kpcb capital")).toBe("kleiner perkins");
+    expect(await investorRedirect(db, "nobody capital")).toBeNull();
     // An API caller that kept the old id gets the firm's profile.
     await db.update(schema.fundingRounds).set({ disposition: "publish" }).where(eq(schema.fundingRounds.id, round.id));
     expect((await apiInvestorProfile(db, "kleiner-perkins"))?.id).toBe("kleiner-perkins");

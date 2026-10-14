@@ -1,7 +1,7 @@
 // Investor URLs use hyphen slugs, and the "%20" URLs handed out before them redirect (P1-12).
 import { NextRequest } from "next/server";
 import { describe, expect, test, vi } from "vitest";
-import { investorHref, investorIdFromParam, legacyInvestorPath } from "../lib/links";
+import { investorHref, investorHrefByName, investorIdFromParam, legacyInvestorPath } from "../lib/links";
 import { proxy } from "../proxy";
 
 describe("investor slugs", () => {
@@ -20,6 +20,13 @@ describe("investor slugs", () => {
     expect(legacyInvestorPath("/investors/sequoia-capital-india")).toBeNull();
     expect(legacyInvestorPath("/investors")).toBeNull();
     expect(legacyInvestorPath("/companies/prevision%20medicine")).toBeNull();
+  });
+
+  test("a name links to the id its rounds are stored under, short forms included", () => {
+    expect(investorHrefByName("Sequoia Capital")).toBe("/investors/sequoia");
+    expect(investorHrefByName("IVP")).toBe("/investors/institutional-venture-partners");
+    expect(investorHrefByName("GV (Google Ventures)")).toBe("/investors/google-ventures");
+    expect(investorHrefByName("a16z crypto")).toBe("/investors/andreessen-horowitz-crypto");
   });
 });
 

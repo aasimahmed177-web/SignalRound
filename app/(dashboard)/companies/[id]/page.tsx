@@ -23,7 +23,7 @@ import { RoundCheckMark } from "@/components/confidence";
 import { DispositionTag, RoleTag } from "@/components/disposition-tag";
 import { BuiltWith } from "@/components/feed/built-with";
 import { Buzz, BuzzInline } from "@/components/feed/buzz";
-import { RoundCertainty, RoundCertaintyDetail } from "@/components/feed/round-certainty";
+import { certaintyLabel, RoundCertainty, RoundCertaintyDetail } from "@/components/feed/round-certainty";
 import { Verified } from "@/components/feed/verified";
 import { HistoryMark } from "@/components/history-mark";
 import { InvestorLogo } from "@/components/investor-logo";
@@ -550,7 +550,10 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
                 hint={[
                   reportedAmount(latest) ?? "amount not stated",
                   latest.announced_on ? approxDate(latest.announced_on, latest.date_precision) : "undated",
-                ].join(" · ")}
+                  certaintyLabel(latest)?.toLowerCase(),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               />
             ) : (
               <Stat label="ROUNDS ON RECORD" value={totals.rounds} hint={`${offFeed} off the feed`} />

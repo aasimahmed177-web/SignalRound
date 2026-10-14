@@ -8,6 +8,7 @@
 // the database nothing more than a quiet minute does. A few thousand short ids are a few hundred
 // kilobytes, so each warm function instance holds its own copy.
 
+import { investorKeyForMerge } from "@fireround/core/client";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -160,7 +161,8 @@ export async function foldedInto(handle: Db, id: string): Promise<string | null>
 
 /**
  * Where an investor id that no longer exists now lives, or null: the row the investor repair folded it
- * into (a spelling of the same firm), followed through later folds. A live id never redirects.
+ * into (a spelling of the same firm), followed through later folds, or the firm a guessed slug names in
+ * full or by its short form ("sequoia-capital" or "sequioa" for the id "sequoia", "gv" for "google-ventures"). A live id never redirects.
  */
 export async function investorRedirect(handle: Db, id: string): Promise<string | null> {
   const [live] = await handle.select({ id: schema.investors.id }).from(schema.investors).where(eq(schema.investors.id, id)).limit(1);
@@ -171,5 +173,9 @@ export async function investorRedirect(handle: Db, id: string): Promise<string |
     .innerJoin(schema.investors, eq(schema.investors.id, schema.investorFolds.intoId))
     .where(eq(schema.investorFolds.fromId, id))
     .limit(1);
-  return fold?.id ?? null;
+  if (fold) return fold.id;
+  const key = investorKeyForMerge(id);
+  if (key === id) return null;
+  const [named] = await handle.select({ id: schema.investors.id }).from(schema.investors).where(eq(schema.investors.id, key)).limit(1);
+  return named?.id ?? null;
 }

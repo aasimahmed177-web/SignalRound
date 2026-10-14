@@ -25,8 +25,11 @@
 //      participant only where the evidence puts it in the round ("with participation from").
 
 import { GIVEN_NAMES } from "./given-names.ts";
+import { INVESTOR_ALIASES, investorKeyForMerge } from "./keys.ts";
 import { classifyStage, normalizeInvestorKey, parseAmount } from "./normalize.ts";
 import type { Stage } from "./stages.ts";
+
+export { investorKeyForMerge } from "./keys.ts";
 
 export interface InvestorInput {
   lead_investors: string[];
@@ -871,55 +874,6 @@ function nonInvestorSpans(evidence: string): Array<[number, number]> {
 
 // ---------------------------------------------------------------------------------------------
 // Rule 4 and 6: identity within the record
-
-/** Short forms publishers use for a firm, expanded inside the merge key only. */
-const ALIASES: Record<string, string> = {
-  a16z: "andreessen horowitz",
-  gv: "google ventures",
-  gsk: "glaxosmithkline",
-  cpp: "canada pension plan",
-  nea: "new enterprise associates",
-  ivp: "institutional venture partners",
-  lsvp: "lightspeed venture partners",
-};
-
-/** Misspellings of a firm that sources have printed, keyed as the firm ("Sequioa Capital" on a Chai Discovery listing). */
-const MISSPELLED: Record<string, string> = { sequioa: "sequoia" };
-
-/**
- * One firm or program under two names, as a whole key: a16z's crypto accelerator (CSX) became
- * speedrun; "YC" alone is Y Combinator; Sequoia's Indian and Chinese arms are printed with and without "Capital"; a firm's
- * short form or old name ("DST", "USV", "IVP" spelled out, "KPCB") is the firm; T. Rowe Price's adviser, "T. Rowe Price
- * Associates", is how releases name T. Rowe Price; "Founder's Fund" is a printed misspelling of Founders Fund.
- */
-const RENAMED: Record<string, string> = {
-  "andreessen horowitz csx": "andreessen horowitz speedrun",
-  yc: "y combinator",
-  ycombinator: "y combinator",
-  "yc continuity": "y combinator continuity",
-  "sequoia india": "sequoia capital india",
-  "sequoia china": "sequoia capital china",
-  "sequoia global equities": "sequoia capital global equities",
-  dst: "dst global",
-  institutional: "institutional venture partners",
-  usv: "union square",
-  peakxv: "peak xv",
-  kpcb: "kleiner perkins",
-  "kleiner perkins caufield and byers": "kleiner perkins",
-  "kleiner perkins caufield byers": "kleiner perkins",
-  "t rowe price associates": "t rowe price",
-  founder: "founders",
-};
-
-/** `normalizeInvestorKey` with known short forms expanded and known misspellings corrected: "a16z crypto" keys as "andreessen horowitz crypto". */
-export function investorKeyForMerge(name: string): string {
-  const key = normalizeInvestorKey(name)
-    .split(" ")
-    .map((t) => ALIASES[t] ?? MISSPELLED[t] ?? t)
-    .join(" ")
-    .trim();
-  return RENAMED[key] ?? key;
-}
 
 /**
  * Words a publisher wraps around a brand when naming it through its owner: the vehicle nouns, legal
@@ -1893,7 +1847,7 @@ export function cleanInvestors(input: InvestorInput): InvestorOutput {
     original: string;
   }
   // A name written out ("Andreessen Horowitz") outranks its short form ("a16z"), whichever the evidence used.
-  const canonical = (e: Entry) => (Object.values(ALIASES).some((full) => normalizeInvestorKey(e.name).includes(full)) ? 1 : 0);
+  const canonical = (e: Entry) => (Object.values(INVESTOR_ALIASES).some((full) => normalizeInvestorKey(e.name).includes(full)) ? 1 : 0);
   let merged: Merged[] = groups.map((members) => {
     // The canonical form, then the spelling in the evidence, then the longer one (the fuller form of a
     // firm), then the entry that arrived as-is over one rewritten from a person ("Acme" over "Jane Doe of Acme").
