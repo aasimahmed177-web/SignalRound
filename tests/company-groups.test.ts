@@ -170,6 +170,42 @@ describe("unlistedBackers", () => {
     ).toEqual(["National Science Foundation", "University of Michigan"]);
   });
 
+  test("a backer research prints under a variant of a listed investor is left out", () => {
+    expect(
+      unlistedBackers(
+        [
+          "ASML Holding NV (ASML)",
+          "Growth Equity at Goldman Sachs Alternatives",
+          "Ontario Teachers’ Pension Plan (Teachers' Venture Growth)",
+          "Longaeva Partners L.P.",
+          "LionTree Investment Fund, L.P.",
+          "Caisse de dépôt et placement du Québec (CDPQ / La Caisse)",
+          "funds and accounts managed by BlackRock",
+          "Phoenix Court’s Solar fund",
+          "Michael Moritz",
+          "Bayern Kapital",
+        ],
+        [
+          "ASML",
+          "Goldman Sachs Alternatives",
+          "Teachers' Venture Growth",
+          "Longaeva Partners",
+          "LionTree Investment Fund",
+          "La Caisse",
+          "BlackRock",
+          "Phoenix Court",
+        ],
+      ),
+    ).toEqual(["Michael Moritz", "Bayern Kapital"]);
+  });
+
+  test("a unit's parent alone does not hide a different firm", () => {
+    expect(unlistedBackers(["Goldman Sachs Alternatives", "Ventures of the Future"], ["Goldman Sachs"])).toEqual([
+      "Goldman Sachs Alternatives",
+      "Ventures of the Future",
+    ]);
+  });
+
   test("the dossier's own repeats fold to one", () => {
     expect(unlistedBackers(["Washington Harbour Partners LP", "Washington Harbour Partners"], [])).toEqual([
       "Washington Harbour Partners LP",

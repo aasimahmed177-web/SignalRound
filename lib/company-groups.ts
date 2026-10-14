@@ -172,11 +172,29 @@ export function mergeFounders(
   return out;
 }
 
+/**
+ * The names research may print one investor under: the name itself, without its "L.P." tail, without
+ * its parenthetical, each name inside the parenthetical ("Caisse de dépôt et placement du Québec (CDPQ /
+ * La Caisse)"), the manager of "funds and accounts managed by BlackRock", the firm a unit belongs to
+ * ("Growth Equity at Goldman Sachs Alternatives"), and the owner a possessive names ("Phoenix Court's Solar fund").
+ */
+function backerForms(name: string): string[] {
+  const bare = name.replace(/,?\s+L\.?P\.?$/i, "").trim();
+  const inner = [...bare.matchAll(/\(([^)]*)\)/g)].flatMap((m) => m[1].split(/\s*\/\s*/));
+  const manager = /\b(?:managed|advised) by\s+(.+)$/i.exec(bare)?.[1];
+  const parent = /^(?:growth equity|private equity|venture capital|growth|ventures?)\s+(?:at|of)\s+(.+)$/i.exec(bare)?.[1];
+  const owner = /^(.+?)['\u2019]s\s+\S/.exec(bare)?.[1];
+  return [name, bare, bare.replace(/\s*\([^)]*\)/g, "").trim(), ...inner, manager, parent, owner].filter(
+    (f): f is string => !!f && f.trim().length > 0,
+  );
+}
+
 /** The dossier's backers no investor on the page already names, in the dossier's order: "Glade Brook Capital Partners" is Glade Brook. */
 export function unlistedBackers(backers: string[], investorNames: string[]): string[] {
   const out: string[] = [];
   for (const b of backers) {
-    if ([...investorNames, ...out].some((n) => dedupeInvestorNames([b, n]).length === 1)) continue;
+    const forms = backerForms(b);
+    if ([...investorNames, ...out].some((n) => forms.some((f) => dedupeInvestorNames([f, n]).length === 1))) continue;
     out.push(b);
   }
   return out;
