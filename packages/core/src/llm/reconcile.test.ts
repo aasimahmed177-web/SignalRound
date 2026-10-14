@@ -770,6 +770,50 @@ describe("valuations, tranches, and the day a page is read at", () => {
     ...over,
   });
 
+  test("Quantexa: a valuation followed by the last round's ('— a jump from its last valuation of $1.8 billion in 2023') is kept", () => {
+    const TC = "https://techcrunch.com/2025/03/04/quantexa-nabs-175m";
+    const quote =
+      "The funding, a Series F, values Quantexa at $2.6 billion post-money — a significant jump from its last valuation of $1.8 billion in 2023.";
+    const quantexa = record({
+      company_key: "quantexa",
+      company_name: "Quantexa",
+      stage: "series_d_plus",
+      stage_as_written: "Series F",
+      amount: { value: 175, currency: "USD", as_written: "$175 million", usd_millions: 175, fx_rate: 1, fx_date: null },
+      valuation_as_written: null,
+      lead_investors: [],
+      other_investors: [],
+      announced_date: "2025-03-04",
+      sources: [{ url: TC, host: "techcrunch.com", title: "Quantexa nabs $175M at $2.6B valuation" }],
+    });
+    const read = applyReconciliation(
+      quantexa,
+      {
+        ...AGREES,
+        stage: { stated: true, value: "Series F", source: TC, quote: "a Series F" },
+        amount: { stated: true, value: "$175 million", source: TC, quote: "raised a fresh $175 million" },
+        valuation: { stated: true, value: "$2.6 billion", source: TC, quote },
+        announced_date: { stated: true, value: "2025-03-04", precision: "day", source: TC, quote: "March 4, 2025" },
+        lead_investors: [],
+        other_investors: [],
+        headquarters: { stated: false, value: null, source: null, quote: null },
+      },
+      {
+        ...OPTS,
+        pages: [
+          {
+            url: TC,
+            host: "techcrunch.com",
+            title: "Quantexa nabs $175M at $2.6B valuation",
+            markdown: `Quantexa has raised a fresh $175 million. March 4, 2025.\n\n${quote}`,
+          },
+        ],
+      },
+    );
+    expect(read.valuation_ruled_out).toBeUndefined();
+    expect(read.valuation_as_written).toBe("$2.6 billion post-money");
+  });
+
   test("Corgi: the page's own valuation replaces May's, and a valuation no source states for this round is ruled out", () => {
     const fixed = applyReconciliation(
       corgi(),

@@ -45,6 +45,7 @@
     "repair-lead-flags": "node --env-file-if-exists=.env scripts/maintenance/repair-lead-flags.ts",
     "repair-slug-names": "node --env-file-if-exists=.env scripts/maintenance/repair-slug-names.ts",
     "repair-money": "node --env-file-if-exists=.env scripts/maintenance/repair-money.ts",
+    "repair-valuations": "node --env-file-if-exists=.env scripts/maintenance/repair-valuations.ts",
     "repair-certainty": "node --env-file-if-exists=.env scripts/maintenance/repair-certainty.ts",
     "repair-financing": "node --env-file-if-exists=.env scripts/maintenance/repair-financing.ts",
     "repair-late-history": "node --env-file-if-exists=.env scripts/maintenance/repair-late-history.ts",

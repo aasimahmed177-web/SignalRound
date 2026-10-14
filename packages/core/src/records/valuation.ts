@@ -140,7 +140,12 @@ export function valuationSupport(
   // A figure a valuation phrase governs ("values Heidi at", "valued at over", "valuation to") is this
   // round's valuation whatever other amounts the sentence states, unless the phrase is tied to another
   // round ("valued at $97 million at its Series B in 2024").
-  const tail = quote.slice(stated.index + stated.text.length).split(/[,;]|\bup from\b/i)[0];
+  // The words after a dash or "from" and an earlier figure tie that figure, not this one: "to $1.25 billion
+  // from $625 million since its previous round", "$2.6 billion post-money — a jump from its last valuation
+  // of $1.8 billion in 2023".
+  const tail = quote
+    .slice(stated.index + stated.text.length)
+    .split(/[,;\u2013\u2014]|\s-\s|\bup from\b|\bfrom(?=\s+(?:US|A|C)?[$€£¥₹]|\s+\d)/i)[0];
   const governed = VALUATION_BEFORE.test(lead) && !TIED.test(tail);
   // "bringing the total Series D-2 raised to $110 million" is a total; "brings its valuation to €4 billion" is not.
   const total = TOTAL_BEFORE.exec(quote.slice(0, stated.index));
@@ -157,6 +162,23 @@ export function valuationSupport(
   const statesAmount = amount !== null && found.some((f) => states(f, amount));
   if (!statesAmount && !round.named && !names(quote, round.company) && !REFERENT.test(quote)) {
     return "its sentence does not name the company";
+  }
+  // A valuation phrase hung on another round's figure is that round's: "a $173 million Series C in December
+  // 2023, valuing the company at $633 million". The phrase follows the figure's own words after a comma, and
+  // those words name another stage, an earlier round, or another year. A clause of its own ("and lifts the
+  // company's valuation to") is not hung on the figure before it.
+  const prior = found.filter((f) => f.index < stated.index).pop();
+  const hung = prior ? /,\s*(?:which\s+|that\s+)?valu(?:ing|ed)\b[^,;]*$/i.exec(quote.slice(prior.index, stated.index)) : null;
+  if (governed && prior && hung && (amount === null || !states(prior, amount))) {
+    const between = quote.slice(prior.index + prior.text.length, prior.index + hung.index);
+    const stage = STAGE.exec(between)?.[0];
+    const year = /\b(?:19|20)\d{2}\b/.exec(between)?.[0];
+    if (
+      (stage && classifyStage(stage).stage !== round.stage) ||
+      EARLIER.test(between) ||
+      (year && round.announced && year !== round.announced.slice(0, 4))
+    )
+      return `it is stated for another round (${prior.text})`;
   }
   if (governed) return null;
   // In one sentence with two rounds, the valuation belongs to the figure right before it.

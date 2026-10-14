@@ -318,6 +318,31 @@ describe("the re-ground's false blanks: figures, conversions, the company, the b
     expect(valuationSupport("$1.5B", "Temporal is now valued at $1.5-billion.", round("Temporal", null))).toBeNull();
   });
 
+  test("Gecko Robotics and Quantexa: an earlier round recalled after 'from' or a dash does not take the valuation off this one", () => {
+    const gecko =
+      "The Series D funding round doubled the company’s valuation to $1.25 billion from $625 million since its previous round of funding, a $173 million Series C in December 2023, valuing the company at $633 million.";
+    const geckoRound = { ...round("Gecko Robotics", 125, "series_f"), announced: "2025-06-12", named: true };
+    expect(valuationSupport("$1.25 billion", gecko, geckoRound)).toBeNull();
+    // The Series C's valuation, governed by "valuing the company at" right after that round's figure, is not this round's.
+    expect(valuationSupport("$633 million", gecko, geckoRound)).toBe("it is stated for another round ($173 million)");
+    // This round's own figure before the phrase still governs it.
+    expect(
+      valuationSupport("$500 million", "Acme raised $50 million in a Series D in June 2025, valuing the company at $500 million.", {
+        ...geckoRound,
+        company: "Acme",
+        amount: 50,
+      }),
+    ).toBeNull();
+    const quantexa =
+      "The funding, a Series F, values Quantexa at $2.6 billion post-money — a significant jump from its last valuation of $1.8 billion in 2023.";
+    expect(valuationSupport("$2.6 billion", quantexa, round("Quantexa", 175, "series_f"))).toBeNull();
+    expect(valuationSupport("$1.8 billion", quantexa, round("Quantexa", 175, "series_f"))).not.toBeNull();
+    // A phrase tied to another round before any dash or earlier figure still is.
+    expect(
+      valuationSupport("$97 million", "Helcim was valued at $97 million at its Series B in 2024.", round("Helcim", 20)),
+    ).not.toBeNull();
+  });
+
   test("Alan: a currency conversion in parentheses is the same figure, and 'brings its valuation to' is a valuation", () => {
     const alan2021 = "Alan raised €185 million ($220 million) at a valuation of €1.4 billion ($1.7 billion).";
     expect(valuationSupport("€1.4 billion", alan2021, round("Alan", 185))).toBeNull();
