@@ -44,6 +44,7 @@ Every environment variable, in one table; [`.env.example`](../.env.example) has 
 | `RESEND_API_KEY`, `DIGEST_FROM` | optional | Email digests through Resend, a self-host option; both needed to send, and the public pages mention email only when both are set. Each digest carries a one-click unsubscribe link and `List-Unsubscribe` headers, signed with the Resend key |
 | `EDGAR_USER_AGENT` | optional | The User-Agent the Form D lane sends to EDGAR, `your-app/version (you@example.com)` |
 | `HOUSE_DOMAIN` | optional | The company the feed is built on gets a featured strip and its own mark; default `firecrawl.dev`, `off` turns it off |
+| `FIREROUND_SCHEDULE` | optional, Vercel | `frequent` sets Vercel Cron to the full cadence (hourly lanes, quarter-hour verification); needs Vercel Pro. Unset, every cron route runs once a day, which Hobby accepts. Takes effect at the next deployment ([deploy.md](deploy.md#vercel-hobby)) |
 | `SCHEDULE` | optional | `0` stops `pnpm start` ticking the schedule; `1` turns it on under `pnpm dev` |
 | `SCHEDULE_TICK_ON_START` | optional | `1` ticks once as the in-process schedule arms, instead of waiting for the next hour |
 | `CONTACT_EMAIL` | optional | The contact address `/privacy`, `/terms`, and `/support` print; unset, they show only the GitHub issues link |

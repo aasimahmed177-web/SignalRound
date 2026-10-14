@@ -41,7 +41,7 @@ Funding data is usually paywalled, and it is often stale by the time it reaches 
 - **Presets**: what to watch. Series A and B is the default; seed and pre-seed, and Series C and later, ship too. Add your own in the UI, priced before it runs.
 - **Review**: undated or low-confidence rows to publish, reject, or research, with keyboard shortcuts and undo.
 - **Delivery**: Slack (one click once the app is set up, [docs/slack.md](docs/slack.md)), RSS, Atom, and JSON Feed, signed webhooks ([Standard Webhooks](https://www.standardwebhooks.com)), and, optionally for self-hosters with a Resend key, a daily or weekly email digest. Company and investor links unfurl as share cards.
-- **API and MCP**: JSON, CSV, and JSONL over `/api/v1` with an OpenAPI spec, and six MCP tools (eight with company requests on).
+- **API and MCP**: JSON, CSV, and JSONL over `/api/v1` with an OpenAPI spec, and twelve MCP tools (fourteen with company requests on).
 - **Runs**: every sweep and lane with the credits it was estimated to cost beside the credits it measured.
 
 ## Quick start
