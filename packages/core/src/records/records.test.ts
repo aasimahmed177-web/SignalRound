@@ -2044,6 +2044,11 @@ describe("company names and aliases", () => {
     expect(isGenericCompanyName("KHOY Company")).toBe(false);
     expect(isGenericCompanyName("Zari Company")).toBe(false);
     expect(isGenericCompanyName("The Company")).toBe(true);
+    expect(isGenericCompanyName("The Browser Company")).toBe(false);
+    expect(isGenericCompanyName("The Exploration Company")).toBe(false);
+    expect(isGenericCompanyName("The Coca-Cola Company")).toBe(false);
+    expect(isGenericCompanyName("the browser company")).toBe(true);
+    expect(isGenericCompanyName("A Watch Company")).toBe(true);
     expect(isGenericCompanyName("a watch company")).toBe(true);
     expect(isGenericCompanyName("Indian watch company")).toBe(true);
   });

@@ -453,8 +453,9 @@ export function isGenericCompanyName(name: string): boolean {
     "",
   );
   if (bare.includes(", ") || (bare.match(/\b(?:and|&)\b/g) ?? []).length >= 2) return true;
-  // A capitalised name before "Company" is the company's own: Bangalore Watch Company, not "a watch company".
-  if (/^(?!(?:The|A|An)\s)(?:\p{Lu}[\p{L}\p{N}&.'-]*\s+){1,2}Company$/u.test(name.trim())) return false;
+  // A capitalised name before "Company" is the company's own: Bangalore Watch Company, The Browser Company,
+  // not "a watch company" or "The Company".
+  if (/^(?:The\s+)?(?!(?:The|A|An)\s)(?:\p{Lu}[\p{L}\p{N}&.'-]*\s+){1,2}Company$/u.test(name.trim())) return false;
   return (
     /^(?:the |a |an )?(?:[a-z-]+ ){0,2}(?:startup|start-up|upstart|company|firm|business|venture|team)$/.test(n) || n === "the startup"
   );
