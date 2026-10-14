@@ -5,7 +5,7 @@
 import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { mergeCompanies, persistRecords } from "../lib/persist";
+import { mergeCompanies, persistRecords, publisherDomain } from "../lib/persist";
 import { applyRecordFixes, type RecordFix } from "../lib/repair";
 import { record, testDb } from "./helpers";
 
@@ -188,5 +188,126 @@ describe("the fold fix", () => {
     expect(await companyIds(db)).toEqual(["ramp.com", "ramp.network"]);
     expect(await applyRecordFixes(db, [fix], { apply: true })).toMatchObject({ applied: 0, skipped: 1 });
     expect(await applyRecordFixes(db, [{ ...fix, from: "ramp.network" }], { apply: true })).toMatchObject({ refused: 1 });
+  });
+});
+
+describe("a reading whose site is a publisher's", () => {
+  /** A news site the store already holds two other companies' rounds from. */
+  async function newsSite(db: Awaited<ReturnType<typeof testDb>>) {
+    for (const name of ["Finmid", "Persona"])
+      await persistRecords(
+        db,
+        [
+          record({
+            company_name: name,
+            sources: [{ url: `https://ascendants.in/business-stories/${name.toLowerCase()}-raises`, host: "ascendants.in" }],
+          }),
+        ],
+        "seed",
+        `run-${name}`,
+      );
+  }
+
+  test("Klarent: a news site's article taken for the company's site makes no second Klarent", async () => {
+    const db = await testDb();
+    await newsSite(db);
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "Klarent",
+          company_domain: "klarent.ai",
+          company_website: "https://klarent.ai/",
+          headquarters: "Zurich, Switzerland",
+          stage: "seed",
+          announced_date: "2026-10-09",
+          amount: { value: 8, currency: "USD", as_written: "$8M", usd_millions: 8, fx_rate: 1, fx_date: "2026-10-09" },
+          sources: [{ url: "https://klarent.ai/blogs/klarent-secures-8m-seed-funding", host: "klarent.ai" }],
+        }),
+      ],
+      "seed",
+      "run-1",
+    );
+    expect(await publisherDomain(db, "ascendants.in", "klarent", {})).toBe(true);
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "Klarent",
+          company_domain: "ascendants.in",
+          company_website: "https://ascendants.in/",
+          headquarters: "Zurich",
+          stage: "other",
+          announced_date: "2026-10-13",
+          amount: { value: 7.13, currency: "EUR", as_written: "€7.13 Million", usd_millions: 8.3, fx_rate: 1.16, fx_date: "2026-10-13" },
+          sources: [{ url: "https://maxime-droux.com/digest/index.html", host: "maxime-droux.com" }],
+        }),
+      ],
+      "seed",
+      "run-2",
+    );
+    const klarent = await db.select().from(schema.companies).where(eq(schema.companies.nameKey, "klarent"));
+    expect(klarent.map((c) => [c.id, c.domain, c.website])).toEqual([["klarent.ai", "klarent.ai", "https://klarent.ai/"]]);
+    const rounds = await db.select().from(schema.fundingRounds).where(eq(schema.fundingRounds.companyId, "ascendants.in"));
+    expect(rounds).toEqual([]);
+  });
+
+  test("CarbonFarm: a wire's homepage taken for the company's site lands on the company", async () => {
+    const db = await testDb();
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "CarbonFarm",
+          company_domain: "carbonfarm.tech",
+          company_website: "https://carbonfarm.tech",
+          headquarters: "Paris",
+          announced_date: "2026-10-13",
+          amount: { value: 7, currency: "EUR", as_written: "€7 million", usd_millions: 8.1, fx_rate: 1.16, fx_date: "2026-10-13" },
+          sources: [{ url: "https://www.eu-startups.com/2026/10/paris-based-carbonfarm-raises-e7-million", host: "eu-startups.com" }],
+        }),
+      ],
+      "growth",
+      "run-1",
+    );
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "CarbonFarm",
+          company_website: "https://www.einpresswire.com/",
+          announced_date: "2026-10-13",
+          amount: { value: 7.8, currency: "USD", as_written: "$7.8 million", usd_millions: 7.8, fx_rate: 1, fx_date: "2026-10-13" },
+          sources: [
+            { url: "https://www.einpresswire.com/article/949116901/carbonfarm-raises-7-8m-series-a", host: "www.einpresswire.com" },
+          ],
+        }),
+      ],
+      "growth",
+      "run-2",
+    );
+    expect(await companyIds(db)).toEqual(["carbonfarm.tech"]);
+    const [company] = await db.select().from(schema.companies);
+    expect(company.website).toBe("https://carbonfarm.tech");
+  });
+
+  test("a domain named for the company is its own, whatever else it publishes", async () => {
+    const db = await testDb();
+    for (const name of ["Ghost", "Every"])
+      await persistRecords(
+        db,
+        [
+          record({
+            company_name: name,
+            sources: [{ url: `https://${name.toLowerCase()}.substack.com/p/raise`, host: `${name.toLowerCase()}.substack.com` }],
+          }),
+        ],
+        "seed",
+        `run-${name}`,
+      );
+    expect(await publisherDomain(db, "substack.com", "substack", {})).toBe(false);
+    expect(await publisherDomain(db, "substack.com", "klarent", {})).toBe(true);
+    expect(await publisherDomain(db, "einpresswire.com", "carbonfarm", {})).toBe(true);
+    expect(await publisherDomain(db, "carbonfarm.tech", "carbonfarm", {})).toBe(false);
   });
 });

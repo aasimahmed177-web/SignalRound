@@ -7,6 +7,7 @@ import {
   DATE_PRECISION_RANK,
   DEFAULT_TIERS,
   dedupeInvestorNames,
+  domainNamedFor,
   financingTotalMatches,
   financingTotalSplits,
   financingTotalsDiffer,
@@ -15,6 +16,7 @@ import {
   investorKeyForMerge,
   isStageless,
   knownRound,
+  NON_ARTICLE_HOSTS,
   normalizeCompanyKey,
   normalizeInvestorName,
   parseAmount,
@@ -24,6 +26,7 @@ import {
   promotable,
   reconcileInvestorLists,
   registrableDomain,
+  SOCIAL_AND_DIRECTORY_HOSTS,
   samePageKey,
   secondhandOnly,
   sectorMembers,
@@ -46,7 +49,7 @@ import { citableValuation, publicLane, publicNotes, publicVerifier, type RoundVa
 import { parseRoundCursor, type RoundSort, roundCursorAfter } from "./round-sort.ts";
 import { companyAccounts, identitySettled, isWireUrl, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
-import { dedupeSources, orderSources, type PrimarySource, primarySourceOf } from "./source-order.ts";
+import { dedupeSources, orderSources, type PrimarySource, primarySourceOf, WIRE_DOMAINS } from "./source-order.ts";
 import { valuationDisclosed } from "./valuation-disclosure.ts";
 
 const {
@@ -372,6 +375,29 @@ export async function foldSiteTwins(handle: Db, companyId: string, domain: strin
   const twins = rows.filter((row) => registrableDomain(row.website) === domain).map((row) => row.id);
   for (const id of twins) await mergeCompanies(handle, id, companyId);
   return twins;
+}
+
+/** Hosts that carry other companies' news or listings: the wires, the outlets the tiers name, social and directory sites. */
+const PUBLISHER_HOSTS = new Set([...WIRE_DOMAINS, ...Object.keys(DEFAULT_TIERS), ...SOCIAL_AND_DIRECTORY_HOSTS, ...NON_ARTICLE_HOSTS]);
+
+/**
+ * Whether a reading's company domain is a publisher's, never the company's own: a wire, an outlet or
+ * directory the tiers and host lists name, or a host the store already holds reports of two other
+ * companies' rounds from. Klarent's reading took ascendants.in, the news site whose article it linked,
+ * for the company's site, and the name collision then made a second Klarent on it. A domain named for
+ * the company is its own whatever else it publishes (substack.com for Substack, binance.com for Binance).
+ */
+export async function publisherDomain(handle: Db, domain: string, companyKey: string, tiers: Record<string, number>): Promise<boolean> {
+  if (domainNamedFor(domain, companyKey)) return false;
+  if (PUBLISHER_HOSTS.has(domain) || domain in tiers) return true;
+  const reported = await handle.execute(sql`
+    select count(distinct c.name_key)::int as n
+    from ${sources} s
+    join ${roundSources} rs on rs.source_id = s.id
+    join ${fundingRounds} r on r.id = rs.round_id
+    join ${companies} c on c.id = r.company_id
+    where (s.host = ${domain} or s.host like ${`%.${domain}`}) and c.name_key <> ${companyKey} and c.domain is distinct from ${domain}`);
+  return Number((reported.rows[0] as { n?: number } | undefined)?.n ?? 0) >= 2;
 }
 
 /**
@@ -1029,8 +1055,17 @@ export async function persistRecords(
     handle,
     records.map((r) => r.id),
   );
+  const publisherTiers = await loadPublisherTiers();
   for (const r of records) {
     r.id = survivors.get(r.id) ?? r.id;
+    // A site on a publisher's host is the page that reported the round, not the company's: the reading
+    // keeps its name, and its identity rests on what else it carries (headquarters, sources, the one
+    // company already holding the name).
+    const site = r.company_domain ?? registrableDomain(r.company_website);
+    if (site && (await publisherDomain(handle, site, r.company_key, publisherTiers))) {
+      r.company_domain = null;
+      r.company_website = null;
+    }
     // A lane that read no valuation sentence (a filing, a post, an older reading) still has its valuation
     // checked against what the record keeps (valuation.ts): one that only another round's sentence
     // states is contradicted, taken off, and the row flagged; one no sentence states is left out of this reading.
@@ -1100,7 +1135,7 @@ export async function persistRecords(
   for (const l of existingLeads) leadsByRound.set(l.roundId, [...(leadsByRound.get(l.roundId) ?? []), l.investorId]);
   // What decides whether a row's sources are all secondhand: the publisher tiers, and the classifier's
   // stored reading of a page from a host no tier names.
-  const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
+  const tiers = { ...DEFAULT_TIERS, ...publisherTiers };
   const sourceUrls = [
     ...new Set([...records.flatMap((r) => r.sources.map((s) => canonicalUrl(s.url))), ...existing.flatMap((e) => e.sourceIds)]),
   ];

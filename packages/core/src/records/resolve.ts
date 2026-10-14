@@ -1772,16 +1772,21 @@ function scrubWebsite(record: FeedRecord): FeedRecord {
  * its first token when the key is more than one word.
  */
 export function ownSiteAmongSources(record: Pick<FeedRecord, "company_key" | "sources">): string | null {
-  const key = record.company_key.replace(/\s+/g, "");
-  const first = record.company_key.split(" ")[0] ?? "";
-  if (key.length < 3) return null;
   for (const s of record.sources) {
     const domain = registrableDomain(s.url);
     if (!domain || SOCIAL_AND_DIRECTORY_HOSTS.has(domain)) continue;
-    const label = domain.split(".")[0] ?? "";
-    if (label === key || (first.length >= 4 && label === first)) return `https://${domain}`;
+    if (domainNamedFor(domain, record.company_key)) return `https://${domain}`;
   }
   return null;
+}
+
+/** Whether a domain is named for the company: its first label is the company key with spaces removed, or its first token when the key is more than one word. */
+export function domainNamedFor(domain: string, companyKey: string): boolean {
+  const key = companyKey.replace(/\s+/g, "");
+  const first = companyKey.split(" ")[0] ?? "";
+  if (key.length < 3) return false;
+  const label = domain.split(".")[0] ?? "";
+  return label === key || (first.length >= 4 && label === first);
 }
 
 /**
