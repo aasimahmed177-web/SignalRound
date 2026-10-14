@@ -75,18 +75,41 @@ function domainBrand(domain: string | null): string | null {
  * subpage's title lands there ("Groceries delivered in minutes", "About", "Notes on Roadtrips").
  * A signal that spells the domain wins, strong before weak; then a strong one alone; else the
  * domain's brand. A weak signal that does not spell the domain never names a company.
+ * Among the signals that spell the domain, one that writes it as a name outranks the bare label
+ * ("glycoera" beside "GlycoEra", "hub-international" beside "Hub International") and the domain
+ * written out ("manychat.com" beside "ManyChat"); the domain written out in lowercase alone is its
+ * label ("noon"). `placeholder` is the name the reading was asked about: when the company's name is
+ * not yet known that is the domain's label, and a stated name that only repeats it says nothing.
  */
 export function companyNameFrom(
-  signals: { stated?: string | null; siteName?: string | null; brand?: string | null; title?: string | null },
+  signals: {
+    stated?: string | null;
+    siteName?: string | null;
+    brand?: string | null;
+    title?: string | null;
+    placeholder?: string | null;
+  },
   domain: string | null,
 ): string | null {
   const clean = (raw: string | null | undefined) => {
     const name = raw?.trim() ? cleanBrandName(raw, domain) : "";
     return name && name.length <= 80 && nameLike(name) ? name : null;
   };
-  const strong = [signals.siteName, signals.stated].map(clean).filter((n): n is string => n !== null);
+  const stated = signals.placeholder && signals.stated?.trim() === signals.placeholder.trim() ? null : signals.stated;
+  const strong = [signals.siteName, stated].map(clean).filter((n): n is string => n !== null);
   const weak = [signals.brand, signals.title].map(clean).filter((n): n is string => n !== null);
-  return strong.find((n) => spellsDomain(n, domain)) ?? weak.find((n) => spellsDomain(n, domain)) ?? strong[0] ?? domainBrand(domain);
+  const spelled = [...strong, ...weak].filter((n) => spellsDomain(n, domain));
+  const site = squash(domain ?? "");
+  const lowercase = (n: string) => n === n.toLowerCase();
+  const writtenOut = (n: string) => squash(n) === site;
+  const bare = (n: string) => lowercase(n) && squash(n) === domainLabel(domain);
+  const best =
+    spelled.find((n) => !writtenOut(n) && !bare(n)) ??
+    spelled.find((n) => writtenOut(n) && !lowercase(n)) ??
+    spelled.find((n) => bare(n)) ??
+    spelled[0];
+  if (best) return writtenOut(best) && lowercase(best) ? (domain ?? "").replace(/^www\./, "").split(".")[0] : best;
+  return strong[0] ?? domainBrand(domain);
 }
 
 /** Remove a headline's location or category before treating the remainder as a company name. */

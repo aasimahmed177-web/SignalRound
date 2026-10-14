@@ -884,6 +884,35 @@ describe("a company added from its homepage is named by its strongest name signa
     expect(row?.name).toBe("Flink");
   });
 
+  test("the reading's echo of the name it was asked about never names the company", async () => {
+    const db = await testDb();
+    const prompts: string[] = [];
+    const { client } = fakeClient(() => [], {
+      "glycoera.com": {
+        json: { ...same("Glycoengineered biologics for autoimmune disease."), company_name: "Glycoera" },
+        branding: { brandName: "GlycoEra" },
+      },
+      "sandboxaq.com": {
+        json: { ...same("AI and quantum software for enterprises."), company_name: "Sandboxaq" },
+        branding: { brandName: "Transforming the World with AI and Advanced Computing" },
+      },
+    });
+    const scrape = client.scrape.bind(client);
+    client.scrape = (async (url: string, opts: { formats?: Array<string | { prompt?: string }> }) => {
+      for (const f of opts?.formats ?? []) if (typeof f === "object" && f.prompt) prompts.push(f.prompt);
+      return scrape(url, opts as never);
+    }) as typeof client.scrape;
+    await companyFromHomepage(db, client, { domain: "glycoera.com", url: "https://glycoera.com", sites: [] });
+    await companyFromHomepage(db, client, { domain: "sandboxaq.com", url: "https://www.sandboxaq.com", sites: [] });
+    const name = async (id: string) => (await db.select().from(schema.companies).where(eq(schema.companies.id, id)))[0]?.name;
+    expect(await name("glycoera.com")).toBe("GlycoEra");
+    // Nothing on the page names it, so the domain's brand does, written as a name rather than a slug.
+    expect(await name("sandboxaq.com")).toBe("Sandboxaq");
+    // The reading is asked about the domain's brand, not its lowercase label.
+    expect(prompts.some((p) => p.includes('"Glycoera"'))).toBe(true);
+    expect(prompts.some((p) => p.includes('"glycoera"'))).toBe(false);
+  });
+
   test("a hero line with no stronger signal gives way to the domain's brand", async () => {
     const db = await testDb();
     const { client } = fakeClient(() => [], {

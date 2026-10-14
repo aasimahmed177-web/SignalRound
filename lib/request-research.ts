@@ -87,7 +87,10 @@ export async function companyFromHomepage(
       return { status: "verified", companyId, fresh: false };
     }
   }
-  const name = existing?.name ?? site.domain.split(".")[0];
+  // A company not yet stored is asked about as its domain's brand ("Glycoera"), so a reading that only
+  // repeats the name it was given is told apart from one that read the site's own ("GlycoEra", "fal").
+  const label = site.domain.split(".")[0];
+  const name = existing?.name ?? label.charAt(0).toUpperCase() + label.slice(1);
   const result = await readProfiles(
     handle,
     client,
@@ -97,8 +100,15 @@ export async function companyFromHomepage(
   const verified = result.enrichments.find((enrichment) => isVerified(enrichment) && enrichment.profile);
   if (!verified) return { status: "refused" };
   const companyName =
-    companyNameFrom({ stated: verified.profile?.company_name, siteName: verified.site_name, brand: verified.brand?.name }, site.domain) ??
-    name;
+    companyNameFrom(
+      {
+        stated: verified.profile?.company_name,
+        siteName: verified.site_name,
+        brand: verified.brand?.name,
+        placeholder: existing ? null : name,
+      },
+      site.domain,
+    ) ?? name;
   if (!existing) {
     await handle
       .insert(companies)

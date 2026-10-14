@@ -41,6 +41,7 @@
     "resolve-investors": "node --env-file-if-exists=.env scripts/resolve-investors.ts",
     "reset-data": "node --env-file-if-exists=.env scripts/maintenance/reset-data.ts",
     "repair-request-names": "node --env-file-if-exists=.env scripts/maintenance/repair-request-names.ts",
+    "repair-slug-names": "node --env-file-if-exists=.env scripts/maintenance/repair-slug-names.ts",
     "repair-money": "node --env-file-if-exists=.env scripts/maintenance/repair-money.ts",
     "repair-certainty": "node --env-file-if-exists=.env scripts/maintenance/repair-certainty.ts",
     "repair-financing": "node --env-file-if-exists=.env scripts/maintenance/repair-financing.ts",

@@ -655,6 +655,43 @@ describe("enrichBatch writes only verified rows", () => {
     expect(company?.website).toBe("https://nscale.com");
   });
 
+  test("a verified homepage's brand gives a lowercase or slug name its capitals, and a lowercase brand keeps its own", async () => {
+    const db = await testDb();
+    await persistRecords(
+      db,
+      [
+        record({
+          company_name: "wudhomes",
+          company_key: "wudhomes",
+          company_website: "https://wudhomes.com",
+          company_domain: "wudhomes.com",
+        }),
+        record({ company_name: "bunq", company_key: "bunq", company_website: "https://bunq.com", company_domain: "bunq.com" }),
+      ],
+      "seed",
+      "run-1",
+    );
+    const { client } = fakeClient([], {
+      "wudhomes.com": { json: { ...ASSISTANT, what_they_sell: "Wudhomes builds timber homes." }, branding: { brandName: "Wudhomes" } },
+      "bunq.com": { json: { ...ASSISTANT, what_they_sell: "bunq is a mobile bank." }, branding: { brandName: "bunq" } },
+    });
+    const rows = [
+      {
+        id: "wudhomes.com",
+        name: "wudhomes",
+        website: "https://wudhomes.com",
+        description: "a timber home builder",
+        hq: null,
+        sector: null,
+      },
+      { id: "bunq.com", name: "bunq", website: "https://bunq.com", description: "a mobile bank", hq: null, sector: null },
+    ];
+    await enrichBatch(db, client, rows, { pricingPage: false });
+    const name = async (id: string) => (await db.select().from(schema.companies).where(eq(schema.companies.id, id)))[0]?.name;
+    expect(await name("wudhomes.com")).toBe("Wudhomes");
+    expect(await name("bunq.com")).toBe("bunq");
+  });
+
   test("the round's headline reaches the identity check as context", async () => {
     const db = await testDb();
     await persistRecords(

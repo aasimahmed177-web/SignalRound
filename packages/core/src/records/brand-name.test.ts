@@ -48,4 +48,40 @@ describe("companyNameFrom: a new company is named by its strongest name signal",
     expect(companyNameFrom({ stated: "Home", siteName: "Blog" }, "acme.com")).toBe("Acme");
     expect(companyNameFrom({}, null)).toBeNull();
   });
+
+  test("a name written as the domain's bare label gives way to the same name with its capitals", () => {
+    expect(companyNameFrom({ stated: "glycoera", brand: "GlycoEra" }, "glycoera.com")).toBe("GlycoEra");
+    expect(companyNameFrom({ stated: "newlimit", brand: "NewLimit" }, "newlimit.com")).toBe("NewLimit");
+    expect(companyNameFrom({ stated: "xpanceo", brand: "XPANCEO" }, "xpanceo.com")).toBe("XPANCEO");
+    expect(companyNameFrom({ stated: "dreamgames", brand: "Dream Games" }, "dreamgames.com")).toBe("Dream Games");
+    expect(companyNameFrom({ stated: "ambiencehealthcare", brand: "Ambience Healthcare" }, "ambiencehealthcare.com")).toBe(
+      "Ambience Healthcare",
+    );
+    expect(companyNameFrom({ stated: "beta", brand: "BETA Technologies" }, "beta.team")).toBe("BETA Technologies");
+    expect(companyNameFrom({ stated: "beaconsoftware", brand: "Beacon" }, "beaconsoftware.com")).toBe("Beacon");
+    expect(companyNameFrom({ stated: "Stord", siteName: "stord", brand: "stord" }, "stord.com")).toBe("Stord");
+    expect(companyNameFrom({ stated: "Hub International", siteName: "hub-international" }, "hubinternational.com")).toBe(
+      "Hub International",
+    );
+  });
+
+  test("the domain written out gives way to the name without it", () => {
+    expect(companyNameFrom({ stated: "ManyChat", siteName: "manychat.com", brand: "manychat.com" }, "manychat.com")).toBe("ManyChat");
+    expect(companyNameFrom({ stated: "Thunes", siteName: "Thunes.com", brand: "Thunes.com" }, "thunes.com")).toBe("Thunes");
+    expect(companyNameFrom({ siteName: "noon.com", brand: "noon.com" }, "noon.com")).toBe("noon");
+    expect(companyNameFrom({ brand: "Cal.com" }, "cal.com")).toBe("Cal.com");
+  });
+
+  test("the name the reading was asked about is no signal of how the company writes it", () => {
+    const asked = (domain: string) => domain.split(".")[0];
+    expect(companyNameFrom({ stated: "sandboxaq", placeholder: asked("sandboxaq.com") }, "sandboxaq.com")).toBe("Sandboxaq");
+    expect(companyNameFrom({ stated: "firstdue", brand: "Fire and EMS Software", placeholder: "firstdue" }, "firstdue.com")).toBe(
+      "Firstdue",
+    );
+    expect(companyNameFrom({ stated: "porter", brand: "Reliable & Hassle", placeholder: "porter" }, "porter.in")).toBe("Porter");
+    expect(companyNameFrom({ stated: "aspida", brand: "Aspida", placeholder: "aspida" }, "aspida.com")).toBe("Aspida");
+    // A brand that writes itself in lowercase keeps it.
+    expect(companyNameFrom({ brand: "bunq" }, "bunq.com")).toBe("bunq");
+    expect(companyNameFrom({ stated: "fal", brand: "Gen Media AI Inference Platform & Serverless GPUs" }, "fal.ai")).toBe("fal");
+  });
 });

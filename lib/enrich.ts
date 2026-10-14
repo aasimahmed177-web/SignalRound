@@ -345,7 +345,10 @@ export async function saveProfiles(handle: Db, result: Awaited<ReturnType<typeof
     if (current && e.brand?.name) {
       const cleaned = cleanHeadlineName(current.name);
       const brand = companyNameFrom({ stated: e.profile?.company_name, siteName: e.site_name, brand: e.brand.name }, domain);
-      if (brand && cleaned !== current.name && normalizeCompanyKey(cleaned) === normalizeCompanyKey(brand))
+      // A headline's descriptor comes off ("Neocloud Nscale"), and a name saved as a lowercase slug
+      // ("wudhomes") takes the capitals the site writes it with; a brand written in lowercase ("bunq") keeps its own.
+      const lowercaseSlug = current.name === current.name.toLowerCase() && brand !== brand?.toLowerCase();
+      if (brand && (cleaned !== current.name || lowercaseSlug) && normalizeCompanyKey(cleaned) === normalizeCompanyKey(brand))
         await handle
           .update(companies)
           .set({ name: brand, nameKey: normalizeCompanyKey(brand), updatedAt: new Date() })
