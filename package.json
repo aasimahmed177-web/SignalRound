@@ -102,6 +102,11 @@
   },
   "packageManager": "pnpm@11.5.0",
   "description": "Evidence-first funding intelligence: collect signals from any source, corroborate them, and publish structured funding records.",
+  "homepage": "https://github.com/aasimahmed177-web/SignalRound#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aasimahmed177-web/SignalRound.git"
+  },
   "license": "MIT",
   "keywords": [
     "firecrawl",

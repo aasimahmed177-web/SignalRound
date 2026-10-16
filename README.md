@@ -29,6 +29,8 @@ Agent Reach / Firecrawl / SEC / RSS / custom workers
 Requires Node 24+ and pnpm.
 
 ```bash
+git clone https://github.com/aasimahmed177-web/SignalRound.git
+cd SignalRound
 corepack enable
 pnpm install
 cp .env.example .env
@@ -101,4 +103,4 @@ The stack is Next.js 16, React 19, TypeScript, Tailwind 4, Drizzle, PGlite/Postg
 
 ## Upstream and license
 
-SignalRound is built from [FireRound](https://github.com/firecrawl/fireround), an MIT-licensed Firecrawl project. The upstream remote is retained as `upstream` so improvements can be followed and merged. SignalRound is also MIT licensed; see [LICENSE](LICENSE).
+[SignalRound](https://github.com/aasimahmed177-web/SignalRound) is built from [FireRound](https://github.com/firecrawl/fireround), an MIT-licensed Firecrawl project. The FireRound repository is retained as the `upstream` remote so improvements can be followed and merged. SignalRound is also MIT licensed; see [LICENSE](LICENSE).

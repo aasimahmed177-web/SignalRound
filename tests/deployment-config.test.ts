@@ -6,12 +6,12 @@ import { config, cronsFor } from "../vercel";
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const deploy = readFileSync(new URL("../docs/deploy.md", import.meta.url), "utf8");
 
-test("the inherited landing deploy stays pinned to upstream until SignalRound has a published remote", () => {
+test("the landing deploy clones SignalRound and requests its ingestion credential", () => {
   const link = new URL(DEPLOY_URL);
-  expect(link.searchParams.get("repository-url")).toBe("https://github.com/firecrawl/fireround");
+  expect(link.searchParams.get("repository-url")).toBe("https://github.com/aasimahmed177-web/SignalRound");
   // MCP_API_KEY is added later: a password-protected deployment refuses MCP until it is set, and nothing else needs it.
-  expect(link.searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET"]);
-  expect(readme).toContain("The upstream remote is retained as `upstream`");
+  expect(link.searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET", "SIGNAL_INGEST_KEY"]);
+  expect(readme).toContain("retained as the `upstream` remote");
 });
 
 test("a clone deploys on Vercel Hobby by default, and FIREROUND_SCHEDULE=frequent restores the full cadence", () => {
