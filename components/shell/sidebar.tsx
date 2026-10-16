@@ -119,13 +119,13 @@ export function SidebarFooter({ signIn = false }: { signIn?: boolean }) {
         API
       </Link>
       <a
-        href="https://github.com/firecrawl/fireround"
+        href="https://github.com/aasimahmed177-web/SignalRound"
         target="_blank"
         rel="noreferrer"
         className={footerLink}
         onClick={() => track("fireround_github_clicked", { location: "sidebar" })}
       >
-        FireRound upstream
+        GitHub
         <ArrowUpRight className="size-3.5" strokeWidth={1.75} aria-hidden />
       </a>
       {signIn && (

@@ -2,7 +2,6 @@
 
 import { Menu, Search } from "lucide-react";
 import { useState } from "react";
-import { FirecrawlLockup } from "@/components/brand/firecrawl-lockup";
 import { openCommandPalette } from "@/components/search/command-palette";
 import { Brand, SidebarFooter, SuspendedNavLinks, shellIconButton } from "@/components/shell/sidebar";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -10,8 +9,7 @@ import { navItemsFor } from "@/lib/nav";
 
 /**
  * The phone and narrow-pane shell: a top bar with the brand, search, and the menu, and a drawer
- * holding the sidebar's nav. "Built on Firecrawl" lives in the drawer's foot so the bar carries
- * one brand, not two.
+ * holding the sidebar's nav.
  */
 export function MobileNav({ hrefs, signIn, home }: { hrefs?: string[]; signIn?: boolean; home?: string }) {
   const [open, setOpen] = useState(false);
@@ -34,10 +32,6 @@ export function MobileNav({ hrefs, signIn, home }: { hrefs?: string[]; signIn?: 
             </div>
             {/* Closing on click rather than on pathname change keeps the drawer out of the Suspense boundary. */}
             <SuspendedNavLinks items={navItemsFor(hrefs)} onNavigate={() => setOpen(false)} />
-            <div className="flex items-center gap-2 border-t border-border-faint px-4 py-3">
-              <span className="text-label-x-small text-black-alpha-40 dark:text-muted-foreground">Built on</span>
-              <FirecrawlLockup caption={false} />
-            </div>
             <SidebarFooter signIn={signIn} />
           </SheetContent>
         </Sheet>

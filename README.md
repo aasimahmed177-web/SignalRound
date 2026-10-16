@@ -1,27 +1,30 @@
 # SignalRound
 
-SignalRound is evidence-first funding intelligence. It discovers possible funding events across the open web and social sources, keeps those unverified observations in a separate signal inbox, then uses FireRound's research pipeline to turn corroborated claims into structured, deduplicated funding records.
+SignalRound is a self-hosted startup-funding and public-contact collector. Its native path reads RSS/Atom feeds and public webpages directly, resolves the startup's first-party website, and looks for published role inboxes such as `hello@company.com`. It does not call Firecrawl or spend Firecrawl credits.
 
-The core rule is simple: **rumors may enter the inbox; only evidence reaches the feed.**
+The core rule is simple: **store the source, never invent a lead.**
 
 ## What works today
 
-- A source-neutral Signal Inbox for observations from Agent Reach, monitors, filings, social networks, or custom collectors.
-- Authenticated single and batch ingestion at `POST /api/v1/signals`.
-- Idempotent ingestion by channel + URL, repeat-sighting counts, source metadata, tags, and discovery confidence.
-- Analyst workflow for moving signals between New, Researching, Matched, and Dismissed without contaminating verified records.
-- FireRound's complete funding product underneath: web discovery, extraction, corroboration, deduplication, review, company and investor pages, JSON/CSV/JSONL API, feeds, Slack delivery, MCP, and scheduled runs.
+- Direct RSS/Atom discovery from funding-news and press-release feeds.
+- Direct HTTP reads of the source article and startup website, with bounded responses and timeouts.
+- Funding-only headline filtering, company/amount/stage extraction, and first-party website resolution.
+- Public role-email discovery from the company's own homepage and contact/about pages.
+- A Signal Inbox containing the article, company, funding facts, public email, source URL, and collection method.
+- Dry-run by default; idempotent storage with `--apply`.
+- Optional Agent Reach/Jina reader fallback for sites that reject direct reads. `--no-jina` keeps the run strictly direct-web.
 
 ```text
-Agent Reach / Firecrawl / SEC / RSS / custom workers
-                         │
-                         ▼
-                 Signal Inbox (unverified)
-                         │
-             corroborate + resolve + dedupe
-                         │
-                         ▼
-                  Funding feed (verified)
+RSS / Atom / Agent Reach sources
+              │
+              ▼
+     direct article inspection
+              │
+              ▼
+ first-party website + public email
+              │
+              ▼
+       Signal Inbox (real data)
 ```
 
 ## Quick start
@@ -34,15 +37,30 @@ cd SignalRound
 corepack enable
 pnpm install
 cp .env.example .env
-pnpm demo-data
+pnpm collect:native -- --limit 10 --days 30 --apply --no-jina
 pnpm dev
 ```
 
-Open [http://localhost:3000/signals](http://localhost:3000/signals). Demo mode seeds ten fictional rounds and three fictional discovery signals; it uses no Firecrawl credits.
+Open [http://localhost:3000/signals](http://localhost:3000/signals). The collector stores only live observations fetched during that run. No API key is required.
 
 Without `DATABASE_URL`, SignalRound uses embedded Postgres through PGlite at `./data/signalround`. Set `DATABASE_URL` to use Postgres 15+.
 
-## Ingest a signal
+### Collector options
+
+```bash
+# Preview without writing
+pnpm collect:native -- --limit 10 --days 7 --no-jina
+
+# Store direct-web results
+pnpm collect:native -- --limit 25 --days 30 --apply --no-jina
+
+# Add another RSS or Atom source (repeat --feed as needed)
+pnpm collect:native -- --feed https://example.com/funding.xml --apply --no-jina
+```
+
+Omit `--no-jina` to allow the reader fallback used by Agent Reach when a site blocks a normal request. Firecrawl is disabled in both modes.
+
+## Ingest from another Agent Reach channel
 
 Set a dedicated secret in `.env`:
 
@@ -70,11 +88,13 @@ curl -X POST http://localhost:3000/api/v1/signals \
 
 For batches, send either a JSON array or `{ "data": [...] }`, up to 100 observations. Required fields are `channel`, `url`, and either `title` or `summary`. `confidence` is a lead score from 0 to 1; it is explicitly not verification confidence.
 
-Agent Reach should run as a separate discovery worker and normalize each upstream result into this contract. Credentials and cookies stay with the worker; SignalRound receives only the observation and source-specific metadata.
+Agent Reach is a tool installer and router rather than a scraping proxy, so its upstream tools run directly. A worker can normalize any additional channel into this contract; credentials and cookies stay with that worker.
 
-## FireRound capabilities
+## Migration status
 
-Set `FIRECRAWL_API_KEY` to run live discovery and research. Optional model keys add cross-source read-back and company deep dives. The inherited operational guides remain in `docs/`:
+SignalRound began as a fork of FireRound. The native collector, contact discovery, storage path, and Signal Inbox do not import or call Firecrawl. Some inherited FireRound modules and their `firecrawl` package dependency remain in the repository while the older sweep, monitor, and enrichment routes are replaced; do not run those legacy commands if you want a zero-Firecrawl deployment.
+
+The inherited operational guides remain in `docs/` while that migration continues:
 
 - [How the research pipeline works](docs/how-it-works.md)
 - [Data quality and verification](docs/data-quality.md)
@@ -91,15 +111,15 @@ pnpm lint
 pnpm build
 ```
 
-The stack is Next.js 16, React 19, TypeScript, Tailwind 4, Drizzle, PGlite/Postgres, the Vercel Workflow SDK, Firecrawl, and the AI SDK.
+The native stack is Next.js 16, React 19, TypeScript, Tailwind 4, Drizzle, PGlite/Postgres, Cheerio, and fast-xml-parser.
 
 ## Roadmap
 
-1. Agent Reach worker adapters and per-source health/cost telemetry.
-2. Automatic corroboration queues that search for primary and reputable secondary sources.
-3. Entity resolution from signal companies to canonical company records.
-4. A human-assisted match flow from an observation to a verified round.
-5. Personalized watchlists, alerts, and source-quality calibration.
+1. Add more Agent Reach channels and source health telemetry.
+2. Replace the remaining inherited Firecrawl research routes with Playwright/direct-web workers.
+3. Add automatic primary/secondary-source corroboration and entity resolution.
+4. Add scheduled native collection, deduplication, watchlists, and alerts.
+5. Remove the legacy `firecrawl` dependency once the last inherited route is replaced.
 
 ## Upstream and license
 

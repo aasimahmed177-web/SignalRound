@@ -1,6 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { FirecrawlLockup } from "@/components/brand/firecrawl-lockup";
 import { DataNotice } from "@/components/feed/data-notice";
 import { container, gutter } from "@/components/marketing/section";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
@@ -39,7 +38,7 @@ const columns = (demo: boolean): Array<{ title: string; links: FooterLink[] }> =
             },
           ]
         : []),
-      { href: "https://docs.firecrawl.dev", label: "Firecrawl docs", external: true },
+      { href: `${REPO_URL}#collector-options`, label: "Native collector", external: true },
     ],
   },
   {
@@ -60,7 +59,7 @@ const link =
   "tap relative inline-flex items-center gap-1 rounded-4 text-body-small text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
 /**
- * The foot: the lockup and what Fireround is, three short columns of links, the data notice and the
+ * The foot: the project summary, three short columns of links, the data notice and the
  * theme. `anchorBase` prefixes the landing page's own anchors when the foot sits on another page.
  */
 export function SiteFooter({ anchorBase = "" }: { anchorBase?: string }) {
@@ -74,11 +73,10 @@ export function SiteFooter({ anchorBase = "" }: { anchorBase?: string }) {
         )}
       >
         <div className="space-y-4">
-          <div className="text-[17px] leading-none font-medium tracking-[-0.01em]">Fireround</div>
+          <div className="text-[17px] leading-none font-medium tracking-[-0.01em]">SignalRound</div>
           <p className="max-w-xs text-body-small text-muted-foreground">
-            The open-source funding feed, and a Firecrawl example app. Fork it and run it on your own key.
+            Self-hosted funding and public-contact discovery from direct web sources. No paid scraping key required.
           </p>
-          <FirecrawlLockup className="pt-1" />
         </div>
         {columns(isPublicDemo()).map((col) => (
           <nav key={col.title} aria-label={col.title} className="space-y-3">

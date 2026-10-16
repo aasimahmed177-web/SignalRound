@@ -1,12 +1,11 @@
 // The link-preview cards' shared parts: the house frame (the root card's Graphite ground, the lit
-// flame beside the name, the "Built on Firecrawl" line), the fonts, a logo fetch that can only
+// flame beside the name, the native-collector line), the fonts, a logo fetch that can only
 // ever fall back, and a render that never fails the request. A card is 1200x630 PNG.
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { cloneElement, type ReactElement, type ReactNode } from "react";
-import { FirecrawlWordmark } from "@/components/brand/firecrawl-wordmark";
+import type { ReactElement, ReactNode } from "react";
 import { FLAME_INNER_PATH, FLAME_INNER_TRANSFORM, FLAME_OUTER_TRANSFORM, FLAME_REST_PATH } from "@/components/brand/flame-geometry";
 import { isPublicDemo } from "@/lib/access";
 import { MAX_ASPECT, svgAspect, svgLeavesNoMark } from "@/lib/logo";
@@ -250,21 +249,14 @@ export function Flame({ size }: { size: number }) {
   );
 }
 
-/** "Built on" and the lockup: the lit flame where the logotype's flame sits, then the served letterforms. */
-function BuiltOnFirecrawl() {
-  // The wordmark component draws the served brand paths; next/og needs pixel dimensions and a fill, not a class.
-  const wordmark = cloneElement(FirecrawlWordmark({}) as ReactElement<Record<string, unknown>>, {
-    className: undefined,
-    width: 104,
-    height: 22,
-    fill: INK.text,
-  });
+/** Native collector mark used in link previews. */
+function NativeCollectorMark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <div style={{ fontFamily: MONO, fontSize: 16, color: INK.faint, letterSpacing: 1 }}>{words("BUILT ON")}</div>
+      <div style={{ fontFamily: MONO, fontSize: 16, color: INK.faint, letterSpacing: 1 }}>{words("DIRECT WEB")}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Flame size={30} />
-        {wordmark}
+        <div style={{ fontFamily: SANS, fontSize: 21, color: INK.text, fontWeight: 600 }}>{words("SignalRound")}</div>
       </div>
     </div>
   );
@@ -315,7 +307,7 @@ export function CardFrame({ tag, children, footer }: { tag: string; children: Re
           {footer?.check && <Check />}
           {footer && <span>{words(footer.text)}</span>}
         </div>
-        <BuiltOnFirecrawl />
+        <NativeCollectorMark />
       </div>
     </div>
   );

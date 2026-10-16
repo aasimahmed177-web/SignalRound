@@ -1,4 +1,4 @@
-import { ArrowUpRight, Braces, CheckCircle2, CircleDotDashed, SearchCheck, Waypoints } from "lucide-react";
+import { ArrowUpRight, Braces, CheckCircle2, CircleDotDashed, Mail, SearchCheck, Waypoints } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -67,8 +67,29 @@ function statusLabel(status: string): string {
   return status === "researching" ? "In research" : status[0]?.toUpperCase() + status.slice(1);
 }
 
+function publicContacts(row: SignalRow): Array<{ email: string; sourceUrl: string }> {
+  const value = row.metadata.public_contacts;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((contact) => {
+    if (!contact || typeof contact !== "object") return [];
+    const email = "email" in contact && typeof contact.email === "string" ? contact.email : null;
+    const sourceUrl = "sourceUrl" in contact && typeof contact.sourceUrl === "string" ? contact.sourceUrl : null;
+    return email && sourceUrl ? [{ email, sourceUrl }] : [];
+  });
+}
+
+function fundingLabel(row: SignalRow): string | null {
+  const value = row.metadata.funding;
+  if (!value || typeof value !== "object") return null;
+  const amount = "amount_as_written" in value && typeof value.amount_as_written === "string" ? value.amount_as_written : null;
+  const stage = "stage_as_written" in value && typeof value.stage_as_written === "string" ? value.stage_as_written : null;
+  return [amount, stage].filter(Boolean).join(" · ") || null;
+}
+
 function SignalCard({ row }: { row: SignalRow }) {
   const status = SIGNAL_STATUSES.includes(row.status as SignalStatus) ? (row.status as SignalStatus) : "new";
+  const contacts = publicContacts(row);
+  const funding = fundingLabel(row);
   return (
     <article className="group border-b border-border-faint py-5 first:border-t">
       <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_13rem] md:items-start">
@@ -96,6 +117,22 @@ function SignalCard({ row }: { row: SignalRow }) {
             <span className="truncate">{hostOf(row.url)}</span>
             <ArrowUpRight className="size-3.5 shrink-0" />
           </a>
+          {(funding || contacts.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2 text-label-small">
+              {funding && <span className="rounded-full bg-proof-green/10 px-2.5 py-1 text-proof-green">{funding}</span>}
+              {contacts.map((contact) => (
+                <a
+                  key={contact.email}
+                  href={`mailto:${contact.email}`}
+                  title={`Found on ${contact.sourceUrl}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-signal-blue/10 px-2.5 py-1 text-signal-blue hover:bg-signal-blue/15"
+                >
+                  <Mail className="size-3.5" />
+                  {contact.email}
+                </a>
+              ))}
+            </div>
+          )}
           <ProofRail status={status} />
         </div>
         <aside className="flex items-center justify-between gap-4 border-t border-border-faint pt-4 md:block md:border-l md:border-t-0 md:pl-5 md:pt-0">
@@ -129,8 +166,8 @@ async function SignalsBody({ searchParams }: { searchParams: Promise<Record<stri
             <p className="text-mono-x-small uppercase tracking-[0.18em] text-signal-blue">Evidence boundary</p>
             <h2 className="mt-3 max-w-2xl text-title-h4 text-balance sm:text-title-h3">Rumors can enter. Only proof reaches the feed.</h2>
             <p className="mt-3 max-w-2xl text-body-medium leading-relaxed text-signal-ink/65 dark:text-white/65">
-              Agent Reach, monitors, filings, and social sources all land here first. SignalRound preserves the raw lead while the existing
-              FireRound research pipeline verifies the company, amount, stage, and date.
+              Agent Reach, direct web feeds, filings, and social sources all land here first. SignalRound preserves the source while its
+              native research pipeline checks the company, amount, stage, website, and public contact points.
             </p>
           </div>
           <div className="border-t border-signal-ink/10 bg-white/55 p-6 lg:border-l lg:border-t-0 dark:border-white/10 dark:bg-white/[.03]">

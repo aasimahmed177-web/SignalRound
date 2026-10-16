@@ -9,8 +9,9 @@ const deploy = readFileSync(new URL("../docs/deploy.md", import.meta.url), "utf8
 test("the landing deploy clones SignalRound and requests its ingestion credential", () => {
   const link = new URL(DEPLOY_URL);
   expect(link.searchParams.get("repository-url")).toBe("https://github.com/aasimahmed177-web/SignalRound");
-  // MCP_API_KEY is added later: a password-protected deployment refuses MCP until it is set, and nothing else needs it.
-  expect(link.searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET", "SIGNAL_INGEST_KEY"]);
+  // Native collection needs no scraping-vendor key. MCP_API_KEY is added later: a password-protected
+  // deployment refuses MCP until it is set, and nothing else needs it.
+  expect(link.searchParams.get("env")?.split(",")).toEqual(["DASHBOARD_PASSWORD", "CRON_SECRET", "SIGNAL_INGEST_KEY"]);
   expect(readme).toContain("retained as the `upstream` remote");
 });
 

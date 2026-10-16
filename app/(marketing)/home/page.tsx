@@ -1,4 +1,3 @@
-import { MAX_SOURCES } from "@fireround/core";
 import { ArrowRight, ArrowUpRight, Braces, Building2, Rows3, Send, Share2, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -28,15 +27,15 @@ import { isLanding, isPublicDemo } from "@/lib/access";
 import { trackClick } from "@/lib/analytics";
 import { digestsConfigured } from "@/lib/digest";
 import { feedAlternateTypes } from "@/lib/feed-discovery";
-import { ALEXANDRIA_URL, API_KEYS_URL, DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
+import { DEPLOY_URL, ENV_EXAMPLE, QUICK_START, REPO_URL } from "@/lib/landing";
 import { canonicalBase, canonicalUrl } from "@/lib/origin";
 import { siteJsonLd } from "@/lib/seo";
 import { publicSlackConfig } from "@/lib/slack-subscriptions";
 import { cn } from "@/lib/utils";
 
-const TITLE = "Fireround: who just raised, checked at the source";
+const TITLE = "SignalRound: who just raised, found without scraping credits";
 const DESCRIPTION =
-  "Startup funding rounds from across the web, pre-seed to growth, each checked against the pages that reported it. An open-source feed built on Firecrawl: a dashboard, Slack, feeds, an API, and an MCP server.";
+  "Self-hosted startup funding discovery from public feeds and first-party websites, with source-backed public contact emails and no Firecrawl credits.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -47,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    siteName: "Fireround",
+    siteName: "SignalRound",
     type: "website",
     url: canonicalUrl(isLanding() ? "/" : "/home"),
     images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: TITLE }],
@@ -59,8 +58,6 @@ const SECTIONS = 4;
 
 const OPENAPI_PATH = "/api/v1/openapi.json";
 
-const docs = (path: string) => `https://docs.firecrawl.dev/features/${path}`;
-
 interface Step {
   primitive: string;
   title: string;
@@ -69,41 +66,35 @@ interface Step {
   links: Array<{ href: string; label: string }>;
 }
 
-/** The pipeline as docs/how-it-works.md and docs/data-quality.md state it, one Firecrawl primitive a step. */
+/** The native pipeline implemented in lib/native-collector.ts. */
 const STEPS: Step[] = [
   {
-    primitive: "Search",
-    title: "Search finds the articles",
-    body: "Eight queries per watchlist across news and the web. A result that cannot be an article, like a site root, a tag page, or an investor directory, is declined before any scrape.",
-    trace: "search · news + web",
-    links: [{ href: docs("search"), label: "Search" }],
+    primitive: "Discover",
+    title: "Feeds find funding articles",
+    body: "RSS and Atom sources surface current announcements. Strict headline rules reject valuation stories and phrases that merely use words such as raise.",
+    trace: "rss + atom · real sources",
+    links: [{ href: `${REPO_URL}/blob/main/lib/native-collector.ts`, label: "Collector source" }],
   },
   {
-    primitive: "Scrape",
-    title: "Scrape reads each into a schema",
-    body: "One scrape per page with a JSON format: company, stage, amount, date, and investors, plus the sentence that states them. A round whose sentence is not on the page is dropped.",
-    trace: "scrape · json format",
-    links: [
-      { href: docs("scrape"), label: "Scrape" },
-      { href: docs("llm-extract"), label: "JSON extraction" },
-    ],
+    primitive: "Inspect",
+    title: "Direct HTTP reads the source",
+    body: "The collector fetches the article itself with timeouts and response limits, then keeps the original URL, title, author, publication date, and feed provenance.",
+    trace: "direct fetch · bounded read",
+    links: [{ href: `${REPO_URL}#collector-options`, label: "Run it" }],
   },
   {
-    primitive: "Verify",
-    title: "Each record is read back against its sources",
-    body: `Before a record publishes, a model reads it against up to ${MAX_SOURCES} of its sources together and cites the page and sentence for each field. Without a model key, the judge reads the primary page with Firecrawl.`,
-    trace: `reconcile · up to ${MAX_SOURCES} sources`,
-    links: [{ href: `${REPO_URL}/blob/main/docs/data-quality.md`, label: "How the data stays honest" }],
+    primitive: "Resolve",
+    title: "The company and round are parsed",
+    body: "Company, amount, and stage come from the announcement. Scored first-party links resolve the company website without trusting an unrelated link on the page.",
+    trace: "company · amount · stage",
+    links: [{ href: `${REPO_URL}/blob/main/tests/native-collector.test.ts`, label: "Precision tests" }],
   },
   {
-    primitive: "Enrich",
-    title: "Enrichment adds the company",
-    body: "The company's homepage, checked against the record first, gives the profile and the logo through the branding format. Alexandria adds sourced facts on the verified domain.",
-    trace: "branding · alexandria",
-    links: [
-      { href: "https://www.firecrawl.dev/blog/branding-format-v2", label: "Branding format" },
-      { href: docs("alexandria"), label: "Alexandria" },
-    ],
+    primitive: "Contact",
+    title: "First-party pages expose public inboxes",
+    body: "The homepage and contact/about pages are checked for role addresses on the same domain. Personal and support-only addresses are excluded.",
+    trace: "website · public role email",
+    links: [{ href: `${REPO_URL}/blob/main/README.md`, label: "Method and limits" }],
   },
 ];
 
@@ -127,7 +118,7 @@ const FEATURES: Feature[] = [
   {
     icon: Building2,
     lead: "Companies and investors.",
-    body: "A page for each: every round on record, total raised, the syndicate, co-investors, and Alexandria facts.",
+    body: "A page for each: every round on record, total raised, the syndicate, co-investors, and source-backed company facts.",
     href: "/companies",
     cta: "Browse companies",
   },
@@ -233,9 +224,8 @@ function Hero() {
             Who just raised, <span className="text-heat-hot">checked at the source.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-[17px] leading-7 text-muted-foreground text-pretty sm:text-[19px] sm:leading-8">
-            {/* Two deliberate lines from sm up: what the feed holds and how it is checked, then whose API it runs on. */}
             Pre-seed to growth, each round linked to <span className="whitespace-nowrap">the pages that reported it.</span>
-            <br className="hidden sm:block" /> <span className="whitespace-nowrap">Open source, built on Firecrawl.</span>
+            <br className="hidden sm:block" /> <span className="whitespace-nowrap">Open source, direct-web, no scraping credits.</span>
           </p>
           <div className="mt-9 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
             <Link href="/feed" className={primaryButton}>
@@ -252,15 +242,6 @@ function Hero() {
               Deploy your own
             </a>
           </div>
-          {/* The hosted feed is a provider in Firecrawl Alexandria; an instance of your own is not, so only the demo says so. */}
-          {isPublicDemo() && (
-            <p className="mt-5 text-body-medium text-muted-foreground">
-              Ask it from ChatGPT or Claude:{" "}
-              <Out href={ALEXANDRIA_URL} className="text-body-medium">
-                Fireround in Firecrawl Alexandria
-              </Out>
-            </p>
-          )}
         </div>
         <div className="mx-auto mt-14 max-w-5xl sm:mt-16">
           <Suspense fallback={<LiveGlimpseSkeleton />}>
@@ -279,8 +260,8 @@ function HowItWorks() {
         How it works
       </Eyebrow>
       <SectionHead title="How a round gets into the feed.">
-        Every round goes through four steps before it shows up in the feed. Each step is a Firecrawl endpoint you can call yourself. X is
-        read with Firecrawl too: search finds who posted about each new round, and that is what ranks Trending.
+        The native collector follows four inspectable steps. It reads public sources directly and records where every article, website, and
+        email came from.
       </SectionHead>
       <ol className="grid border-t border-border-faint sm:grid-cols-2 lg:grid-cols-4">
         {STEPS.map((s, i) => (
@@ -370,21 +351,6 @@ function Product() {
             <h3 className="text-title-h5">Query it with curl, or connect it to an agent.</h3>
             <p className="max-w-2xl text-body-medium text-muted-foreground">
               The same records over HTTP and over MCP. The response below is a row from this instance, trimmed to a few fields.
-              {isPublicDemo() && (
-                <>
-                  {" "}
-                  In ChatGPT or Claude, use{" "}
-                  <a
-                    href={ALEXANDRIA_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-foreground underline underline-offset-2 hover:no-underline"
-                  >
-                    Fireround in Firecrawl Alexandria
-                  </a>
-                  .
-                </>
-              )}
             </p>
           </div>
           <div className="flex shrink-0 gap-5">
@@ -485,8 +451,8 @@ function SelfHost() {
             Run your own in four commands.
           </h2>
           <p className="mt-4 max-w-md text-[16px] leading-6 text-muted-foreground sm:text-[17px] sm:leading-7">
-            No database to set up: without a database URL it runs on embedded Postgres under ./data. On Vercel the button provisions Neon,
-            and cron runs the sweeps. It runs on your own Firecrawl API key, and you choose how often it looks.
+            No database or paid scraping key to set up: without a database URL it runs on embedded Postgres under ./data. The native
+            collector reads public feeds and first-party sites directly; add your own schedule when you are ready.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
@@ -510,12 +476,7 @@ function SelfHost() {
               Read the README
             </a>
           </div>
-          <p className="mt-4 text-body-small text-muted-foreground">
-            Need a key?{" "}
-            <Out href={API_KEYS_URL} className="text-label-small">
-              Get a Firecrawl API key
-            </Out>
-          </p>
+          <p className="mt-4 text-body-small text-muted-foreground">No Firecrawl account or credits are required for native collection.</p>
           <dl className="mt-10 divide-y divide-border-faint border-y border-border-faint">
             {FACTS.map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-6 py-3">

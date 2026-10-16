@@ -812,12 +812,14 @@ describe("persistRecords", () => {
   test("resetData removes what the pipeline wrote and keeps what the operator configured", async () => {
     const db = await testDb();
     await persistRecords(db, [record({ company_name: "Gone Co", lead_investors: ["Fund One"] })], "series-a-b", "run-1");
+    await db.insert(schema.signalObservations).values({ id: "gone-signal", channel: "native-web", url: "https://example.com/gone" });
     await db.execute(sql`insert into settings (key, value) values ('coverage', '{"tier":"standard","overrides":{}}'::jsonb)`);
     await db.execute(sql`insert into feed_tokens (token_hash, label, preset_slug) values ('tok', 'Slack', 'series-a-b')`);
     const gone = await resetData(db);
-    expect(gone).toEqual({ rounds: 1, companies: 1, sources: 1 });
+    expect(gone).toEqual({ rounds: 1, companies: 1, sources: 1, signals: 1 });
     expect((await listRounds(db, { includeReview: true })).rows).toEqual([]);
     expect((await db.execute(sql`select count(*)::int n from investors`)).rows[0].n).toBe(0);
+    expect((await db.execute(sql`select count(*)::int n from signal_observations`)).rows[0].n).toBe(0);
     expect((await db.execute(sql`select count(*)::int n from settings`)).rows[0].n).toBe(1);
     expect((await db.execute(sql`select count(*)::int n from feed_tokens`)).rows[0].n).toBe(1);
   });

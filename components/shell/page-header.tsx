@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { FirecrawlLockup } from "@/components/brand/firecrawl-lockup";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -18,9 +17,7 @@ interface PageHeaderProps {
  * The title block every page opens with. On a phone the title steps down a size and the
  * description holds to two lines, so the page itself starts on the first screen. The title wraps
  * rather than truncating: beside the actions at tablet widths a long name or the feed's title lost
- * its end to an ellipsis. The Firecrawl
- * lockup takes the top-right corner on the widths that show the desktop sidebar; the phone
- * carries it in the drawer instead.
+ * its end to an ellipsis.
  */
 export function PageHeader({ section, title, description, breadcrumb, actions }: PageHeaderProps) {
   const item = NAV[section];
@@ -34,9 +31,7 @@ export function PageHeader({ section, title, description, breadcrumb, actions }:
             {description ?? item?.description}
           </p>
         </div>
-        {/* Lockup on top, actions at the foot of the title block; below lg the column only exists for actions. */}
-        <div className={cn("flex-col items-start gap-3 sm:shrink-0 sm:items-end sm:justify-between", actions ? "flex" : "hidden lg:flex")}>
-          <FirecrawlLockup className="hidden lg:inline-flex" />
+        <div className={cn("flex-col items-start gap-3 sm:shrink-0 sm:items-end sm:justify-between", actions ? "flex" : "hidden")}>
           {actions && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div>}
         </div>
       </div>

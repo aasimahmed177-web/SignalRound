@@ -14,9 +14,9 @@ const { fundingRounds, roundInvestors, roundSources, runs, sources } = schema;
 
 export const REPO_URL = "https://github.com/aasimahmed177-web/SignalRound";
 
-/** The README's Deploy with Vercel button, character for character: the repo, the three env vars it asks for, and a Neon database. */
+/** The README's Deploy with Vercel button: native collection needs no vendor API key. */
 export const DEPLOY_URL =
-  "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Faasimahmed177-web%2FSignalRound&env=FIRECRAWL_API_KEY%2CDASHBOARD_PASSWORD%2CCRON_SECRET%2CSIGNAL_INGEST_KEY&envDescription=Your%20Firecrawl%20API%20key%2C%20dashboard%20password%2C%20cron%20secret%2C%20and%20a%20dedicated%20bearer%20key%20for%20signal%20ingestion&envLink=https%3A%2F%2Fwww.firecrawl.dev%2Fapp%2Fapi-keys&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D";
+  "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Faasimahmed177-web%2FSignalRound&env=DASHBOARD_PASSWORD%2CCRON_SECRET%2CSIGNAL_INGEST_KEY&envDescription=Your%20dashboard%20password%2C%20cron%20secret%2C%20and%20a%20dedicated%20bearer%20key%20for%20signal%20ingestion&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D";
 
 export const API_KEYS_URL = "https://www.firecrawl.dev/app/api-keys";
 
@@ -27,7 +27,7 @@ export const ALEXANDRIA_URL = "https://www.firecrawl.dev/alexandria/fireround";
 export const QUICK_START = [
   "git clone https://github.com/aasimahmed177-web/SignalRound.git && cd SignalRound",
   "pnpm install",
-  "cp .env.example .env   # paste your Firecrawl key",
+  "pnpm collect:native -- --limit 10 --days 30 --apply --no-jina",
   "pnpm dev               # http://localhost:3000",
 ].join("\n");
 
@@ -36,12 +36,12 @@ export const QUICK_START = [
  * on its own line above its variable, short enough that a 390px screen never wraps one mid-phrase.
  */
 export const ENV_EXAMPLE = [
-  "# the one you need",
-  "FIRECRAWL_API_KEY=fc-...",
   "# optional: locks the dashboard",
   "DASHBOARD_PASSWORD=...",
   "# any random string, 16+ characters",
   "CRON_SECRET=...",
+  "# bearer key for external Agent Reach workers",
+  "SIGNAL_INGEST_KEY=...",
 ].join("\n");
 
 const visible = inArray(fundingRounds.disposition, ["publish", "flagged"]);

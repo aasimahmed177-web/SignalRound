@@ -276,19 +276,21 @@ export async function normalizeSectors(handle: Db): Promise<{ companies: number;
 
 /**
  * Start the data over: everything the pipeline wrote goes (rounds and their links, sources,
- * investors, companies with their aliases and enrichments, the candidates ledger, deliveries,
+ * investors, companies with their aliases and enrichments, signal observations, the candidates ledger, deliveries,
  * webhook receipts, runs); everything the operator configured stays (coverage, feed tokens,
  * delivery targets, monitors). `scripts/maintenance/reset-data.ts` is the command; a backfill through a
  * corrected pipeline is the reason to run it.
  */
-export async function resetData(handle: Db): Promise<{ rounds: number; companies: number; sources: number }> {
-  const [[r], [c], [s]] = await Promise.all([
+export async function resetData(handle: Db): Promise<{ rounds: number; companies: number; sources: number; signals: number }> {
+  const [[r], [c], [s], [o]] = await Promise.all([
     handle.select({ n: sql<number>`count(*)::int` }).from(fundingRounds),
     handle.select({ n: sql<number>`count(*)::int` }).from(companies),
     handle.select({ n: sql<number>`count(*)::int` }).from(sources),
+    handle.select({ n: sql<number>`count(*)::int` }).from(schema.signalObservations),
   ]);
   // Children before parents, so foreign keys hold at every step.
   await handle.delete(schema.deliveries);
+  await handle.delete(schema.signalObservations);
   await handle.delete(roundSources);
   await handle.delete(roundInvestors);
   await handle.delete(fundingRounds);
@@ -302,7 +304,7 @@ export async function resetData(handle: Db): Promise<{ rounds: number; companies
   await handle.delete(schema.candidates);
   await handle.delete(schema.webhookDeliveries);
   await handle.delete(schema.runs);
-  return { rounds: r?.n ?? 0, companies: c?.n ?? 0, sources: s?.n ?? 0 };
+  return { rounds: r?.n ?? 0, companies: c?.n ?? 0, sources: s?.n ?? 0, signals: o?.n ?? 0 };
 }
 
 /**

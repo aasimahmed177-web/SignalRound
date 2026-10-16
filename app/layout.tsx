@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "SignalRound",
     description:
-      "Funding announcements from across the open web, pre-seed to growth, extracted with Firecrawl into structured, deduped, verified records.",
+      "Funding announcements and public startup contacts collected from public feeds and first-party websites without scraping credits.",
     type: "website",
     siteName: "SignalRound",
   },

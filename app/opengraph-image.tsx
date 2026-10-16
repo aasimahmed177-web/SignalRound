@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { FLAME_INNER_PATH, FLAME_INNER_TRANSFORM, FLAME_OUTER_TRANSFORM, FLAME_REST_PATH } from "@/components/brand/flame-geometry";
 import { words } from "@/lib/og";
 
-export const alt = "Fireround: the open-source funding feed, built on Firecrawl";
+export const alt = "SignalRound: self-hosted startup funding and public-contact discovery";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -32,8 +32,10 @@ export default function Image() {
           </g>
         </svg>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -0.5 }}>Fireround</div>
-          <div style={{ fontSize: 18, color: "#a3a3a3", fontFamily: "ui-monospace, Menlo, monospace", letterSpacing: 1 }}>FUNDING FEED</div>
+          <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -0.5 }}>SignalRound</div>
+          <div style={{ fontSize: 18, color: "#a3a3a3", fontFamily: "ui-monospace, Menlo, monospace", letterSpacing: 1 }}>
+            NATIVE COLLECTOR
+          </div>
         </div>
       </div>
       {/* The landing page's headline, so a shared link reads the way the page it opens does. */}
@@ -48,9 +50,9 @@ export default function Image() {
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 18, color: "#737373", fontFamily: "ui-monospace, Menlo, monospace", letterSpacing: 1 }}>
-          [ BUILT ON FIRECRAWL ]
+          [ DIRECT WEB · NO CREDITS ]
         </div>
-        <div style={{ fontSize: 22, color: "#a3a3a3", fontFamily: "ui-monospace, Menlo, monospace" }}>fireround.dev</div>
+        <div style={{ fontSize: 22, color: "#a3a3a3", fontFamily: "ui-monospace, Menlo, monospace" }}>SignalRound</div>
       </div>
     </div>,
     size,
