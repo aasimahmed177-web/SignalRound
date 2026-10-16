@@ -1,5 +1,5 @@
 {
-  "name": "fireround",
+  "name": "signalround",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -101,18 +101,12 @@
     "vitest": "^5.0.1"
   },
   "packageManager": "pnpm@11.5.0",
-  "description": "The open-source funding feed built on Firecrawl: funding announcements from across the open web, pre-seed to growth, as structured, deduped, verified records with a dashboard, feeds, an API, and an MCP server.",
+  "description": "Evidence-first funding intelligence: collect signals from any source, corroborate them, and publish structured funding records.",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/firecrawl/fireround.git"
-  },
-  "homepage": "https://fireround.dev",
-  "bugs": {
-    "url": "https://github.com/firecrawl/fireround/issues"
-  },
   "keywords": [
     "firecrawl",
+    "agent-reach",
+    "funding-intelligence",
     "funding-rounds",
     "venture-capital",
     "startups",

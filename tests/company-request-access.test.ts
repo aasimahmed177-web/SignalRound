@@ -205,6 +205,7 @@ describe("OpenAPI", () => {
       "/api/v1/investors/{id}",
       "/api/v1/news",
       "/api/v1/runs",
+      "/api/v1/signals",
     ]);
     vi.stubEnv("COMPANY_REQUESTS", "1");
     vi.stubEnv("COMPANY_REQUESTS_DAILY_MAX", "20");
@@ -218,6 +219,7 @@ describe("OpenAPI", () => {
       "/api/v1/investors/{id}",
       "/api/v1/news",
       "/api/v1/runs",
+      "/api/v1/signals",
       "/api/company-requests",
       "/api/company-requests/{id}",
     ]);

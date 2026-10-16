@@ -4,7 +4,7 @@ import { ArrowUpRight, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { FlameMark } from "@/components/brand/flame-mark";
+import { SignalMark } from "@/components/brand/signal-mark";
 import { openCommandPalette, useModKey } from "@/components/search/command-palette";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { track } from "@/lib/analytics";
@@ -14,17 +14,16 @@ import { cn } from "@/lib/utils";
 export { shellIconButton, ThemeToggle } from "@/components/shell/theme-toggle";
 
 /**
- * Flame mark plus the two-line wordmark; the sidebar head and the mobile top bar share it. With
+ * Signal mark plus the two-line wordmark; the sidebar head and the mobile top bar share it. With
  * `href` (LANDING=1 passes `/`) it is a link back to the landing page.
  */
 export function Brand({ href }: { href?: string }) {
   const inner = (
     <>
-      {/* The lit mark on its own, no ground: the brand rule is that the flame is never boxed or recolored. */}
-      <FlameMark size="lg" live className="-ml-1 size-8" />
+      <SignalMark className="-ml-1 size-8" />
       <div className="leading-none">
-        <div className="text-label-medium">Fireround</div>
-        <div className="text-mono-x-small text-black-alpha-32 dark:text-muted-foreground">funding feed</div>
+        <div className="text-label-medium">SignalRound</div>
+        <div className="text-mono-x-small text-black-alpha-32 dark:text-muted-foreground">funding intelligence</div>
       </div>
     </>
   );
@@ -32,7 +31,7 @@ export function Brand({ href }: { href?: string }) {
   return (
     <Link
       href={href}
-      aria-label="Fireround home"
+      aria-label="SignalRound home"
       className="flex items-center gap-2.5 rounded-8 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       {inner}
@@ -84,7 +83,7 @@ export function NavLinks({ items, active, onNavigate }: NavLinksProps) {
                 : "text-black-alpha-56 hover:bg-black-alpha-4 hover:text-foreground dark:text-muted-foreground dark:hover:bg-white/6",
             )}
           >
-            {isActive && <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-heat-100" aria-hidden />}
+            {isActive && <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-signal-blue" aria-hidden />}
             <Icon className="size-4 shrink-0" strokeWidth={1.75} />
             <span className="flex-1">{item.label}</span>
           </Link>
@@ -126,7 +125,7 @@ export function SidebarFooter({ signIn = false }: { signIn?: boolean }) {
         className={footerLink}
         onClick={() => track("fireround_github_clicked", { location: "sidebar" })}
       >
-        Open source
+        FireRound upstream
         <ArrowUpRight className="size-3.5" strokeWidth={1.75} aria-hidden />
       </a>
       {signIn && (

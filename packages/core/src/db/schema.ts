@@ -798,6 +798,42 @@ export const announcementLeads = pgTable(
 );
 
 /**
+ * Source-neutral observations waiting for an analyst or research worker to corroborate them. Unlike
+ * announcementLeads, this inbox accepts any discovery channel (web, X, Reddit, LinkedIn, RSS, SEC,
+ * or a custom Agent Reach adapter) and never promotes an observation into a funding round by itself.
+ */
+export const signalObservations = pgTable(
+  "signal_observations",
+  {
+    id: text("id").primaryKey(),
+    channel: text("channel").notNull(),
+    url: text("url").notNull(),
+    title: text("title"),
+    summary: text("summary"),
+    company: text("company"),
+    author: text("author"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** new | researching | matched | dismissed */
+    status: text("status").notNull().default("new"),
+    /** A source worker's confidence that this deserves research, not confidence that a round is true. */
+    confidence: doublePrecision("confidence"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    /** Set only after the observation has been reconciled with a verified record. */
+    roundId: text("round_id").references(() => fundingRounds.id, { onDelete: "set null" }),
+    seenCount: integer("seen_count").notNull().default(1),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("signal_observations_channel_url_idx").on(t.channel, t.url),
+    index("signal_observations_status_seen_idx").on(t.status, t.lastSeenAt),
+    index("signal_observations_round_idx").on(t.roundId),
+  ],
+);
+
+/**
  * Where a merged-away round went: one row per deleted duplicate, naming the row that absorbed it.
  * Round ids are derived from the reading (company, stage, day), so a later sweep that reads the
  * same page under a preset whose ledger never saw it rebuilds the dropped id; persistRecords maps

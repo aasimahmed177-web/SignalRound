@@ -14,6 +14,7 @@ describe("NAV", () => {
       "/settings",
       "/companies",
       "/investors",
+      "/signals",
     ]);
   });
 
@@ -25,6 +26,7 @@ describe("NAV", () => {
     expect(NAV_DISPLAY.map((n) => n.href)).toEqual([
       "/overview",
       "/feed",
+      "/signals",
       "/companies",
       "/investors",
       "/news",

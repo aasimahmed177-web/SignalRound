@@ -100,7 +100,7 @@ export interface DbOptions {
   direct?: boolean;
   /** Called with the pg pool when one is made, so a host can manage its connections (Vercel's attachDatabasePool). */
   onPool?: (pool: import("pg").Pool) => void;
-  /** PGlite data directory; default ./data/fireround. Use "memory://" for tests. */
+  /** PGlite data directory; default ./data/signalround. Use "memory://" for tests. */
   pgliteDir?: string;
 }
 
@@ -152,7 +152,7 @@ export async function getDb(opts: DbOptions = {}): Promise<Db> {
     throw new Error("DATABASE_URL is not set. On Vercel the embedded database has nowhere to live; attach a Postgres (Neon) and redeploy.");
   }
   const { PGlite } = await import("@electric-sql/pglite");
-  const dir = opts.pgliteDir ?? process.env.PGLITE_DIR ?? "./data/fireround";
+  const dir = opts.pgliteDir ?? process.env.PGLITE_DIR ?? "./data/signalround";
   const memory = dir === "memory://";
   let releaseLock = () => {};
   if (!memory) {

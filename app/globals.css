@@ -27,6 +27,13 @@
   --color-heat-100: #fa5d19;
   --color-heat-hot: #ff4c00;
 
+  /* SignalRound's evidence layer: blue discovers, green proves, amber asks for attention. */
+  --color-signal-blue: #2877d4;
+  --color-proof-green: #1f8b66;
+  --color-warning-amber: #c97a24;
+  --color-signal-ink: #121a22;
+  --color-paper: #f4f2ec;
+
   --color-accent-black: #262626;
   --color-accent-white: #ffffff;
   --color-accent-amethyst: #9061ff;

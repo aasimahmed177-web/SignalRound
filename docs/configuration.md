@@ -10,7 +10,7 @@ Every environment variable, in one table; [`.env.example`](../.env.example) has 
 | `DATABASE_URL` | optional | Any Postgres 15+; unset uses embedded PGlite. Run `pnpm db:migrate` once after setting it. A local Postgres without TLS takes a plain URL (`postgres://postgres:postgres@localhost:5432/postgres`); `?sslmode=require` fails against it. A pooled URL (Neon's `-pooler` host, PlanetScale's PgBouncer on port 6432) is right for the app; scripts, migrations, and backups switch to the direct endpoint themselves |
 | `DATABASE_DRIVER` | optional | `neon` or `pg`, overriding the choice from the URL |
 | `DATABASE_POOL_MAX` | optional | Connections one process holds in its pg pool (default 3). Hosts can raise this; behind a PgBouncer, keep instances times this under its client-connection ceiling |
-| `PGLITE_DIR` | optional | Where the embedded database lives; default `./data/fireround` |
+| `PGLITE_DIR` | optional | Where the embedded database lives; default `./data/signalround` |
 | `CRON_SECRET` | required in production for scheduled runs | Bearer for the cron routes; you set it (any random string of 16+ characters) and Vercel Cron, or a production `pnpm start`, sends it on every call. In production the routes refuse every call without it, so nothing sweeps |
 | `ALERT_SLACK_WEBHOOK_URL` | optional | A Slack incoming webhook for a private channel that receives production alerts from `/api/cron/health`; unset logs them instead ([deploy.md](deploy.md#production-alerts)) |
 | `CREDIT_ALERT_PER_DAY` | optional | Firecrawl credits the runs may record in 24 hours before `/api/cron/health` alerts; unset, the ceiling is twice the busiest day of the week before ([deploy.md](deploy.md#production-alerts)) |

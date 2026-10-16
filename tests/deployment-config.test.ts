@@ -6,12 +6,12 @@ import { config, cronsFor } from "../vercel";
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const deploy = readFileSync(new URL("../docs/deploy.md", import.meta.url), "utf8");
 
-test("the one-click deployment asks only for what a first deploy needs, and the landing page's button is the README's", () => {
-  const link = readme.match(/https:\/\/vercel\.com\/new\/clone\?[^)]+/)?.[0] ?? "";
-  expect(link).not.toBe("");
+test("the inherited landing deploy stays pinned to upstream until SignalRound has a published remote", () => {
+  const link = new URL(DEPLOY_URL);
+  expect(link.searchParams.get("repository-url")).toBe("https://github.com/firecrawl/fireround");
   // MCP_API_KEY is added later: a password-protected deployment refuses MCP until it is set, and nothing else needs it.
-  expect(new URL(link).searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET"]);
-  expect(DEPLOY_URL).toBe(link);
+  expect(link.searchParams.get("env")?.split(",")).toEqual(["FIRECRAWL_API_KEY", "DASHBOARD_PASSWORD", "CRON_SECRET"]);
+  expect(readme).toContain("The upstream remote is retained as `upstream`");
 });
 
 test("a clone deploys on Vercel Hobby by default, and FIREROUND_SCHEDULE=frequent restores the full cadence", () => {
@@ -27,7 +27,7 @@ test("a clone deploys on Vercel Hobby by default, and FIREROUND_SCHEDULE=frequen
   expect(frequent).toContainEqual({ path: "/api/cron/verify-rounds", schedule: "*/15 * * * *" });
   expect(frequent).toContainEqual({ path: "/api/cron/health", schedule: "*/10 * * * *" });
   for (const { path } of frequent) expect(existsSync(new URL(`../app${path}/route.ts`, import.meta.url))).toBe(true);
-  expect(readme.slice(readme.indexOf("Deploy with Vercel"), readme.indexOf("![Fireround:"))).toContain("FIREROUND_SCHEDULE=frequent");
+  expect(deploy).toContain("FIREROUND_SCHEDULE=frequent");
   expect(deploy).toContain("### Vercel Hobby");
   expect(deploy).toContain(`\${{ secrets.CRON_SECRET }}`);
   expect(deploy).toContain("Authorization: Bearer $CRON_SECRET");

@@ -14,7 +14,7 @@ if (!seeded) {
   console.log("The store already has rounds; sample data only goes into an empty store. `pnpm reset-data -- --yes` starts it over.");
 } else {
   console.log(
-    `Added ${seeded.published + seeded.review} fictional sample rounds (${seeded.published} published, ${seeded.review} in Review). Start the app with \`pnpm dev\` and open http://localhost:3000.`,
+    `Added ${seeded.published + seeded.review} fictional sample rounds (${seeded.published} published, ${seeded.review} in Review) and 3 discovery signals. Start the app with \`pnpm dev\` and open http://localhost:3000.`,
   );
   console.log("Before your first real sweep, clear them with `pnpm reset-data -- --yes`.");
   await invalidateScriptEntityPages();

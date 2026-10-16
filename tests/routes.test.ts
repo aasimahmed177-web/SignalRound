@@ -276,6 +276,7 @@ describe("GET /api/v1/openapi.json", () => {
       "/api/v1/investors/{id}",
       "/api/v1/news",
       "/api/v1/runs",
+      "/api/v1/signals",
     ]);
     const params = (spec.paths["/api/v1/rounds"] as { get: { parameters: Array<{ name: string; description?: string }> } }).get.parameters;
     const preset = params.find((p) => p.name === "preset");

@@ -44,6 +44,7 @@ import * as reviewActions from "../app/(dashboard)/review/actions";
 import { POST as researchPost } from "../app/(dashboard)/review/research/route";
 import * as searchActions from "../app/(dashboard)/search/actions";
 import * as settingsActions from "../app/(dashboard)/settings/actions";
+import * as signalActions from "../app/(dashboard)/signals/actions";
 import * as slackManageActions from "../app/(slack)/slack/actions";
 import * as rootActions from "../app/actions";
 import { GET as slackInstall } from "../app/api/slack/install/route";
@@ -56,6 +57,7 @@ const MODULES = {
   "review/actions": reviewActions,
   "search/actions": searchActions,
   "settings/actions": settingsActions,
+  "signals/actions": signalActions,
 };
 
 /** The files behind MODULES and the token-gated manage actions: a new "use server" file fails the inventory until it joins one. */
@@ -66,6 +68,7 @@ const SWEPT_FILES = [
   "app/(dashboard)/review/actions.ts",
   "app/(dashboard)/search/actions.ts",
   "app/(dashboard)/settings/actions.ts",
+  "app/(dashboard)/signals/actions.ts",
   "app/(slack)/slack/actions.ts",
 ];
 
@@ -116,6 +119,7 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
     OPTIONS: "CORS preflight, no data",
   },
   "app/api/v1/runs/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
+  "app/api/v1/signals/route.ts": { POST: "SIGNAL_INGEST_KEY bearer", OPTIONS: "preflight, no data" },
   "app/api/webhooks/firecrawl/route.ts": { POST: "FIRECRAWL_WEBHOOK_SECRET signature and/or WEBHOOK_BEARER_TOKEN" },
   "app/api/webhooks/slack/route.ts": { POST: "SLACK_SIGNING_SECRET signature and five-minute timestamp window" },
   "app/feeds/[token]/[file]/route.ts": { GET: "feed token (hashed), or the demo's public token" },

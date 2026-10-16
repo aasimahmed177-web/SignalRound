@@ -7,7 +7,7 @@ import { schema } from "@fireround/core/db";
 import { eq, sql } from "drizzle-orm";
 import { persistRecords, recordRun, setDisposition } from "./persist.ts";
 
-const { fundingRounds } = schema;
+const { fundingRounds, signalObservations } = schema;
 const PRESET = "series-a-b";
 const RUN_ID = "sample-data";
 export const SAMPLE_NOTE = "sample data from pnpm demo-data";
@@ -229,5 +229,50 @@ export async function seedSampleData(handle: Db, now = new Date()): Promise<{ pu
     creditsMeasured: 0,
     counts: { records: records.length, inserted: records.length },
   });
+  await handle.insert(signalObservations).values([
+    {
+      id: "sample-signal-social",
+      channel: "x",
+      url: "https://example.com/signals/example-orbit-founder-post",
+      title: "Example Orbit founder hints at a new institutional backer",
+      summary: "A founder post thanks Sample Ventures and says the team is entering its next phase, but gives no amount or round label.",
+      company: "Example Orbit",
+      author: "Founder account",
+      confidence: 0.72,
+      tags: ["founder-post", "needs-corroboration"],
+      publishedAt: new Date(now.getTime() - 35 * 60_000),
+      firstSeenAt: new Date(now.getTime() - 30 * 60_000),
+      lastSeenAt: new Date(now.getTime() - 30 * 60_000),
+    },
+    {
+      id: "sample-signal-reddit",
+      channel: "reddit",
+      url: "https://example.org/signals/example-circuit-hiring",
+      title: "Hiring thread mentions a recently closed round at Example Circuit",
+      summary: "The claim is second-hand and needs a company page, filing, or credible publication before it can become a record.",
+      company: "Example Circuit",
+      author: "Community member",
+      confidence: 0.41,
+      tags: ["community", "weak-source"],
+      publishedAt: new Date(now.getTime() - 4 * 60 * 60_000),
+      firstSeenAt: new Date(now.getTime() - 3.5 * 60 * 60_000),
+      lastSeenAt: new Date(now.getTime() - 3.5 * 60 * 60_000),
+    },
+    {
+      id: "sample-signal-filing",
+      channel: "sec",
+      url: "https://example.net/signals/example-north-form-d",
+      title: "Form D appears for an entity associated with Example North",
+      summary:
+        "The filing proves a securities sale, not the stage or whether the issuer is the operating company. An analyst is checking the entity chain.",
+      company: "Example North",
+      confidence: 0.88,
+      status: "researching",
+      tags: ["form-d", "entity-resolution"],
+      publishedAt: new Date(now.getTime() - 26 * 60 * 60_000),
+      firstSeenAt: new Date(now.getTime() - 25 * 60 * 60_000),
+      lastSeenAt: new Date(now.getTime() - 25 * 60 * 60_000),
+    },
+  ]);
   return { published: records.length - 1, review: 1 };
 }

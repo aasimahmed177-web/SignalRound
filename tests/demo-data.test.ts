@@ -16,6 +16,9 @@ describe("seedSampleData", () => {
     for (const r of rows.filter((row) => row.disposition === "publish")) expect(r.verification?.notes).toEqual([SAMPLE_NOTE]);
     const urls = (await handle.select({ url: schema.sources.url }).from(schema.sources)).map((s) => new URL(s.url).hostname);
     expect(new Set(urls)).toEqual(new Set(["example.com", "example.org", "example.net"]));
+    const signals = await handle.select().from(schema.signalObservations);
+    expect(signals).toHaveLength(3);
+    expect(signals.filter((signal) => signal.status === "researching")).toHaveLength(1);
   });
 
   test("leaves a store that already has rounds alone", async () => {

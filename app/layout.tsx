@@ -35,19 +35,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   // Social images and canonical tags resolve against the origin the sitemap names; APP_ORIGIN is what webhooks and Slack links use too.
   metadataBase: new URL(siteOrigin()),
-  title: { default: "Fireround", template: "%s · Fireround" },
+  title: { default: "SignalRound", template: "%s · SignalRound" },
   description:
-    "Funding announcements from across the open web, pre-seed to growth, extracted with Firecrawl into structured, deduped, verified records: a dashboard, a feed, an API, and an MCP server.",
-  applicationName: "Fireround",
+    "Funding intelligence from open-web and social signals, researched into structured, deduped, verified records with a dashboard, API, and MCP server.",
+  applicationName: "SignalRound",
   alternates: { types: feedAlternateTypes() },
   openGraph: {
-    title: "Fireround",
+    title: "SignalRound",
     description:
       "Funding announcements from across the open web, pre-seed to growth, extracted with Firecrawl into structured, deduped, verified records.",
     type: "website",
-    siteName: "Fireround",
+    siteName: "SignalRound",
   },
-  twitter: { card: "summary_large_image", title: "Fireround", description: "The open-source funding feed, built on Firecrawl." },
+  twitter: { card: "summary_large_image", title: "SignalRound", description: "Evidence-first funding intelligence, built on FireRound." },
 };
 
 /**

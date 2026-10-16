@@ -88,7 +88,7 @@ export function seesSpend(v: Viewer): boolean {
 }
 
 /** Paths that stay behind the password in demo mode; lib/nav.ts hides the same entries for visitors. */
-export const ADMIN_PATHS = ["/review", "/presets", "/settings"] as const;
+export const ADMIN_PATHS = ["/signals", "/review", "/presets", "/settings"] as const;
 
 /**
  * Route handlers that change configuration (the admin Add to Slack creates a delivery target): admin

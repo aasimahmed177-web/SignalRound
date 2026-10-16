@@ -473,10 +473,10 @@ export function GET(request: Request) {
   const spec = {
     openapi: "3.1.0",
     info: {
-      title: "Fireround: funding feed API",
+      title: "SignalRound funding intelligence API",
       version: "1.0.0",
       description:
-        "Funding rounds reported on the open web, extracted with Firecrawl into structured, deduped, scored records with explicit certainty.",
+        "Source-neutral funding signals and verified rounds, researched into structured, deduplicated records with explicit certainty.",
     },
     servers: [{ url: origin }],
     paths: {
@@ -1219,6 +1219,56 @@ export function GET(request: Request) {
           },
         },
       },
+      ...(demo
+        ? {}
+        : {
+            "/api/v1/signals": {
+              post: {
+                operationId: "ingestSignals",
+                summary: "Submit one unverified observation or a batch",
+                description:
+                  "Writes to the Signal Inbox, never directly to the verified funding feed. Repeat channel + URL pairs update the observation and increase seen_count. Accepts one object, an array, or { data: [...] }, up to 100 observations.",
+                security: [{ signalIngest: [] }],
+                requestBody: {
+                  required: true,
+                  content: {
+                    "application/json": {
+                      schema: {
+                        type: "object",
+                        properties: {
+                          channel: { type: "string", pattern: "^[a-z0-9][a-z0-9_-]*$", examples: ["x", "reddit", "linkedin", "sec"] },
+                          url: { type: "string", format: "uri" },
+                          title: { type: ["string", "null"], maxLength: 300 },
+                          summary: { type: ["string", "null"], maxLength: 4000 },
+                          company: { type: ["string", "null"], maxLength: 200 },
+                          author: { type: ["string", "null"], maxLength: 200 },
+                          published_at: { type: ["string", "null"], format: "date-time" },
+                          confidence: {
+                            type: ["number", "null"],
+                            minimum: 0,
+                            maximum: 1,
+                            description: "Discovery lead score, never verification confidence",
+                          },
+                          tags: { type: "array", maxItems: 20, items: { type: "string", maxLength: 64 } },
+                          metadata: { type: "object", additionalProperties: true },
+                        },
+                        required: ["channel", "url"],
+                        anyOf: [{ required: ["title"] }, { required: ["summary"] }],
+                      },
+                    },
+                  },
+                },
+                responses: {
+                  "201": { description: "Every observation was first seen" },
+                  "200": { description: "At least one observation was seen before and updated" },
+                  "400": BadRequest,
+                  "401": { description: "Missing or invalid SIGNAL_INGEST_KEY bearer" },
+                  "413": { description: "More than 100 observations" },
+                  "503": { description: "SIGNAL_INGEST_KEY is not configured" },
+                },
+              },
+            },
+          }),
       ...(process.env.COMPANY_REQUESTS === "1" ? companyRequestPaths : {}),
     },
     components: {
@@ -1227,6 +1277,11 @@ export function GET(request: Request) {
         ? {}
         : {
             securitySchemes: {
+              signalIngest: {
+                type: "http",
+                scheme: "bearer",
+                description: "SIGNAL_INGEST_KEY; required only by POST /api/v1/signals",
+              },
               basic: {
                 type: "http",
                 scheme: "basic",
