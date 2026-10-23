@@ -61,6 +61,28 @@ describe("public HTTP transport", () => {
     await expect(readPublicText("https://example.org/", { resolve: resolver })).rejects.toThrow("Private");
     expect(mocks.request).toHaveBeenCalledTimes(1);
   });
+  test("rejects a malformed redirect from an asynchronous response without throwing outside the promise", async () => {
+    mocks.request.mockImplementationOnce((_options: unknown, callback: (response: unknown) => void) => {
+      const req = new EventEmitter() as EventEmitter & { end: () => void };
+      req.end = () => {
+        queueMicrotask(() => {
+          const res = Object.assign(new PassThrough(), { headers: { location: "http://[" }, statusCode: 302 });
+          callback(res);
+          res.end();
+        });
+      };
+      return req;
+    });
+    await expect(readPublicText("https://example.org/", { resolve: resolver })).rejects.toThrow("Invalid redirect URL");
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+  });
+  test("follows a valid relative redirect using the checked transport", async () => {
+    response("", { location: "/next?source=redirect" }, 302);
+    response("Destination");
+    const result = await readPublicText("https://example.org/start", { resolve: resolver });
+    expect(result).toMatchObject({ text: "Destination", url: "https://example.org/next?source=redirect" });
+    expect(mocks.request).toHaveBeenCalledTimes(2);
+  });
   test("enforces the byte limit on streaming and decompressed bodies", async () => {
     response("too much content");
     await expect(readPublicText("https://example.org/", { resolve: resolver, maxBytes: 4 })).rejects.toThrow("exceeds");

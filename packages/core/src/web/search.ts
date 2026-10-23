@@ -8,21 +8,56 @@ import type { SearchOptions, SearchResultNews } from "./types.ts";
 const exec = promisify(execFile);
 export type SearchProvider = (query: string, options: SearchOptions) => Promise<SearchResultNews[]>;
 
+type SearchEnvironment = Record<string, string | undefined>;
+
+/** Selection is shared with settings; configuration alone does not prove upstream availability. */
+export function resolveSearchProvider(env: SearchEnvironment = process.env): string {
+  return env.NATIVE_SEARCH_PROVIDER ?? (env.SEARXNG_URL ? "searxng" : env.AGENT_REACH_MCPORTER ? "agent-reach" : "duckduckgo");
+}
+
+export function searchProviderStatus(env: SearchEnvironment = process.env): string {
+  switch (resolveSearchProvider(env)) {
+    case "duckduckgo":
+      return "DuckDuckGo Lite selected; no key required. Availability is checked when a search runs.";
+    case "searxng": {
+      if (!env.SEARXNG_URL) return "SearXNG selected, but SEARXNG_URL is missing. Searches cannot run.";
+      try {
+        const url = new URL(env.SEARXNG_URL);
+        if (!/^https?:$/.test(url.protocol) || url.username || url.password) throw new Error("Invalid URL");
+      } catch {
+        return "SearXNG selected, but SEARXNG_URL is invalid. Use an HTTP(S) URL without credentials.";
+      }
+      return "SearXNG configured; connection and search availability have not been tested.";
+    }
+    case "agent-reach":
+      return env.AGENT_REACH_MCPORTER
+        ? "Agent Reach / Exa selected with a configured mcporter executable. Installation and Exa access have not been tested."
+        : "Agent Reach / Exa selected; requires mcporter on the server PATH and Exa configured. Neither has been verified.";
+    default:
+      return "Unknown NATIVE_SEARCH_PROVIDER. Choose duckduckgo, searxng, or agent-reach.";
+  }
+}
+
 /** Search dates are discovery hints; unknown dates must still be checked on the article before publication. */
 export function searchDateRange(tbs: string | undefined, now = new Date()): { from: Date; to: Date; duckFilter: string } | null {
   const custom = /cd_min:(\d{1,2})\/(\d{1,2})\/(\d{4}),cd_max:(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(tbs ?? "");
   if (custom) {
-    const date = (year: string, month: string, day: string) =>
-      new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T00:00:00.000Z`);
+    const date = (year: string, month: string, day: string) => {
+      const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+      const parsed = new Date(`${iso}T00:00:00.000Z`);
+      if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso) throw new Error("Invalid search date range");
+      return parsed;
+    };
     const from = date(custom[3] ?? "", custom[1] ?? "", custom[2] ?? "");
     const last = date(custom[6] ?? "", custom[4] ?? "", custom[5] ?? "");
     if (!Number.isFinite(from.getTime()) || !Number.isFinite(last.getTime()) || from > last) throw new Error("Invalid search date range");
     return {
       from,
-      to: new Date(last.getTime() + 86_400_000),
+      to: new Date(last.getTime() + 86_400_000 - 1),
       duckFilter: `${from.toISOString().slice(0, 10)}..${last.toISOString().slice(0, 10)}`,
     };
   }
+  if (/cd_min:|cd_max:|cdr:1/.test(tbs ?? "")) throw new Error("Invalid search date range");
   const relative = /qdr:([dwmy])/.exec(tbs ?? "")?.[1];
   if (!relative) return null;
   const days = relative === "d" ? 1 : relative === "w" ? 7 : relative === "m" ? 31 : 366;
@@ -141,9 +176,7 @@ export const nativeSearch: SearchProvider = async (query, options) => {
     .filter(Boolean)
     .join(" ");
   const limit = Math.max(1, Math.min(options.limit ?? 10, 40));
-  const provider =
-    process.env.NATIVE_SEARCH_PROVIDER ??
-    (process.env.SEARXNG_URL ? "searxng" : process.env.AGENT_REACH_MCPORTER ? "agent-reach" : "duckduckgo");
+  const provider = resolveSearchProvider();
   if (provider === "searxng") {
     if (!process.env.SEARXNG_URL) throw new Error("SEARXNG_URL is required for the searxng search provider");
     const url = new URL("search", `${process.env.SEARXNG_URL.replace(/\/$/, "")}/`);

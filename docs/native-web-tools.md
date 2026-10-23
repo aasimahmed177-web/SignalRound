@@ -5,6 +5,72 @@ or Search web, enter a public URL or query, and select Run. Results can be
 downloaded as JSON. This screen uses NativeWebClient, not the Firecrawl service.
 No Firecrawl API key or credits are required.
 
+Reader and Search require a fresh sharing confirmation on each UI run. Jina receives
+the target URL; a search provider receives the query and normal connection metadata.
+Direct reads do not send content to either intermediary. This consent gate covers
+the Web tools action, not separately configured background research or model workflows.
+
+## Reliability improvements (2026-10-23)
+
+- Source URL, status and retrieval metadata cannot be replaced by HTML meta tags.
+- Map discovery reads the homepage and sitemap independently, with one overall
+  deadline. A failed homepage no longer discards accessible sitemap results.
+  Sources, errors and truncation are included in the response.
+- Browser rendering captures inline `srcdoc`/blank frames and reports rendered-DOM
+  provenance. Entry-page redirects work through the pinned transport. Redirected
+  subresources are blocked explicitly rather than bypassing that transport.
+- Known advertising/analytics hosts are skipped before spending render budgets;
+  aggregate request outcomes remain available when detailed logging truncates.
+  This does not enable fetch/XHR or guarantee live questionnaire hydration.
+- RSS 1.0/RDF feeds preserve channel metadata, sibling items and `dc:date`.
+  Feed results report the entry cap instead of implying complete collection.
+- Settings uses the same search-provider selection as execution. Configuration is
+  not described as a successful health check. Impossible search dates are rejected.
+- The UI distinguishes completed, partial and failed results, with counts and timing.
+
+For the staged funnel-audit roadmap, offline benchmark and remaining gaps, see
+[Funnel forensics delivery status](funnel-forensics-plan.md).
+
+**Forum discussion** accepts Hacker News items and public GitHub issue/pull-request
+URLs. GitHub reads use the unauthenticated official API and return the opening post
+plus at most 25 conversation comments. PR review comments, diffs and reviews are
+not included. Missing comments, truncated text and request failures are reported.
+Comments are attributed statements, not independently verified facts.
+
+## Optional scraping libraries
+
+[Agent Reach](https://github.com/Panniantong/Agent-Reach) routes between upstream
+tools and checks their availability; installing its CLI does not install or
+authenticate every channel. Local setup and credentials are not shipped in this repo.
+
+[Scrapling](https://github.com/D4Vinci/Scrapling) can parse already-fetched HTML
+without its browser/fetcher extras. This preserves the app's public-network transport.
+[Crawl4AI](https://github.com/unclecode/crawl4ai) and
+[Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright) were evaluated but
+are not enabled: their browser/network behavior needs separate safety and compatibility
+tests. Adding another browser does not remove this renderer's deliberate XHR policy.
+No claim of overall superiority or complete Firecrawl parity is made.
+
+### Local CSS extraction with Scrapling
+
+Install the optional parser into a dedicated virtual environment, then set
+`SCRAPLING_PYTHON` to its absolute Python path in `.env.local`:
+
+```sh
+python3 -m venv /your/local/parser-venv
+/your/local/parser-venv/bin/python -m pip install -r scripts/requirements-scrapling.txt
+/your/local/parser-venv/bin/python scripts/test-scrapling-extract.py
+```
+
+Choose **Extract selected text (local Scrapling)**, enter a public URL and CSS
+selector (for example `h1, h2`), then Run. The limit caps returned matches at 25.
+Node fetches at most 2 MB through the public-network transport; a fixed isolated
+Python worker receives HTML via stdin and returns bounded text. It does not use
+Scrapling fetchers, browser sessions, proxies or external services. Package downloads
+contact the package registry during setup; page processing is local afterward.
+No saved-baseline/adaptive selector relocation is implemented. A zero-match result
+means that selector found nothing in the fetched HTML, not that the website has no data.
+
 ## Adaptive reads and Agent Reach
 
 Two additional operations are available:

@@ -8,6 +8,7 @@
     "start": "next start",
     "collect:native": "node --env-file-if-exists=.env scripts/collect-native.ts",
     "audit:guided": "node scripts/guided-funnel.ts",
+    "bench:funnel": "node scripts/bench-funnel.ts",
     "convex:import-leads": "node scripts/import-convex-leads.ts",
     "discover:funding": "node scripts/discover-india-funding-candidates.ts",
     "resolve:funding": "node scripts/resolve-india-funding-leads.ts",

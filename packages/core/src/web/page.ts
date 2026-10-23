@@ -1,6 +1,22 @@
 import { load } from "cheerio";
 import type { Document } from "./types.ts";
 
+// Page-authored metadata must not impersonate transport provenance or object internals.
+const reservedMetadataKeys = new Set(
+  [
+    "sourceURL",
+    "url",
+    "statusCode",
+    "title",
+    "credits",
+    "creditsUsed",
+    "provider",
+    "fetchedAt",
+    "prototype",
+    ...Object.getOwnPropertyNames(Object.prototype),
+  ].map((key) => key.toLowerCase()),
+);
+
 export function httpUrl(raw: string, base?: string): string | null {
   try {
     const u = new URL(raw, base);
@@ -19,7 +35,7 @@ export function parseHtmlPage(html: string, url: string, mainContent = true): Do
   $("meta[name],meta[property]").each((_, element) => {
     const key = $(element).attr("property") ?? $(element).attr("name");
     const value = $(element).attr("content");
-    if (key && value) metadata[key] = value;
+    if (key && value && !reservedMetadataKeys.has(key.trim().toLowerCase())) metadata[key] = value;
   });
   metadata.description = String(metadata.description ?? metadata["og:description"] ?? "");
   metadata.ogSiteName = String(metadata["og:site_name"] ?? "");

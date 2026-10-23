@@ -4,16 +4,21 @@ import { auditFunnel, NativeWebClient, readDiscussion } from "@fireround/core/we
 import { attempt } from "@/lib/action-result";
 import { auditRenderedPage } from "@/lib/browser-audit";
 import { requireDashboard } from "@/lib/dashboard-auth.server";
+import { extractWithScrapling } from "@/lib/scrapling-extract";
 
-export async function runWebTool(mode: string, input: string, limit: number) {
+export async function runWebTool(mode: string, input: string, limit: number, allowExternalSharing = false, selector = "") {
   return attempt(async () => {
     await requireDashboard();
     if (typeof input !== "string" || !input.trim() || input.length > 2000)
       throw new Error("Enter a URL or search query under 2000 characters.");
     if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw new Error("Choose a limit from 1 to 25.");
+    if ((mode === "reader" || mode === "search") && allowExternalSharing !== true)
+      throw new Error("This operation shares your URL or query with an external provider. Confirm sharing before running it.");
     const client = new NativeWebClient();
     const query = input.trim();
     switch (mode) {
+      case "extract":
+        return { mode, result: await extractWithScrapling(query, selector, limit) };
       case "browser":
         return { mode, result: await auditRenderedPage(query) };
       case "discussion":

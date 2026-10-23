@@ -54,20 +54,21 @@ export function feedDocument(response: PublicText): Document | null {
   if (XMLValidator.validate(response.text) !== true) throw new Error("Invalid RSS/Atom XML.");
   const xml = new XMLParser({ ignoreAttributes: false, processEntities: false }).parse(response.text);
   const root = object(xml);
-  const feed = object(root.feed ?? object(root.rss).channel ?? root["rdf:RDF"]);
-  const entries = list(feed.entry ?? feed.item)
-    .slice(0, 100)
-    .map((value) => {
-      const row = object(value);
-      const link = list(row.link).find((v) => typeof v === "string" || !object(v)["@_rel"] || object(v)["@_rel"] === "alternate");
-      const url = httpUrl(typeof link === "string" ? link : String(object(link)["@_href"] ?? ""), response.url);
-      return {
-        title: plain(row.title),
-        url,
-        published: plain(row.published ?? row.pubDate ?? row.updated) || null,
-        description: plain(row.summary ?? row.description ?? row.content ?? row["content:encoded"]).slice(0, 8000),
-      };
-    });
+  const rdf = object(root["rdf:RDF"]);
+  const feed = object(root.feed ?? object(root.rss).channel ?? rdf.channel);
+  // RSS 1.0 stores channel metadata and item records as siblings under rdf:RDF.
+  const allEntries = list(feed.entry ?? feed.item ?? rdf.item);
+  const entries = allEntries.slice(0, 100).map((value) => {
+    const row = object(value);
+    const link = list(row.link).find((v) => typeof v === "string" || !object(v)["@_rel"] || object(v)["@_rel"] === "alternate");
+    const url = httpUrl(typeof link === "string" ? link : String(object(link)["@_href"] ?? ""), response.url);
+    return {
+      title: plain(row.title),
+      url,
+      published: plain(row.published ?? row.pubDate ?? row["dc:date"] ?? row.updated) || null,
+      description: plain(row.summary ?? row.description ?? row.content ?? row["content:encoded"]).slice(0, 8000),
+    };
+  });
   const title = plain(feed.title) || "Feed";
   return {
     markdown: [`# ${title}`, ...entries.map((e) => `## ${e.title}\n${e.url ?? ""}\n${e.published ?? ""}\n${e.description}`)].join("\n\n"),
@@ -78,6 +79,9 @@ export function feedDocument(response: PublicText): Document | null {
       url: response.url,
       title,
       provider: "native:rss-atom",
+      entryCount: entries.length,
+      totalEntryCount: allEntries.length,
+      truncated: allEntries.length > entries.length,
       fetchedAt: new Date().toISOString(),
       creditsUsed: 0,
     },

@@ -117,7 +117,11 @@ export async function readPublicText(raw: string, options: ReadPublicOptions = {
           const status = res.statusCode ?? 0;
           if (status >= 300 && status < 400 && res.headers.location) {
             res.destroy();
-            resolve({ redirect: new URL(res.headers.location, target.url).toString() });
+            try {
+              resolve({ redirect: new URL(res.headers.location, target.url).toString() });
+            } catch {
+              reject(new Error(`Invalid redirect URL from ${target.url.hostname}`));
+            }
             return;
           }
           if (status < 200 || status >= 300) {

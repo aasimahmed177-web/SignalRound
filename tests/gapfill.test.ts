@@ -67,24 +67,23 @@ describe("applyGapFill", () => {
     expect(after.first_seen_at).toBe(row.first_seen_at);
   });
 
-  it("does not upgrade from an unnamed-source report, a future raise, a mismatched figure, or a non-official page", async () => {
-    for (const [url, quote] of [
-      ["https://signal.ai/news/series-a", "Sources familiar with the matter say Signal raised $20M Series A."],
-      ["https://signal.ai/news/series-a", "Signal is raising $20M Series A."],
-      ["https://signal.ai/news/series-a", "Signal announced it closed a $50M Series A."],
-      ["https://reporter.test/signal", "Signal announced it closed a $20M Series A."],
-    ]) {
-      const handle = await testDb();
-      await persistRecords(
-        handle,
-        [record({ company_name: "Signal", company_domain: "signal.ai", certainty: "reported" })],
-        "series-a-b",
-        "run-1",
-      );
-      const [row] = (await listRounds(handle, { includeReview: true })).rows;
-      await applyGapFill(handle, row, fill({ source_url: url, evidence_quote: quote }), { rates: null, tiers: DEFAULT_TIERS });
-      expect((await listRounds(handle, { includeReview: true })).rows[0].certainty).toBe("reported");
-    }
+  // Each case boots and migrates an independent database; give each the normal test budget.
+  it.each([
+    ["an unnamed-source report", "https://signal.ai/news/series-a", "Sources familiar with the matter say Signal raised $20M Series A."],
+    ["a future raise", "https://signal.ai/news/series-a", "Signal is raising $20M Series A."],
+    ["a mismatched figure", "https://signal.ai/news/series-a", "Signal announced it closed a $50M Series A."],
+    ["a non-official page", "https://reporter.test/signal", "Signal announced it closed a $20M Series A."],
+  ])("does not upgrade from %s", async (_reason, url, quote) => {
+    const handle = await testDb();
+    await persistRecords(
+      handle,
+      [record({ company_name: "Signal", company_domain: "signal.ai", certainty: "reported" })],
+      "series-a-b",
+      "run-1",
+    );
+    const [row] = (await listRounds(handle, { includeReview: true })).rows;
+    await applyGapFill(handle, row, fill({ source_url: url, evidence_quote: quote }), { rates: null, tiers: DEFAULT_TIERS });
+    expect((await listRounds(handle, { includeReview: true })).rows[0].certainty).toBe("reported");
   });
 
   it("keeps a disputed round's certainty and a person's pinned date while attaching the release", async () => {

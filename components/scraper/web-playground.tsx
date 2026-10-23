@@ -2,28 +2,41 @@
 
 import { useState, useTransition } from "react";
 import { runWebTool } from "@/app/(dashboard)/scraper/actions";
+import { summarizeWebResult, type WebResultSummary } from "@/lib/web-result-summary";
+
+const operationHelp: Record<string, string> = {
+  scrape: "Read public page text and links directly. JavaScript-only pages may need browser mode.",
+  extract:
+    "Extract matching text with a CSS selector using local Scrapling. Requires the optional Python parser. The page is fetched directly; no model or external reader receives it.",
+  audit:
+    "Enter up to 10 URLs, one per line. Collect copy, forms, CTAs and script clues without executing scripts or submitting forms. Tracking code does not prove an event fired.",
+  browser:
+    "Requires local Chrome. Reads rendered pages and frames; blocks submissions, fetch/XHR, media and images. Expect partial coverage, not a full journey replay.",
+  discussion:
+    "Read a public Hacker News thread or GitHub issue / PR conversation. PR reviews and inline review comments are excluded. Posts are unverified statements.",
+  adaptive: "Read public GitHub repository metadata, RSS/Atom feeds or webpage text. This does not unlock login-gated content.",
+  reader:
+    "External opt-in: running this sends your public URL to Jina Reader, which has its own limits. Use a canonical URL without query parameters. No login cookies are sent.",
+  map: "Discover website links within the requested limit. Review partial results and errors in the response.",
+  crawl: "Read same-origin pages up to two levels deep. Results may be partial when the limit is reached or pages fail.",
+  search:
+    "Sends your query to the configured external search provider. Providers may block or rate-limit requests; empty results do not prove there are no matches.",
+};
 
 export function WebPlayground() {
   const [pending, start] = useTransition();
   const [output, setOutput] = useState("");
   const [error, setError] = useState("");
+  const [mode, setMode] = useState("scrape");
+  const [summary, setSummary] = useState<WebResultSummary | null>(null);
+  const [elapsed, setElapsed] = useState<number | null>(null);
+  const [allowExternalSharing, setAllowExternalSharing] = useState(false);
+  const needsSharingConsent = mode === "reader" || mode === "search";
   const field = "rounded-8 border border-border-faint bg-background p-3 text-body-medium";
   return (
     <section className="space-y-5 rounded-16 border border-border-faint bg-card p-5 sm:p-6">
       <p className="text-body-small text-muted-foreground">
-        Direct website reads with no scraping credits or model key. Crawls follow same-origin links up to two levels deep. JavaScript-only
-        pages may return limited content; search providers may rate-limit requests.
-      </p>
-      <p className="text-body-small text-muted-foreground">
-        Funnel audit accepts up to 10 canonical URLs (one per line). It collects copy, forms, CTAs, embeds and script clues without
-        submitting forms or executing scripts. Declared tracking code does not prove an event fired. Login-gated social content is not
-        unlocked.
-      </p>
-      <p className="text-body-small text-muted-foreground">
-        Adaptive read returns structured public GitHub repository info and RSS/Atom entries, or reads normal webpages directly. Agent Reach
-        Reader sends your public URL to Jina Reader, an external service with its own limits. Use canonical URLs without query parameters.
-        No login cookies are sent. Every scrape reports its provider and retrieval time. Browser mode requires local Chrome and blocks
-        submissions, fetch/XHR, media and images; it reports partial coverage, not full journey replay.
+        Read public websites without Firecrawl credits or a model key. Choose an operation to see its scope and limits.
       </p>
       <details className="rounded-8 border border-border-faint p-3 text-body-small">
         <summary className="cursor-pointer">Need to walk through a registration or questionnaire?</summary>
@@ -40,27 +53,54 @@ export function WebPlayground() {
       </details>
       <form
         className="flex flex-col gap-3"
+        onReset={(event) => event.preventDefault()}
         action={(data) => {
           setOutput("");
           setError("");
+          setSummary(null);
+          setElapsed(null);
+          const started = performance.now();
           start(async () => {
             try {
-              const response = await runWebTool(String(data.get("mode")), String(data.get("input")), Number(data.get("limit")));
+              const response = await runWebTool(
+                String(data.get("mode")),
+                String(data.get("input")),
+                Number(data.get("limit")),
+                data.get("allowExternalSharing") === "on",
+                String(data.get("selector") ?? ""),
+              );
               if (!response.ok) setError(response.error);
-              else setOutput(JSON.stringify(response.value, null, 2));
+              else {
+                setOutput(JSON.stringify(response.value, null, 2));
+                setSummary(summarizeWebResult(response.value));
+              }
             } catch {
               setError("The request could not complete. Try a smaller crawl or retry.");
+            } finally {
+              setElapsed((performance.now() - started) / 1000);
+              setAllowExternalSharing(false);
             }
           });
         }}
       >
-        <label className="text-body-small">
+        <label className="flex min-w-0 flex-col gap-2 text-body-small sm:flex-row sm:items-center">
           Operation
-          <select name="mode" disabled={pending} className={`${field} ml-3`}>
+          <select
+            name="mode"
+            value={mode}
+            onChange={(event) => {
+              setMode(event.target.value);
+              setAllowExternalSharing(false);
+            }}
+            aria-describedby="operation-help"
+            disabled={pending}
+            className={`${field} min-w-0 max-w-full sm:ml-3`}
+          >
             <option value="scrape">Scrape page</option>
+            <option value="extract">Extract selected text (local Scrapling)</option>
             <option value="audit">Funnel evidence audit (multiple URLs)</option>
             <option value="browser">Rendered page + frames (isolated browser)</option>
-            <option value="discussion">Forum discussion (Hacker News)</option>
+            <option value="discussion">Discussion (Hacker News / GitHub)</option>
             <option value="adaptive">Adaptive read (web / GitHub / feeds)</option>
             <option value="reader">Agent Reach Reader (external Jina)</option>
             <option value="map">Map website</option>
@@ -68,6 +108,24 @@ export function WebPlayground() {
             <option value="search">Search web</option>
           </select>
         </label>
+        <p id="operation-help" className="text-body-small text-muted-foreground">
+          {operationHelp[mode]}
+        </p>
+        {needsSharingConsent && (
+          <label className="flex items-start gap-2 text-body-small">
+            <input
+              type="checkbox"
+              name="allowExternalSharing"
+              required
+              checked={allowExternalSharing}
+              disabled={pending}
+              onChange={(event) => setAllowExternalSharing(event.target.checked)}
+            />
+            {mode === "reader"
+              ? "I approve sending this public URL to Jina Reader for this run."
+              : "I approve sending this query to the configured external search provider for this run."}
+          </label>
+        )}
         <label className="text-body-small" htmlFor="web-input">
           Website URL or search query
         </label>
@@ -81,13 +139,19 @@ export function WebPlayground() {
           disabled={pending}
           className={field}
         />
+        {mode === "extract" && (
+          <label className="flex flex-col gap-2 text-body-small">
+            CSS selector
+            <input name="selector" required maxLength={500} placeholder="article h2, .company-name" disabled={pending} className={field} />
+          </label>
+        )}
         <label className="text-body-small">
           Page / search / comment limit
           <input name="limit" type="number" min={1} max={25} defaultValue={5} disabled={pending} className={`${field} ml-3 w-24`} />
         </label>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || (needsSharingConsent && !allowExternalSharing)}
           className="self-start rounded-8 bg-signal-blue px-5 py-3 text-label-medium text-white disabled:opacity-60"
         >
           {pending ? "Reading the web…" : "Run"}
@@ -96,12 +160,17 @@ export function WebPlayground() {
       {error && (
         <p role="alert" className="text-crimson-ink">
           {error}
+          {elapsed !== null && ` (${elapsed.toFixed(1)}s)`}
         </p>
       )}
       {output && (
         <div className="space-y-3">
           <p role="status" className="text-body-small">
-            Response ready. Partial crawls list errors and remaining discovered URLs.
+            {summary?.status === "failed" ? "Failed" : summary?.status === "partial" ? "Partial result" : "Completed"}
+            {summary?.count !== undefined && ` · ${summary.count} ${summary.unit}`}
+            {summary?.provider && ` · ${summary.provider}`}
+            {elapsed !== null && ` · ${elapsed.toFixed(1)}s`}
+            <span className="mt-1 block text-muted-foreground">{summary?.detail}</span>
           </p>
           <button
             type="button"

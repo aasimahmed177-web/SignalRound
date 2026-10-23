@@ -1,0 +1,2 @@
+# Parser only. Do not install browser/fetcher extras for this offline worker.
+scrapling==0.5

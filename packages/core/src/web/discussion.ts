@@ -1,9 +1,11 @@
 import { load } from "cheerio";
+import { readGitHubDiscussion } from "./github-discussion.ts";
 import { readPublicText } from "./transport.ts";
 
 /** Public HN thread plus a bounded breadth-first comment sample. No login/session access. */
 export async function readDiscussion(raw: string, limit = 20, read = readPublicText) {
   const url = new URL(raw);
+  if (url.hostname === "github.com") return readGitHubDiscussion(raw, limit, read);
   if (
     url.hostname !== "news.ycombinator.com" ||
     url.pathname !== "/item" ||
@@ -13,7 +15,7 @@ export async function readDiscussion(raw: string, limit = 20, read = readPublicT
     !["https:", "http:"].includes(url.protocol)
   )
     throw new Error(
-      "Structured discussion reads currently support Hacker News item URLs. Other public forums can use Scrape or Reader; authenticated social adapters are not configured.",
+      "Structured discussion reads currently support Hacker News items and public GitHub issue/PR URLs. Other public forums can use Scrape or Reader; authenticated social adapters are not configured.",
     );
   const id = url.searchParams.get("id");
   if (!id || !/^\d{1,12}$/.test(id)) throw new Error("Supply a valid Hacker News item ID.");

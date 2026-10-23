@@ -1,5 +1,6 @@
 import { dossierVerifyProviderFor, reconcileProviderFor } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import { searchProviderStatus } from "@fireround/core/web";
 import { desc } from "drizzle-orm";
 import { headers } from "next/headers";
 import { connection } from "next/server";
@@ -123,13 +124,7 @@ async function SettingsBody({ searchParams }: { searchParams: Promise<Search> })
             )}
           </EnvRow>
           <EnvRow label="Database">{process.env.DATABASE_URL ? "Postgres (DATABASE_URL)" : "embedded PGlite under ./data"}</EnvRow>
-          <EnvRow label="Search provider">
-            {process.env.SEARXNG_URL
-              ? "Configured SearXNG"
-              : process.env.AGENT_REACH_MCPORTER
-                ? "Agent Reach / mcporter"
-                : "Direct web search"}
-          </EnvRow>
+          <EnvRow label="Search provider">{searchProviderStatus()}</EnvRow>
           <EnvRow label="Dashboard password">
             {process.env.DASHBOARD_PASSWORD ? (
               "set: Basic auth on the dashboard and /api/v1"

@@ -26,6 +26,3 @@ jobs:
       - run: pnpm test
       - run: pnpm bench-pipeline -- --assert
       - run: pnpm build
-        env:
-          # The build needs no key or database: pages prerender their shells and stream data at request time.
-          FIRECRAWL_API_KEY: fc-ci-placeholder

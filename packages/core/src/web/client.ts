@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { generateText, jsonSchema, Output } from "ai";
-import { XMLParser } from "fast-xml-parser";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { readQuotedPage } from "../firecrawl/reader.ts";
 import { reconcileModel } from "../llm/model.ts";
 import { type CrawlOptions, crawlPages } from "./crawl.ts";
@@ -26,7 +26,7 @@ export { auditFunnel, inspectFunnelHtml } from "./audit.ts";
 export * from "./crawl.ts";
 export { readDiscussion } from "./discussion.ts";
 export { parseHtmlPage } from "./page.ts";
-export { parseDuckDuckGo, parseSearchPayload } from "./search.ts";
+export { parseDuckDuckGo, parseSearchPayload, resolveSearchProvider, searchProviderStatus } from "./search.ts";
 export * from "./transport.ts";
 export * from "./types.ts";
 
@@ -183,6 +183,12 @@ export class NativeWebClient {
   async map(raw: string, options: { search?: string; limit?: number; includeSubdomains?: boolean; timeout?: number } = {}) {
     const root = new URL(raw.includes("://") ? raw : `https://${raw}`);
     const limit = bounded(options.limit, 30, 100);
+    const deadline = Date.now() + bounded(options.timeout, 15_000, 60_000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error("Website map deadline exceeded")), deadline - Date.now());
+    const errors: Array<{ url: string; error: string }> = [];
+    const sources: Array<{ url: string; kind: "homepage" | "sitemap" }> = [];
+    let truncated = false;
     const found = new Map<string, { url: string; title?: string; description?: string }>();
     const sameSite = (url: string) => {
       const host = new URL(url).hostname;
@@ -192,39 +198,89 @@ export class NativeWebClient {
       const normalized = httpUrl(url, root.toString());
       if (normalized && sameSite(normalized)) found.set(normalized, { url: normalized });
     };
-    const home = await this.scrape(root.toString(), { formats: ["links"], onlyMainContent: false, timeout: options.timeout });
-    for (const link of home.links ?? []) add(link);
-    const maps = [new URL("/sitemap.xml", root).toString()];
-    for (let index = 0; index < maps.length && index < 4; index++) {
+    const read = async (url: string) => {
+      controller.signal.throwIfAborted();
+      if (Date.now() >= deadline) throw new Error("Website map deadline exceeded");
+      let onAbort: (() => void) | undefined;
       try {
-        const sitemapUrl = maps[index];
-        if (!sitemapUrl) continue;
-        const xml = await this.read(sitemapUrl, { timeoutMs: 10_000, maxBytes: 2_000_000 });
-        const parsed: unknown = new XMLParser().parse(xml.text);
-        const data = isObject(parsed) ? parsed : {};
-        for (const [key, child] of [
-          ["sitemapindex", "sitemap"],
-          ["urlset", "url"],
-        ] as const) {
-          const group = isObject(data[key]) ? data[key] : {};
-          const rows = group[child];
-          for (const row of Array.isArray(rows) ? rows : rows ? [rows] : []) {
-            const loc = isObject(row) && typeof row.loc === "string" ? httpUrl(row.loc) : null;
-            if (!loc || !sameSite(loc)) continue;
-            if (key === "sitemapindex" && maps.length < 4 && !maps.includes(loc)) maps.push(loc);
-            else if (key === "urlset") add(loc);
-          }
-        }
-      } catch {
-        /* Sitemaps are optional; homepage links remain useful. */
+        const response = await Promise.race([
+          this.read(url, { timeoutMs: Math.max(1, deadline - Date.now()), maxBytes: 2_000_000, signal: controller.signal }),
+          new Promise<never>((_, reject) => {
+            onAbort = () => reject(controller.signal.reason);
+            controller.signal.addEventListener("abort", onAbort, { once: true });
+          }),
+        ]);
+        if (!sameSite(response.url)) throw new Error("Map source redirected outside the requested site");
+        if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
+        return response;
+      } finally {
+        if (onAbort) controller.signal.removeEventListener("abort", onAbort);
       }
+    };
+    const homepage = async () => {
+      try {
+        const home = await read(root.toString());
+        const page = parseHtmlPage(home.text, home.url, false);
+        for (const link of page.links ?? []) add(link);
+        sources.push({ url: home.url, kind: "homepage" });
+      } catch (error) {
+        errors.push({ url: root.toString(), error: errorText(error) });
+      }
+    };
+    const maps = [new URL("/sitemap.xml", root).toString()];
+    const sitemaps = async () => {
+      for (let index = 0; index < maps.length && index < 4; index++) {
+        try {
+          const sitemapUrl = maps[index];
+          if (!sitemapUrl) continue;
+          const xml = await read(sitemapUrl);
+          if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml.text)) throw new Error("Sitemap document type and entity declarations are not allowed");
+          if (XMLValidator.validate(xml.text) !== true) throw new Error("Invalid sitemap XML");
+          const parsed: unknown = new XMLParser().parse(xml.text);
+          const data = isObject(parsed) ? parsed : {};
+          if (!("urlset" in data) && !("sitemapindex" in data)) throw new Error("Response is not a sitemap");
+          sources.push({ url: xml.url, kind: "sitemap" });
+          for (const [key, child] of [
+            ["sitemapindex", "sitemap"],
+            ["urlset", "url"],
+          ] as const) {
+            const group = isObject(data[key]) ? data[key] : {};
+            const rows = group[child];
+            for (const row of Array.isArray(rows) ? rows : rows ? [rows] : []) {
+              const loc = isObject(row) && typeof row.loc === "string" ? httpUrl(row.loc) : null;
+              if (!loc || !sameSite(loc)) continue;
+              if (key === "sitemapindex" && !maps.includes(loc)) {
+                if (maps.length < 4) maps.push(loc);
+                else truncated = true;
+              } else if (key === "urlset") add(loc);
+            }
+          }
+        } catch (error) {
+          errors.push({ url: maps[index] ?? root.toString(), error: errorText(error) });
+        }
+      }
+    };
+    try {
+      // A stalled homepage must not prevent useful sitemap discovery (and vice versa).
+      await Promise.all([homepage(), sitemaps()]);
+    } finally {
+      clearTimeout(timer);
     }
     const words = (options.search ?? "")
       .toLowerCase()
       .split(/\W+/)
       .filter((w) => w.length > 2);
     const score = (url: string) => words.reduce((sum, word) => sum + Number(url.toLowerCase().includes(word)), 0);
-    return { links: [...found.values()].sort((a, b) => score(b.url) - score(a.url)).slice(0, limit) };
+    truncated ||= found.size > limit;
+    return {
+      links: [...found.values()].sort((a, b) => score(b.url) - score(a.url) || a.url.localeCompare(b.url)).slice(0, limit),
+      partial: errors.length > 0 || truncated,
+      truncated,
+      sources,
+      errors,
+      provider: "native:map",
+      creditsUsed: 0,
+    };
   }
 
   async agent(input: AgentOptions): Promise<AgentResult> {
