@@ -25,7 +25,6 @@ import { measuredCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { flushDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import type { DossierTarget } from "@/lib/intel";
 import { type AgentTally, type CorroborationTally, corroborateForPlan, gapFillForPlan, type PersistedIds } from "@/lib/intel";
 import { screenWithJev } from "@/lib/jev-shadow";
@@ -36,6 +35,7 @@ import { reconcileGrownRows } from "@/lib/reconcile";
 import { enqueueRouted, persistRouted, routingTable } from "@/lib/routing";
 import { loadAliases, loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { deepDiveTargetsStep, dossierBacklogStep, processDossierTargets } from "@/workflows/dossiers";
 import { enrichPending } from "@/workflows/enrich";
 import { newRoundCompanyIdsStep, startCompanyTimelinesStep } from "@/workflows/history";
@@ -247,13 +247,13 @@ async function runSweep(job: SweepJob, origin: string, dossierQueue: DossierTarg
 /**
  * Remaining credits on the account, read before and after the run; the difference is what
  * the run cost. CEILING: the account is shared, so a monitor check or another sweep running
- * at the same time lands in this number too. Per-request billing would need Firecrawl to
+ * at the same time lands in this number too. Per-request billing would need NativeWebClient to
  * return credits on each response, which /search and /scrape do not.
  */
 async function creditsStep(): Promise<number | null> {
   "use step";
   try {
-    return (await getFirecrawl().getCreditUsage()).remainingCredits;
+    return (await getWebClient().getCreditUsage()).remainingCredits;
   } catch {
     return null;
   }
@@ -272,7 +272,7 @@ async function searchStep(
   "use step";
   const [preset, handle] = await Promise.all([loadPreset(presetSlug), db()]);
   const plan = await getCoverage(handle);
-  const r = await searchCandidates(getFirecrawl(), preset, parseWindow(window), {
+  const r = await searchCandidates(getWebClient(), preset, parseWindow(window), {
     sources: plan.sources,
     xAccountsMax: plan.xAccountsMax,
     now: new Date(startedAt),
@@ -299,7 +299,7 @@ async function extractStep(candidates: Candidate[]): Promise<{
   failedUrls: string[];
 }> {
   "use step";
-  const r = await extractRounds(getFirecrawl(), candidates, { concurrency: 20 });
+  const r = await extractRounds(getWebClient(), candidates, { concurrency: 20 });
   // X timelines stay off the ledger: the sweep reads them every time.
   const x = new Set(candidates.filter((c) => c.kinds.includes("x")).map((c) => c.url));
   const pagesRead = r.pages.filter((p) => !x.has(p.url));
@@ -378,8 +378,8 @@ async function judgeStep(
   // sibling-date rule do what they can from one page.
   const model = reconcileModel(process.env, "feed");
   const r = model
-    ? await reconcileRecords(records, firecrawlReader(getFirecrawl()), model, { rates, tiers: { ...DEFAULT_TIERS, ...tiers } })
-    : await judgeRecords(getFirecrawl(), records, { rates, tiers: { ...DEFAULT_TIERS, ...tiers } });
+    ? await reconcileRecords(records, firecrawlReader(getWebClient()), model, { rates, tiers: { ...DEFAULT_TIERS, ...tiers } })
+    : await judgeRecords(getWebClient(), records, { rates, tiers: { ...DEFAULT_TIERS, ...tiers } });
   const settled = model ? r.records : r.records.map((x) => settleDate(x));
   return {
     records: settled.filter((x) => x.verification?.status !== "not_news"),
@@ -400,7 +400,7 @@ async function rereconcileStep(ids: string[], rates: RateTable | null): Promise<
   const plan = await getCoverage(handle);
   if (!plan.judge) return { reconciled: 0, credits: 0 };
   const tiers = await loadPublisherTiers();
-  const result = await reconcileGrownRows(handle, getFirecrawl(), model, [...new Set(ids)], {
+  const result = await reconcileGrownRows(handle, getWebClient(), model, [...new Set(ids)], {
     rates,
     tiers: { ...DEFAULT_TIERS, ...tiers },
   });
@@ -433,7 +433,7 @@ async function corroborateStep(ids: PersistedIds): Promise<CorroborationTally> {
   "use step";
   const handle = await db();
   const plan = await getCoverage(handle);
-  const result = await corroborateForPlan(handle, getFirecrawl(), plan, ids);
+  const result = await corroborateForPlan(handle, getWebClient(), plan, ids);
   await invalidateEntityPages(handle, { roundIds: ids.persistedIds });
   return result;
 }
@@ -442,7 +442,7 @@ async function gapFillStep(insertedIds: string[]): Promise<AgentTally> {
   "use step";
   const handle = await db();
   const plan = await getCoverage(handle);
-  const result = await gapFillForPlan(handle, getFirecrawl(), plan, insertedIds);
+  const result = await gapFillForPlan(handle, getWebClient(), plan, insertedIds);
   if (insertedIds.length) await invalidateEntityPages(handle, { roundIds: insertedIds });
   return result;
 }

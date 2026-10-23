@@ -12,8 +12,8 @@ import type { CompanyDossier, DeepDiveOptions, DeepDiveResult, DossierVerificati
 import { DEEP_DIVE_MAX_CREDITS, deepDive, parseStoredDossier, startDeepDive } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { type CheckDeps, checkDossier, DossierCheckUnavailable, dossierCheckAvailable } from "./dossier-check.ts";
 import { holdLateReports } from "./late-report.ts";
 import { recordRun } from "./persist.ts";
@@ -139,7 +139,7 @@ async function loadCompany(handle: Db, companyId: string) {
  */
 export async function startCompanyDive(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   companyId: string,
   opts: DeepDiveOptions & CheckDeps & { startedAt?: Date } = {},
 ): Promise<string> {
@@ -174,7 +174,7 @@ export async function startCompanyDive(
  */
 export async function finishCompanyDive(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   companyId: string,
   result: DeepDiveResult,
   startedAt: Date,
@@ -244,7 +244,7 @@ export async function finishCompanyDive(
  */
 export async function runDeepDive(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   companyId: string,
   opts: DeepDiveOptions & CheckDeps & { now?: Date } = {},
 ): Promise<DeepDiveOutcome> {
@@ -286,7 +286,12 @@ export type ReverifyOutcome =
  * the check says it is about another company (or cannot place it). The dive's own date stays on the
  * row; the check's date is in its record. Throws, and changes nothing, when the check cannot run.
  */
-export async function reverifyDossier(handle: Db, client: Firecrawl, companyId: string, deps: CheckDeps = {}): Promise<ReverifyOutcome> {
+export async function reverifyDossier(
+  handle: Db,
+  client: NativeWebClient,
+  companyId: string,
+  deps: CheckDeps = {},
+): Promise<ReverifyOutcome> {
   const [row] = await handle
     .select({ data: enrichments.data, fetchedAt: enrichments.fetchedAt })
     .from(enrichments)

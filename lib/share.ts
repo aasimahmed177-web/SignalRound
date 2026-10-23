@@ -173,7 +173,7 @@ const ROOT_IMAGE = {
   width: 1200,
   height: 630,
   type: "image/png",
-  alt: "Fireround: the open-source funding feed, built on Firecrawl",
+  alt: "Fireround: the open-source funding feed, built on NativeWebClient",
 };
 
 /**

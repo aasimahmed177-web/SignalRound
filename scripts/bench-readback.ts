@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { extractRounds, generateReconciliation, reconcileModel, reconcileRecords, resolveRounds, STAGES } from "@fireround/core";
-import type { Firecrawl } from "firecrawl";
+import type { NativeWebClient } from "@fireround/core/web";
 
 const selected = new Set([
   "fore-d2",
@@ -62,7 +62,7 @@ for (const id of models) {
     if (results[id][c.id] && !process.argv.includes("--refresh")) continue;
     const capture = captures[c.id];
     const extraction = await extractRounds(
-      { scrape: async () => ({ markdown: capture.markdown, json: capture.json, metadata: {} }) } as unknown as Firecrawl,
+      { scrape: async () => ({ markdown: capture.markdown, json: capture.json, metadata: {} }) } as unknown as NativeWebClient,
       [{ url: c.url }],
       { now: new Date("2026-09-27T12:00:00Z") },
     );

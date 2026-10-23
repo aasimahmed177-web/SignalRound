@@ -3,7 +3,7 @@
 process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
-import type { Firecrawl } from "firecrawl";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
 vi.mock("workflow/api", () => ({ start: vi.fn(async () => ({ runId: "mock" })) }));
@@ -75,57 +75,10 @@ describe("tokenEquals", () => {
   });
 });
 
-describe("POST /api/webhooks/firecrawl", () => {
-  const signed = JSON.stringify({ success: true, type: "monitor.check.completed", id: "sec-evt-1", data: [] });
-
-  test("a body that is not JSON, or not an event, is a 400 with one line and no stack", async () => {
-    const notJson = await post("not json");
-    expect(notJson.status).toBe(400);
-    expect(await notJson.json()).toEqual({ error: "body is not JSON" });
-
-    const noId = await post(JSON.stringify({ type: "monitor.page", data: [] }));
-    expect(noId.status).toBe(400);
-    const body = (await noId.json()) as { error: string };
-    expect(Object.keys(body)).toEqual(["error"]);
-    expect(body.error).not.toMatch(/\n|at /);
-
-    expect((await post(JSON.stringify({ id: "x", type: "monitor.page", data: "nope" }))).status).toBe(400);
-  });
-
-  test("a monitor.page entry without a url or monitorId is a 400 before anything is written, so a retry is not a duplicate", async () => {
-    const bad = JSON.stringify({ id: "sec-evt-page", type: "monitor.page", data: [{ monitorId: "m", checkId: "c", status: "new" }] });
-    expect((await post(bad)).status).toBe(400);
-    const good = JSON.stringify({
-      id: "sec-evt-page",
-      type: "monitor.page",
-      data: [{ monitorId: "m", checkId: "c", url: "https://a.example/post", status: "new" }],
-    });
-    const res = await post(good);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, started: 1 });
-  });
-
-  test("with neither secret configured: open in development, closed in production", async () => {
-    delete process.env.FIRECRAWL_WEBHOOK_SECRET;
-    delete process.env.WEBHOOK_BEARER_TOKEN;
-    expect((await post(signed)).status).toBe(200);
-
-    vi.stubEnv("NODE_ENV", "production");
-    try {
-      const closed = await post(JSON.stringify({ success: true, type: "monitor.check.completed", id: "sec-evt-2", data: [] }));
-      expect(closed.status).toBe(401);
-      expect(await closed.json()).toEqual({ error: "unauthorized" });
-
-      // A configured secret opens production again, for a correctly signed request only.
-      process.env.FIRECRAWL_WEBHOOK_SECRET = "prod-secret";
-      const body = JSON.stringify({ success: true, type: "monitor.check.completed", id: "sec-evt-3", data: [] });
-      expect((await post(body, { "x-firecrawl-signature": signForTests(body, "prod-secret") })).status).toBe(200);
-      expect((await post(body, { "x-firecrawl-signature": signForTests(body, "other") })).status).toBe(401);
-    } finally {
-      vi.unstubAllEnvs();
-      delete process.env.FIRECRAWL_WEBHOOK_SECRET;
-    }
-  });
+test("retired vendor webhook refuses every payload without ingestion", async () => {
+  for (const body of ["not json", JSON.stringify({ id: "event", type: "monitor.page", data: [] })]) {
+    expect((await post(body)).status).toBe(410);
+  }
 });
 
 describe("GET /api/cron/deliveries", () => {

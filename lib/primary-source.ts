@@ -1,5 +1,5 @@
 // A published round's official announcement, when its sources do not have one yet. The press often
-// finds a round before anyone links the company's own post (Firecrawl's Series B carried 22 write-ups
+// finds a round before anyone links the company's own post (NativeWebClient's Series B carried 22 write-ups
 // and not firecrawl.dev/blog/introducing-alexandria-series-b), and a reader or an agent wants the
 // company's own words first. One search scoped to the company's site, then (when that finds nothing)
 // one map of the site and one search of the newswires, at most two pages read with the extraction,
@@ -21,8 +21,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { applyFill } from "./gapfill.ts";
 import type { RoundRow } from "./persist.ts";
 import { sourceKind, WIRE_DOMAINS } from "./source-order.ts";
@@ -105,7 +105,7 @@ export function confirmsRound(
 
 /** Candidate pages: the company's own (by a site search, else a map of the site), else a wire's release. */
 async function findCandidates(
-  client: Firecrawl,
+  client: NativeWebClient,
   row: RoundRow,
   domains: string[],
   newsrooms: string[],
@@ -179,7 +179,7 @@ function dedupe(list: CorroborationCandidate[]): CorroborationCandidate[] {
  */
 export async function findPrimarySource(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   row: RoundRow,
   opts: { apply: boolean; tiers?: Record<string, number>; now?: Date },
 ): Promise<PrimarySourceOutcome> {

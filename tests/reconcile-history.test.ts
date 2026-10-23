@@ -1,5 +1,5 @@
 import type { FeedRecord } from "@fireround/core";
-import type { Firecrawl } from "firecrawl";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { expect, it, vi } from "vitest";
 import { listRounds, persistRecords } from "../lib/persist.ts";
 import { reconcileGrownRows } from "../lib/reconcile.ts";

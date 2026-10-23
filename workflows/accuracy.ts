@@ -21,10 +21,10 @@ import {
 import { db } from "@/lib/db";
 import { dossierCheckAvailable } from "@/lib/dossier-check";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { divesResting } from "@/lib/intel";
 import { recordRun } from "@/lib/persist";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { type DossierOutcome, processDossierTarget } from "@/workflows/dossiers";
 import { startCompanyTimelinesStep } from "@/workflows/history";
 
@@ -89,8 +89,7 @@ async function planStep(params: AccuracyParams, order: string[]): Promise<{ targ
   "use step";
   const handle = await db();
   const now = new Date();
-  // Without a Firecrawl key every remedy would fail: none is started, and the flags stay for a person.
-  if (!process.env.FIRECRAWL_API_KEY) return { targets: [], skipped: 0 };
+  // Without a NativeWebClient key every remedy would fail: none is started, and the flags stay for a person.
   return planRemedies(handle, params, { now, order, resting: await divesResting(handle, now), dossierCheck: dossierCheckAvailable() });
 }
 
@@ -100,7 +99,7 @@ async function profileStep(t: RemedyTarget): Promise<{ verified: boolean; credit
   const handle = await db();
   try {
     const plan = await getCoverage(handle);
-    const r = await refreshProfile(handle, getFirecrawl(), t.companyId, { pricingPage: plan.enrichment !== "homepage" });
+    const r = await refreshProfile(handle, getWebClient(), t.companyId, { pricingPage: plan.enrichment !== "homepage" });
     await markRemedied(handle, t, r.note);
     await invalidateEntityPages(handle, { companyIds: [t.companyId] });
     return { verified: r.verified, credits: r.credits, failed: false };

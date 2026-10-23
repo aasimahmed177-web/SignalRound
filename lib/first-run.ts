@@ -1,11 +1,8 @@
+import { reconcileProviderFor } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { sql } from "drizzle-orm";
-import { estimateSweep } from "@/lib/coverage";
-import { db } from "@/lib/db";
-import { firecrawlKey } from "@/lib/firecrawl";
 import { listPresets } from "@/lib/presets";
-import { getCoverage } from "@/lib/settings";
 
 export interface FirstRunProps {
   hasKey: boolean;
@@ -25,14 +22,10 @@ export async function firstRunProps(): Promise<FirstRunProps> {
   const presets = await listPresets();
   const preset = presets.find((p) => p.slug === "series-a-b") ?? presets[0];
   const slug = preset?.slug ?? "series-a-b";
-  const est = await db()
-    .then(getCoverage)
-    .then((plan) => (preset ? estimateSweep(preset, plan) : null))
-    .catch(() => null);
   return {
-    hasKey: firecrawlKey() !== null,
+    hasKey: reconcileProviderFor() !== null,
     presetSlug: slug,
     presetName: preset?.name ?? "Series A and B",
-    estimate: est ? `${est.creditsLow} to ${est.creditsHigh} credits` : "a few hundred credits",
+    estimate: "no scraping credits; configured model usage is billed by its provider",
   };
 }

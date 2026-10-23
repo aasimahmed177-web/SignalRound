@@ -12,7 +12,9 @@ The core rule is simple: **store the source, never invent a lead.**
 - Public role-email discovery from the company's own homepage and contact/about pages.
 - A Signal Inbox containing the article, company, funding facts, public email, source URL, and collection method.
 - Dry-run by default; idempotent storage with `--apply`.
-- Optional Agent Reach/Jina reader fallback for sites that reject direct reads. `--no-jina` keeps the run strictly direct-web.
+- Live searches from the Signals page, using native DuckDuckGo Lite search, a configured SearXNG instance, or Agent Reach's mcporter/Exa channel.
+- Native structured page extraction and bounded research jobs reuse the existing evidence checks. A model key is required for these—not a scraping-service key.
+- Database-backed local monitors, run by the app's cron schedule. No remote webhook subscription is needed.
 
 ```text
 RSS / Atom / Agent Reach sources
@@ -58,7 +60,17 @@ pnpm collect:native -- --limit 25 --days 30 --apply --no-jina
 pnpm collect:native -- --feed https://example.com/funding.xml --apply --no-jina
 ```
 
-Omit `--no-jina` to allow the reader fallback used by Agent Reach when a site blocks a normal request. Firecrawl is disabled in both modes.
+All reads are direct; the old `--no-jina` flag is accepted for compatibility but no hosted-reader fallback runs. Private IPs, unsafe redirects, and oversized responses are rejected. A collection has a 90-second budget and can return partial results.
+
+### Search and verification setup
+
+Open **Signals → Find startups**. Enter a funding query, a public website URL, or leave it blank to collect recent funding feeds. Results are unverified observations, with public-email source pages—not guessed addresses or deliverability claims.
+
+Search engines can block or rate-limit automated requests. On a web-search failure, the UI explicitly falls back to searching the configured funding feeds; coverage is narrower. For another search provider set `NATIVE_SEARCH_PROVIDER=searxng` with `SEARXNG_URL`, or `NATIVE_SEARCH_PROVIDER=agent-reach` with `AGENT_REACH_MCPORTER` pointing to an installed mcporter executable with Exa configured. Agent Reach routes upstream tools; Exa is an external search service and has its own limits. No cookies are imported automatically.
+
+Funding extraction, company research, dossiers and verification require one of `OPENAI_API_KEY`, `AI_GATEWAY_API_KEY`, `OPENROUTER_API_KEY`, or `ANTHROPIC_API_KEY`. These model calls may cost money. With no model configured, discovery and public-email collection still work; observations are not promoted to verified funding records.
+
+Delete and recreate old hosted monitors in Presets. Native monitors run through `/api/cron/native-monitors`; self-hosted production scheduling requires `CRON_SECRET`. Run only one process against an embedded PGlite store—use the UI while the app is running, not a second `--apply` collector process.
 
 ## Ingest from another Agent Reach channel
 
@@ -92,9 +104,11 @@ Agent Reach is a tool installer and router rather than a scraping proxy, so its 
 
 ## Migration status
 
-SignalRound began as a fork of FireRound. The native collector, contact discovery, storage path, and Signal Inbox do not import or call Firecrawl. Some inherited FireRound modules and their `firecrawl` package dependency remain in the repository while the older sweep, monitor, and enrichment routes are replaced; do not run those legacy commands if you want a zero-Firecrawl deployment.
+SignalRound began as a fork of FireRound. Runtime code uses the repository-owned native web client; the Firecrawl SDK and API-key requirement have been removed. Historical fixture data and some internal module names retain upstream terminology. Existing evidence, deduplication and publication safeguards remain in place.
 
-The inherited operational guides remain in `docs/` while that migration continues:
+Native collection is not feature-equivalent to a commercial scraping fleet: blocked or JavaScript-only pages may be unreadable, search coverage varies by provider, and X discovery uses publicly indexed posts rather than a private live index. Authenticated social workers can submit observations through the intake API. Failures remain visible; missing evidence is never filled with sample data.
+
+The inherited pipeline guides remain in `docs/`; use this README's native setup instead of historical vendor-specific billing or webhook instructions:
 
 - [How the research pipeline works](docs/how-it-works.md)
 - [Data quality and verification](docs/data-quality.md)
@@ -116,10 +130,9 @@ The native stack is Next.js 16, React 19, TypeScript, Tailwind 4, Drizzle, PGlit
 ## Roadmap
 
 1. Add more Agent Reach channels and source health telemetry.
-2. Replace the remaining inherited Firecrawl research routes with Playwright/direct-web workers.
-3. Add automatic primary/secondary-source corroboration and entity resolution.
-4. Add scheduled native collection, deduplication, watchlists, and alerts.
-5. Remove the legacy `firecrawl` dependency once the last inherited route is replaced.
+2. Add an isolated browser-rendering worker for JavaScript-heavy pages.
+3. Expand provider health telemetry and evidence replay tests.
+4. Add watchlists and additional source-specific adapters.
 
 ## Upstream and license
 

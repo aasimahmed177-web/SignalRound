@@ -1,12 +1,12 @@
 // The X announcements lane, the pure part. A founder or a company often announces a round on X
 // before any article exists (Parallax's $117m fundraise, September 24, 2026, was X-only for hours),
-// and the sweep's queries never see a post. Every hour the lane searches X through Firecrawl for
+// and the sweep's queries never see a post. Every hour the lane searches X through NativeWebClient for
 // first-person funding posts from the last few hours, reads each result into a lead (who posted,
 // which company, how much), and looks for an article that corroborates it with a search on the
 // company and the amount, on a backoff for about 48 hours. The article, read through the normal
 // pipeline, is what lands; a post on its own lands only as a flagged record, and only when the
 // company's own homepage links the account that posted it. lib/announcements.ts and
-// workflows/announcements.ts run these rules against the store and Firecrawl.
+// workflows/announcements.ts run these rules against the store and NativeWebClient.
 
 import { normalizeCompanyKey } from "../records/keys.ts";
 import { canonicalUrl, hostOf, isArticleUrl, parseAmount, registrableDomain } from "../records/normalize.ts";
@@ -569,7 +569,7 @@ export function confirmsLead(lead: ConfirmFields, other: ConfirmFields, windowHo
   return lead.currency !== null && lead.currency === other.currency && near(lead.amountValue, other.amountValue);
 }
 
-/** An X profile's bio as Firecrawl's X scrape writes it: the lines between the "# Name (@handle)" heading and the stats list. */
+/** An X profile's bio as NativeWebClient's X scrape writes it: the lines between the "# Name (@handle)" heading and the stats list. */
 export function bioFromProfile(markdown: string): string {
   const lines = markdown.split("\n");
   const start = lines.findIndex((l) => /^#\s/.test(l));

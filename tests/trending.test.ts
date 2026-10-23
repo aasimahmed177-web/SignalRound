@@ -6,8 +6,8 @@ process.env.DATABASE_URL = "";
 import type { RoundXSearch, XHit } from "@fireround/core";
 import { classifyX, parseXResult } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 
 const started = vi.hoisted(() => [] as unknown[][]);
@@ -150,13 +150,13 @@ describe("checkpoints", () => {
     expect(searchDue(0, seen, at(72))).toBe(false);
   });
 
-  test("a run's estimate prices the queries each due round will run, its handle read, and the showcase", () => {
+  test("native queries, handle reads, and showcase reads add no hosted scraping credits", () => {
     const fresh = { xHandle: null, handleCheckedAt: null, amounts: ["$40M"] };
     const known = { xHandle: "acme", handleCheckedAt: "2026-09-22T00:00:00Z", amounts: ["$40M"] };
     const none = { xHandle: null, handleCheckedAt: "2026-09-22T00:00:00Z", amounts: [] };
-    expect(estimateRun([fresh], 0)).toBe(3 * 4 + 1);
-    expect(estimateRun([known], 0)).toBe(3 * 4);
-    expect(estimateRun([none], 2)).toBe(4 + 2 * 30);
+    expect(estimateRun([fresh], 0)).toBe(0);
+    expect(estimateRun([known], 0)).toBe(0);
+    expect(estimateRun([none], 2)).toBe(0);
   });
 });
 

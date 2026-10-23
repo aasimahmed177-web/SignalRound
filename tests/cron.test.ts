@@ -252,13 +252,13 @@ describe("GET /api/cron/sweep", () => {
     };
     expect(body.windows).toEqual(["month", "month-1", "month-2"]);
     expect(body.presets).toEqual(["series-a-b", "seed", "growth"]);
-    expect(body.estimate.low).toBeGreaterThan(0);
-    expect(body.estimate.high).toBeGreaterThanOrEqual(body.estimate.low);
+    expect(body.estimate.low).toBe(0);
+    expect(body.estimate.high).toBe(0);
     expect(body.estimate.lines.map((l) => l.label)).toEqual([
       "Series A and B: 3 month sweeps",
       "Seed and pre-seed: 3 month sweeps",
       "Series C and later: 3 month sweeps",
-      "SEC Form D (EDGAR, no Firecrawl credits)",
+      "SEC Form D (EDGAR, no scraping credits)",
     ]);
     expect(started).toHaveLength(0);
     for (const bad of ["0", "13", "abc", "-1", "2.5", ""]) {

@@ -1,5 +1,5 @@
 // Re-evaluate existing rows under issuer, identity, financing, stage, and company-date rules.
-// Dry run by default. --reground reads a source through Firecrawl; --apply writes only quoted changes.
+// Dry run by default. --reground reads a source through NativeWebClient; --apply writes only quoted changes.
 
 import {
   amountInEvidence,
@@ -15,8 +15,8 @@ import {
   siteCandidates,
 } from "@fireround/core";
 import { closeDb, schema } from "@fireround/core/db";
+import { NativeWebClient } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import Firecrawl from "firecrawl";
 import { type AuditChange, type AuditRow, planAuditRepair } from "../../lib/audit-repair.ts";
 import { openStore } from "../../lib/db.ts";
 import { staleForNews } from "../../lib/deliverable.ts";
@@ -29,8 +29,7 @@ const companyFilter = process.argv
   ?.slice("--company=".length)
   .toLowerCase();
 const handle = await openStore();
-const client = reground ? new Firecrawl({ apiKey: process.env.FIRECRAWL_API_KEY || "" }) : null;
-if (reground && !process.env.FIRECRAWL_API_KEY) throw new Error("--reground requires FIRECRAWL_API_KEY");
+const client = reground ? new NativeWebClient() : null;
 const rounds = await handle
   .select({ round: schema.fundingRounds, company: schema.companies })
   .from(schema.fundingRounds)

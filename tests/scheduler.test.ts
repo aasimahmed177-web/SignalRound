@@ -32,6 +32,7 @@ describe("tickPaths", () => {
   test("the sweep, Trending, X announcements, round verification, and deliveries every hour; accuracy at 05:00, Slack digest at 07:00", () => {
     expect(tickPaths(new Date("2026-09-22T05:00:05Z"))).toEqual([
       "/api/cron/sweep",
+      "/api/cron/native-monitors",
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
@@ -40,6 +41,7 @@ describe("tickPaths", () => {
     ]);
     expect(tickPaths(new Date("2026-09-22T06:00:05Z"))).toEqual([
       "/api/cron/sweep",
+      "/api/cron/native-monitors",
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
@@ -48,6 +50,7 @@ describe("tickPaths", () => {
     ]);
     expect(tickPaths(new Date("2026-09-22T07:00:05Z"))).toEqual([
       "/api/cron/sweep",
+      "/api/cron/native-monitors",
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
@@ -56,6 +59,7 @@ describe("tickPaths", () => {
     ]);
     expect(tickPaths(new Date("2026-09-22T08:00:05Z"))).toEqual([
       "/api/cron/sweep",
+      "/api/cron/native-monitors",
       "/api/cron/trending",
       "/api/cron/announcements",
       "/api/cron/verify-rounds",
@@ -95,6 +99,7 @@ describe("startScheduler", () => {
     await vi.advanceTimersByTimeAsync(15_000);
     expect(calls).toEqual([
       { url: "http://localhost:3000/api/cron/sweep", authorization: "Bearer s3cret" },
+      { url: "http://localhost:3000/api/cron/native-monitors", authorization: "Bearer s3cret" },
       { url: "http://localhost:3000/api/cron/trending", authorization: "Bearer s3cret" },
       { url: "http://localhost:3000/api/cron/announcements", authorization: "Bearer s3cret" },
       { url: "http://localhost:3000/api/cron/verify-rounds", authorization: "Bearer s3cret" },
@@ -103,15 +108,15 @@ describe("startScheduler", () => {
 
     // Three quarter-hour ticks (verification and the X announcements lane) run before the next hourly tick at 12:00:05.
     await vi.advanceTimersByTimeAsync(3_600_000);
-    expect(calls).toHaveLength(16);
-    expect(calls.slice(5, 11).map((c) => c.url)).toEqual(
+    expect(calls).toHaveLength(18);
+    expect(calls.slice(6, 12).map((c) => c.url)).toEqual(
       Array(3).fill(["http://localhost:3000/api/cron/verify-rounds", "http://localhost:3000/api/cron/announcements"]).flat(),
     );
-    expect(calls[11].url).toBe("http://localhost:3000/api/cron/sweep");
-    expect(calls[12].url).toBe("http://localhost:3000/api/cron/trending");
-    expect(calls[13].url).toBe("http://localhost:3000/api/cron/announcements");
-    expect(calls[14].url).toBe("http://localhost:3000/api/cron/verify-rounds");
-    expect(calls[15].url).toBe("http://localhost:3000/api/cron/deliveries");
+    expect(calls[12].url).toBe("http://localhost:3000/api/cron/sweep");
+    expect(calls[14].url).toBe("http://localhost:3000/api/cron/trending");
+    expect(calls[15].url).toBe("http://localhost:3000/api/cron/announcements");
+    expect(calls[16].url).toBe("http://localhost:3000/api/cron/verify-rounds");
+    expect(calls[17].url).toBe("http://localhost:3000/api/cron/deliveries");
   });
 
   test("a rejected fetch is logged, not thrown, and the next tick still arms", async () => {
@@ -130,7 +135,7 @@ describe("startScheduler", () => {
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     await vi.advanceTimersByTimeAsync(15_000);
-    expect(calls).toHaveLength(5);
+    expect(calls).toHaveLength(6);
   });
 
   test("a production schedule with no CRON_SECRET says up front that every tick will be refused", () => {
@@ -144,6 +149,6 @@ describe("startScheduler", () => {
     vi.stubEnv("SCHEDULE_TICK_ON_START", "1");
     startScheduler({ origin: "http://localhost:3000", fetch: fakeFetch(), log: () => {} });
     await vi.advanceTimersByTimeAsync(0);
-    expect(calls).toHaveLength(5);
+    expect(calls).toHaveLength(6);
   });
 });

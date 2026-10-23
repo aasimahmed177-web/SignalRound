@@ -44,8 +44,8 @@ export function skippedOutcome(companyId: string, key: string, reason: string): 
 }
 
 /** The outcome of a prior round whose attempt failed after spending `credits`; the ledger has its backoff. */
-export function failedOutcome(companyId: string, key: string, error: string, credits: number): PromotionOutcome {
-  return { ...skippedOutcome(companyId, key, error.slice(0, 200)), status: "failed", searched: credits > 0, credits };
+export function failedOutcome(companyId: string, key: string, error: string, credits: number, searched = false): PromotionOutcome {
+  return { ...skippedOutcome(companyId, key, error.slice(0, 200)), status: "failed", searched, credits };
 }
 
 /** The counts one company's promotions add up to, and what a backfill carries between runs. */

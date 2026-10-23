@@ -27,8 +27,8 @@ import {
   websiteQuery,
 } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { clearUnverifiedProfiles, enrichBatch, isPending, isVerified } from "../lib/enrich";
 import { persistRecords } from "../lib/persist";

@@ -36,8 +36,10 @@ describe("native collector primitives", () => {
 
   test("rejects valuation news and non-financial uses of raise", () => {
     const falsePositives = [
+      "Here are the 55 US AI startups that raised $100M or more in 2025",
       "Ramp reaches $60B valuation as revenue accelerates",
       "CedarDB says AI agents raise the stakes for database security",
+      "Series A Funding: How to Raise Your First Priced Round",
     ];
     for (const title of falsePositives) {
       expect(
@@ -45,6 +47,8 @@ describe("native collector primitives", () => {
       ).toBe(false);
     }
     expect(companyNameFromHeadline("Former Plaud exec raises $26M for a new app")).toBeNull();
+    expect(companyNameFromHeadline("AI startup Mantic raises $25 million for forecasting")).toBe("Mantic");
+    expect(companyNameFromHeadline("Here are the 55 startups that raised $100M")).toBeNull();
     expect(companyNameFromHeadline("China’s Manus raises over $500M in funding")).toBe("Manus");
   });
 

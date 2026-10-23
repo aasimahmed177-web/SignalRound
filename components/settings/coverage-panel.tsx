@@ -146,10 +146,10 @@ export function CoveragePanel({ setting, presets, monitors }: { setting: Coverag
       <p className="text-body-small text-muted-foreground">One knob for how wide the net, how deep each read, and how often it all runs.</p>
       <Disclosure summary="How the estimate works" className="mt-1 mb-4">
         <p>
-          Every rung is the same product; credits scale with the rung. The estimate is for the current{" "}
+          Native collection has no scraping-credit balance. Coverage controls how much work runs for the current{" "}
           {presets.length === 1 ? "preset" : `${presets.length} presets`}
-          {monitors > 0 ? ` and ${monitors} live ${monitors === 1 ? "monitor" : "monitors"}` : ""}, priced from the rate card; the method is
-          in <code className="font-mono">docs/coverage.md</code>.
+          {monitors > 0 ? ` and ${monitors} live ${monitors === 1 ? "monitor" : "monitors"}` : ""}. Hosting, optional search providers, and
+          model usage have their own costs; these are not estimated here.
         </p>
       </Disclosure>
 
@@ -176,7 +176,7 @@ export function CoveragePanel({ setting, presets, monitors }: { setting: Coverag
                 {t === "lite" && <Tag>DEFAULT</Tag>}
               </div>
               <div className="mt-2 truncate text-title-h6 tabular-nums">{range(e.low, e.high)}</div>
-              <div className="text-body-small text-black-alpha-56 dark:text-muted-foreground">credits / month</div>
+              <div className="text-body-small text-black-alpha-56 dark:text-muted-foreground">scraping credits · model costs separate</div>
               <p className="mt-2 line-clamp-3 text-body-small text-black-alpha-56 dark:text-muted-foreground">{COVERAGE_BLURBS[t]}</p>
             </button>
           );

@@ -9,7 +9,9 @@ export async function register() {
         `PUBLIC_DEMO is set without DASHBOARD_PASSWORD: a read-only demo. Presets, Review, and Settings answer 404 and operator writes are refused.${process.env.COMPANY_REQUESTS === "1" ? " Public company requests are enabled." : ""}`,
       );
     } else {
-      console.warn("DASHBOARD_PASSWORD is not set: every button that spends Firecrawl credits is open to anyone who reaches this URL.");
+      console.warn(
+        "DASHBOARD_PASSWORD is not set: every button that spends NativeWebClient credits is open to anyone who reaches this URL.",
+      );
     }
   }
   if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {

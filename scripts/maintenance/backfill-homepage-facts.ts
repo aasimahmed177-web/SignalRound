@@ -14,9 +14,9 @@ import { findLinkedinPage, homepageLogo, linkedinFromLinks, mapLimit, registrabl
 import { closeDb, schema } from "@fireround/core/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { openStore } from "../../lib/db.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { type EnrichmentData, toEnrichment } from "../../lib/persist.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 const { companies, enrichments } = schema;
 const args = process.argv.slice(2);
@@ -47,7 +47,7 @@ console.log(
   `${due.length} verified homepages missing a LinkedIn read or a logo; ${unread.length} to read (about ${unread.length} credits)`,
 );
 
-const client = getFirecrawl();
+const client = getWebClient();
 await mapLimit(unread, 8, async (r) => {
   try {
     const home = await client.scrape(r.homepage, { formats: ["links", "branding"], onlyMainContent: false, timeout: 45_000 });

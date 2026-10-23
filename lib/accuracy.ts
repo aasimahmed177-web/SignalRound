@@ -18,8 +18,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { DOSSIER_SCHEMA_VERSION } from "./deepdive.ts";
 import { enrichBatch, isVerified } from "./enrich.ts";
 
@@ -645,7 +645,7 @@ export async function openAccuracyCount(handle: Db): Promise<number> {
  */
 export async function refreshProfile(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   companyId: string,
   opts: { pricingPage: boolean },
 ): Promise<{ verified: boolean; website: string | null; credits: number; note: string }> {

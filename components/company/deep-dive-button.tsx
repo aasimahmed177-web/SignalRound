@@ -63,8 +63,8 @@ export function DeepDiveButton({ companyId, mode = "dive" }: { companyId: string
         <DialogHeader>
           <DialogTitle>{refresh ? "Refresh the dossier?" : "Run a deep dive?"}</DialogTitle>
           <DialogDescription>
-            A Firecrawl agent reads the web for this company: founders, prior rounds, customers, backers, competitors, and why the round
-            matters. Every claim is then checked against the pages it came from, and only what checks out is kept.{" "}
+            A native web tools agent reads the web for this company: founders, prior rounds, customers, backers, competitors, and why the
+            round matters. Every claim is then checked against the pages it came from, and only what checks out is kept.{" "}
             {refresh ? "The new dossier replaces the one on this page." : "The dossier appears on this page."}
           </DialogDescription>
         </DialogHeader>

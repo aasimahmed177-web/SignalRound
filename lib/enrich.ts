@@ -22,8 +22,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { claimDomain } from "./persist.ts";
 
 const { companies, enrichments, fundingRounds, roundSources, sources } = schema;
@@ -212,7 +212,7 @@ export function onOwnSite(e: Enrichment, row: { website: string | null; domain: 
  */
 export async function readProfiles(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   batch: EnrichCompany[],
   options: { pricingPage: boolean },
 ): Promise<{ enrichments: Enrichment[]; credits: number }> {
@@ -243,7 +243,7 @@ export async function readProfiles(
 
 export async function enrichBatch(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   batch: EnrichCompany[],
   options: { pricingPage: boolean },
 ): Promise<EnrichBatchResult> {

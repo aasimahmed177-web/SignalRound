@@ -258,7 +258,7 @@ export const metadata = {
   ...shareMetadata({
     title: FRONT_DOOR ? "Fireround" : "Funding feed",
     description:
-      "Funding announcements from across the open web, pre-seed to growth: found with Firecrawl search, extracted to a schema, and linked to the articles that reported it.",
+      "Funding announcements from across the open web, pre-seed to growth: found with native search, extracted to a schema, and linked to the articles that reported it.",
     image: "root",
     canonical: "/feed",
   }),
@@ -278,11 +278,7 @@ export default function FeedPage({ searchParams }: PageProps<"/feed">) {
             </Suspense>
           ) : undefined
         }
-        description={
-          demo
-            ? "Every row was found by Firecrawl search and extracted with a schema, with the articles behind it one click away. A check mark means its sources confirmed it."
-            : undefined
-        }
+        description={demo ? "Funding records link to their source articles. A check mark means their sources confirmed them." : undefined}
         actions={
           <>
             <Suspense fallback={null}>

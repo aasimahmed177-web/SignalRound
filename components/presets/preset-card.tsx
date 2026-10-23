@@ -300,7 +300,8 @@ export function PresetCard({
   const removeMonitor = async () => {
     const ok = await confirm({
       title: `Delete the monitor for ${preset.name}?`,
-      description: "Firecrawl stops checking for new rounds between sweeps. Rounds it found stay; you can create the monitor again later.",
+      description:
+        "native web tools stops checking for new rounds between sweeps. Rounds it found stay; you can create the monitor again later.",
       confirmLabel: "Delete monitor",
     });
     if (!ok) return;

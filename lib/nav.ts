@@ -40,10 +40,23 @@ export const NAV: NavItem[] = [
     icon: Radar,
     description: "Raw observations from every source, held outside the feed until they are verified.",
   },
+  { href: "/scraper", label: "Web tools", icon: Radar, description: "Scrape, map, crawl and search without scraping credits." },
 ];
 
 /** The sidebar's order: the two directories read the feed, so they sit right under it. */
-const DISPLAY_ORDER = ["/overview", "/feed", "/signals", "/companies", "/investors", "/news", "/presets", "/runs", "/review", "/settings"];
+const DISPLAY_ORDER = [
+  "/overview",
+  "/feed",
+  "/signals",
+  "/scraper",
+  "/companies",
+  "/investors",
+  "/news",
+  "/presets",
+  "/runs",
+  "/review",
+  "/settings",
+];
 
 /** NAV in the order the sidebar shows it. */
 export const NAV_DISPLAY: NavItem[] = DISPLAY_ORDER.flatMap((href) => NAV.find((n) => n.href === href) ?? []);
@@ -61,7 +74,7 @@ export function navItemsFor(hrefs: string[] | undefined): NavItem[] {
  * the landing page took `/`, which no section uses.
  */
 export function visibleNav(v: Viewer): NavItem[] {
-  const hidden = v.demo && !v.admin ? ["/signals", "/presets", "/review", "/settings", "/runs"] : [];
+  const hidden = v.demo && !v.admin ? ["/signals", "/scraper", "/presets", "/review", "/settings", "/runs"] : [];
   return hidden.length ? NAV_DISPLAY.filter((n) => !hidden.includes(n.href)) : NAV_DISPLAY;
 }
 

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The Firecrawl logotype without its static flame, in currentColor so it sits on either theme; the
+ * The native web tools logotype without its static flame, in currentColor so it sits on either theme; the
  * lockup puts the lit FlameMark where the flame was. Letter paths are the served brand file
  * (https://www.firecrawl.dev/brand/firecrawl-wordmark.svg), copied, never redrawn.
  */

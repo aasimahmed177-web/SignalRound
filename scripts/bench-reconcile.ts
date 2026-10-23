@@ -1,10 +1,10 @@
 // Benchmark reconciling models against the hand-verified golden set:
 //   pnpm bench-reconcile -- openai/gpt-6-luna meta/muse-spark-1.3-contributor
 // Each golden company's stored row is fetched from the running app (http://localhost:3000), its pages are
-// read once through Firecrawl, and every model sees the identical prompt. Scores are against the verified
+// read once through NativeWebClient, and every model sees the identical prompt. Scores are against the verified
 // facts in evals/golden-rounds.json, per field; agreement between models, latency, tokens, and cost per
-// record follow. Needs AI_GATEWAY_API_KEY (or another provider key, with RECONCILE_PROVIDER) and
-// FIRECRAWL_API_KEY. Writes evals/reports/<date>/bench-reconcile.md (gitignored).
+// record follow. Needs AI_GATEWAY_API_KEY (or another provider key, with RECONCILE_PROVIDER).
+// Writes evals/reports/<date>/bench-reconcile.md (gitignored). Page reads use native tools.
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { FeedRecord, ReconcileModel } from "@fireround/core";
@@ -18,7 +18,7 @@ import {
   reconcilePrompt,
   sourcesToRead,
 } from "@fireround/core";
-import Firecrawl from "firecrawl";
+import { NativeWebClient } from "@fireround/core/web";
 import type { RoundRow } from "../lib/persist.ts";
 import { recordFromRow } from "../lib/reconcile.ts";
 
@@ -46,12 +46,10 @@ if (modelIds.length === 0) {
   console.error("usage: pnpm bench-reconcile -- <model-id> [<model-id> ...]");
   process.exit(2);
 }
-const firecrawlKey = process.env.FIRECRAWL_API_KEY;
-if (!firecrawlKey) throw new Error("FIRECRAWL_API_KEY is not set");
 
 const golden = JSON.parse(await readFile(new URL("../evals/golden-rounds.json", import.meta.url), "utf8")) as { cases: GoldenCase[] };
 const rates = await fetchRates().catch(() => null);
-const client = new Firecrawl({ apiKey: firecrawlKey });
+const client = new NativeWebClient();
 const read = firecrawlReader(client);
 
 const norm = (s: string) =>
@@ -226,11 +224,11 @@ lines.push(
   "",
 );
 lines.push(
-  "Every model saw the same prompt: the stored record plus up to four of its sources' page text, fetched once through Firecrawl. Scores are against the verified facts in evals/golden-rounds.json; a field a case does not fix is unscored. A week or month stamp counts as right when the true day falls in the period it covers.",
+  "Every model saw the same prompt: the stored record plus up to four of its sources' page text, fetched once through NativeWebClient. Scores are against the verified facts in evals/golden-rounds.json; a field a case does not fix is unscored. A week or month stamp counts as right when the true day falls in the period it covers.",
   "",
 );
 
-// Baseline: the stored row as the Firecrawl-only pipeline left it.
+// Baseline: the stored row as the NativeWebClient-only pipeline left it.
 const baselineScores = cases.map(({ c, record }) => score(c, record));
 const tally = (scores: Score[]) => {
   const out: Record<string, { ok: number; wrong: number }> = {};

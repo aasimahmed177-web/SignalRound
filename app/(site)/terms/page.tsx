@@ -29,7 +29,7 @@ export default function TermsPage() {
     <LegalPage
       eyebrow="Terms"
       title="Using Fireround."
-      intro="Fireround is a free, open-source funding feed run by Firecrawl. By using the site, the API, the feeds, the MCP server, or the Slack posts, you agree to these terms."
+      intro="SignalRound is an open-source funding intelligence app. By using the site, the API, the feeds, the MCP server, or the Slack posts, you agree to these terms."
       updated="September 29, 2026"
     >
       <LegalSection id="code" title="The code">
@@ -84,8 +84,8 @@ export default function TermsPage() {
       <LegalSection id="warranty" title="No warranty">
         <p>
           The site, the data, and the code are provided &quot;as is&quot;, without warranty of any kind, express or implied, including
-          fitness for a particular purpose and accuracy. To the extent the law allows, Firecrawl is not liable for any loss arising from
-          your use of them. We may change, pause, or stop the service at any time.
+          fitness for a particular purpose and accuracy. To the extent the law allows, the site operator is not liable for any loss arising
+          from your use of them. We may change, pause, or stop the service at any time.
         </p>
       </LegalSection>
 

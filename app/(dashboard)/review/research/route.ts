@@ -10,8 +10,8 @@ import { TAG_ROUNDS } from "@/lib/cached";
 import { requireDashboard } from "@/lib/dashboard-auth.server";
 import { db } from "@/lib/db";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { researchRound } from "@/lib/gapfill";
+import { getWebClient } from "@/lib/web-client";
 
 /** One agent call inline; give it room on serverless hosts. */
 export const maxDuration = 300;
@@ -50,7 +50,7 @@ export async function POST(request: Request): Promise<Response> {
     const id = typeof body?.id === "string" ? body.id.trim() : "";
     if (!id) throw new Error("The request named no record.");
     const handle = await db();
-    const outcome = await researchRound(handle, getFirecrawl(), id);
+    const outcome = await researchRound(handle, getWebClient(), id);
     revalidatePath("/runs");
     if (outcome.status === "completed") {
       await invalidateEntityPages(handle, { roundIds: [id] });

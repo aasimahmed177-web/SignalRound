@@ -19,7 +19,6 @@ import { companiesWithDossier, DEEP_DIVE_CREDITS, finishCompanyDive, reverifyDos
 import { dossierCheckAvailable } from "@/lib/dossier-check";
 import { BACKFILL_CHUNK, backfillChunk, dealLanes } from "@/lib/durable";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import {
   backfillTargets,
   type DossierBackfillParams,
@@ -31,6 +30,7 @@ import {
 } from "@/lib/intel";
 import { mergeRunCounts, recordRun } from "@/lib/persist";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { queueCompanyHistoryStep } from "@/workflows/history";
 
 export { BACKFILL_CHUNK, dealLanes };
@@ -171,20 +171,20 @@ export async function startDiveStep(
     if ((await divesResting(handle)).has(companyId)) return { skipped: "resting or in flight" };
   }
   const startedAt = new Date();
-  const jobId = await startCompanyDive(handle, getFirecrawl(), companyId, { startedAt });
+  const jobId = await startCompanyDive(handle, getWebClient(), companyId, { startedAt });
   return { jobId, startedAt: startedAt.toISOString() };
 }
 
 /** A request's page is watched, so it polls sooner than the lanes' ten seconds; the budget is the same. */
 export async function awaitDiveStep(jobId: string, startedAt: string, pollSeconds?: number): Promise<DeepDiveResult> {
   "use step";
-  return awaitDeepDive(getFirecrawl(), jobId, new Date(startedAt).getTime(), { budgetSeconds: 480, pollSeconds });
+  return awaitDeepDive(getWebClient(), jobId, new Date(startedAt).getTime(), { budgetSeconds: 480, pollSeconds });
 }
 
 /** A dive still running after the last poll is cancelled and recorded as failed, so it stops spending. */
 export async function finishDiveStep(companyId: string, jobId: string, result: DeepDiveResult, startedAt: string): Promise<DossierOutcome> {
   "use step";
-  const client = getFirecrawl();
+  const client = getWebClient();
   if (result.status === "processing") await client.cancelAgent(jobId).catch(() => false);
   const handle = await db();
   // Folded into another company while the dive ran: the survivor's own dossier stands, so this one is dropped.
@@ -212,7 +212,7 @@ export async function reverifyStep(companyId: string): Promise<DossierOutcome> {
   if ((await companiesWithDossier(handle, [companyId], { verifiedOnly: true })).has(companyId)) {
     return { companyId, action: "reverify", status: "skipped", agentCredits: 0, checkCredits: 0 };
   }
-  const r = await reverifyDossier(handle, getFirecrawl(), companyId);
+  const r = await reverifyDossier(handle, getWebClient(), companyId);
   await invalidateEntityPages(handle, { companyIds: [companyId] });
   return {
     companyId,

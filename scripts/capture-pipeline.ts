@@ -1,10 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { ROUNDS_PAGE_PROMPT, roundsPageJsonSchema } from "@fireround/core";
-import Firecrawl from "firecrawl";
+import { NativeWebClient } from "@fireround/core/web";
 
-const key = process.env.FIRECRAWL_API_KEY;
-if (!key) throw new Error("FIRECRAWL_API_KEY is required");
-const client = new Firecrawl({ apiKey: key });
+const client = new NativeWebClient();
 const cases = JSON.parse(await readFile(new URL("../evals/pipeline-cases.json", import.meta.url), "utf8")) as {
   cases: Array<{ id: string; url: string }>;
 };

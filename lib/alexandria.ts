@@ -6,9 +6,8 @@ import type { AlexandriaEnrichment } from "@fireround/core";
 import { alexandriaEnrich } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
-
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 
 const { companies, enrichments, fundingRounds } = schema;
 
@@ -50,7 +49,7 @@ export interface AlexandriaBatchResult {
  * One batch: an enrichment row per company (even a no-match, so it is not retried on every
  * sweep), plus the safe fills: description and hq only where the row has none.
  */
-export async function alexandriaBatch(handle: Db, client: Firecrawl, batch: AlexandriaCompany[]): Promise<AlexandriaBatchResult> {
+export async function alexandriaBatch(handle: Db, client: NativeWebClient, batch: AlexandriaCompany[]): Promise<AlexandriaBatchResult> {
   let matched = 0;
   let credits = 0;
   for (const c of batch) {

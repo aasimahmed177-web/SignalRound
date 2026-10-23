@@ -1,12 +1,12 @@
 import { canonicalUrl } from "@fireround/core";
-import { CHECK_CAP, DISCOVERY_CAP, discoveryDue, HISTORY_CAP, MONITORED_COMPANIES, sectionDue } from "@fireround/core/company-newsrooms";
+import { CHECK_CAP, DISCOVERY_CAP, discoveryDue, HISTORY_CAP, sectionDue } from "@fireround/core/company-newsrooms";
 import { schema } from "@fireround/core/db";
 import { and, eq } from "drizzle-orm";
 import { start } from "workflow/api";
 import { checkCompanySection, companyNewsroomTargets, discoverCompany } from "@/lib/company-newsrooms";
 import { db } from "@/lib/db";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { recordRun } from "@/lib/persist";
+import { getWebClient } from "@/lib/web-client";
 import { startCompanyTimelinesStep } from "@/workflows/history";
 import { ingestCandidate } from "@/workflows/ingest-candidate";
 
@@ -21,7 +21,7 @@ export interface CompanyNewsroomSummary {
 
 async function checkSectionStep(companyId: string, section: string, origin: string): Promise<{ mapped: number; newPages: number }> {
   "use step";
-  const result = await checkCompanySection(await db(), getFirecrawl(), companyId, section);
+  const result = await checkCompanySection(await db(), getWebClient(), companyId, section);
   for (const url of result.urls) await start(ingestCandidate, [`company:${companyId}`, url, "series-a-b", origin]);
   return { mapped: result.mapped, newPages: result.urls.length };
 }
@@ -44,42 +44,11 @@ async function ownedSectionStep(companyId: string, monitorId: string, section: s
   return owned && canonicalUrl(owned.url) === canonicalUrl(section) ? owned.url : null;
 }
 
-async function ensureMonitorStep(companyId: string, section: string, name: string, origin: string): Promise<boolean> {
-  "use step";
-  if (process.env.NODE_ENV === "production" && !process.env.FIRECRAWL_WEBHOOK_SECRET && !process.env.WEBHOOK_BEARER_TOKEN) return false;
-  if (!/^https:\/\//.test(origin)) return false;
-  const handle = await db();
-  const [row] = await handle
-    .select()
-    .from(schema.companyNewsrooms)
-    .where(and(eq(schema.companyNewsrooms.companyId, companyId), eq(schema.companyNewsrooms.url, section)))
-    .limit(1);
-  if (!row || row.monitorId) return false;
-  const monitor = await getFirecrawl().createMonitor({
-    name: `${name} newsroom`,
-    schedule: { text: "every day", timezone: "UTC" },
-    targets: [{ type: "scrape", urls: [section], scrapeOptions: { formats: ["markdown", "changeTracking"], maxAge: 0 } }],
-    webhook: {
-      url: `${origin}/api/webhooks/firecrawl`,
-      events: ["monitor.page"],
-      metadata: { companyId, lane: "company-newsroom" },
-      ...(process.env.WEBHOOK_BEARER_TOKEN ? { headers: { Authorization: `Bearer ${process.env.WEBHOOK_BEARER_TOKEN}` } } : {}),
-    },
-    retentionDays: 30,
-  });
-  const [updated] = await handle
-    .update(schema.companyNewsrooms)
-    .set({ monitorId: monitor.id })
-    .where(and(eq(schema.companyNewsrooms.companyId, companyId), eq(schema.companyNewsrooms.url, section)))
-    .returning({ monitorId: schema.companyNewsrooms.monitorId });
-  return !!updated;
-}
-
 async function discoverStep(companyId: string): Promise<number> {
   "use step";
   const handle = await db();
   const target = (await companyNewsroomTargets(handle)).find((c) => c.id === companyId);
-  return target ? discoverCompany(handle, getFirecrawl(), target) : 0;
+  return target ? discoverCompany(handle, getWebClient(), target) : 0;
 }
 
 async function targetsStep() {
@@ -124,15 +93,7 @@ export async function companyNewsroomsWorkflow(origin: string, runId: string): P
       // A failed map stays due: checkedAt only advances after a successful map.
     }
   }
-  for (const target of refreshed.filter((t) => t.monitor).slice(0, MONITORED_COMPANIES)) {
-    const section = target.sections.find((s) => !s.monitorId);
-    if (!section) continue;
-    try {
-      if (await ensureMonitorStep(target.id, section.url, target.name, origin)) summary.monitors++;
-    } catch {
-      // A failed monitor setup stays due on the next daily run.
-    }
-  }
+  // Native section polling above replaces the former vendor webhook subscriptions.
   summary.history = await startCompanyTimelinesStep(
     refreshed.map((t) => t.id),
     HISTORY_CAP,

@@ -3,7 +3,7 @@
 //   pnpm prune-unsupported-investors            # dry run: each round, the links it would remove, the leads it would clear, the evidence
 //   pnpm prune-unsupported-investors -- --apply # write the changes
 //   pnpm prune-unsupported-investors -- --round <id>[,<id>]   # only those rounds
-// Reads only what the store holds: no model call, no Firecrawl call. Safe to run again: a removed
+// Reads only what the store holds: no model call, no NativeWebClient call. Safe to run again: a removed
 // link is gone and a cleared lead is a participant, so a second run finds nothing. The rule is
 // lib/prune-investors.ts.
 

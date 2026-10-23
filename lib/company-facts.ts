@@ -1,4 +1,4 @@
-// The sourced company facts a header, a feed detail, and the API carry: YC's batch through Firecrawl
+// The sourced company facts a header, a feed detail, and the API carry: YC's batch through NativeWebClient
 // Alexandria, the founding year and team size from YC or the company's checked research dossier, and
 // the LinkedIn page the company's own homepage links. Pure and client-safe: rounds-table.tsx is a
 // client component and must not pull the store's database imports into its bundle.
@@ -37,7 +37,7 @@ export interface DossierFacts {
 }
 
 /**
- * YC's founding year when it can be true: never after the batch the company joined (Firecrawl, YC S22,
+ * YC's founding year when it can be true: never after the batch the company joined (NativeWebClient, YC S22,
  * reads 2024 on its YC page, the year the product took its name). Null otherwise.
  */
 export function ycFoundedYear(yc: YcFacts | null | undefined): number | null {
@@ -74,7 +74,7 @@ export interface FactChip {
 }
 
 const TITLES: Record<FactSource, string> = {
-  yc: "From Y Combinator via Firecrawl Alexandria",
+  yc: "From Y Combinator public company profile",
   dossier: "From company research",
 };
 export const LINKEDIN_TITLE = "The LinkedIn page the company's own site links";

@@ -31,8 +31,8 @@ vi.mock("@/lib/db", () => ({
     throw new Error("the store opened");
   },
 }));
-vi.mock("@/lib/firecrawl", () => ({
-  getFirecrawl: () => {
+vi.mock("@/lib/web-client", () => ({
+  getWebClient: () => {
     throw new Error("Firecrawl was reached");
   },
 }));
@@ -120,7 +120,8 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
   },
   "app/api/v1/runs/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
   "app/api/v1/signals/route.ts": { POST: "SIGNAL_INGEST_KEY bearer", OPTIONS: "preflight, no data" },
-  "app/api/webhooks/firecrawl/route.ts": { POST: "FIRECRAWL_WEBHOOK_SECRET signature and/or WEBHOOK_BEARER_TOKEN" },
+  "app/api/webhooks/firecrawl/route.ts": { POST: "retired: always 410, no writes" },
+  "app/api/cron/native-monitors/route.ts": { GET: "CRON_SECRET bearer" },
   "app/api/webhooks/slack/route.ts": { POST: "SLACK_SIGNING_SECRET signature and five-minute timestamp window" },
   "app/feeds/[token]/[file]/route.ts": { GET: "feed token (hashed), or the demo's public token" },
   "app/llms.txt/route.ts": { GET: "public read, built from the environment" },

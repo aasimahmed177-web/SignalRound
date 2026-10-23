@@ -134,7 +134,7 @@ describe("isArticleUrl: the audit's index, directory, and profile URLs", () => {
     expect(scraped).toEqual(["https://techcrunch.com/2026/09/02/acme/"]);
     expect(result.notArticle).toBe(1);
     expect(result.pages.find((p) => !p.ok)?.error).toBe(NOT_ARTICLE_ERROR);
-    expect(result.creditsEstimated).toBeGreaterThan(0);
+    expect(result.creditsEstimated).toBe(0);
   });
 });
 

@@ -142,12 +142,14 @@ export function groundQuotedPage(page: z.infer<typeof QuotedPage>, markdown: str
 export async function readQuotedPage(
   markdown: string,
   model: ReconcileModel,
+  signal?: AbortSignal,
 ): Promise<{
   page: RoundsPage | null;
   quoted: z.infer<typeof QuotedPage> | null;
   usage: { input: number; output: number };
 }> {
   const result = await generateText({
+    abortSignal: signal ?? AbortSignal.timeout(60_000),
     model: model.model,
     output: Output.object({ schema: QuotedPage }),
     prompt: `${QUOTED_READER_PROMPT}\n\n${markdown.slice(0, 30_000)}`,

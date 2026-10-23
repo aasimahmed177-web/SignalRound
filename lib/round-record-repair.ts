@@ -1,11 +1,11 @@
 // The round-record repair behind `pnpm repair-round-records`: today's rules for a round's record,
 // applied to rows stored before them. Every step but two reads only the store:
 //   - a namesake hold the company's own site has since settled lifts (lib/persist.ts lifts it on a new
-//     reading; a row no reading reached kept it, as Firecrawl's Series A did);
+//     reading; a row no reading reached kept it, as NativeWebClient's Series A did);
 //   - an investor first seen by its short name shows the fuller spelling its rounds' pages use;
 //   - a round whose pages say the valuation was not disclosed records that;
 //   - a round's audit fingerprint written under a company id since renamed moves to the new id.
-// The two that read the web (Firecrawl credits, no model key): a published round's announcement on
+// The two that read the web (NativeWebClient credits, no model key): a published round's announcement on
 // the company's site or a newswire (lib/primary-source.ts), and a verified homepage's own one-line
 // description (siteOneLiner).
 
@@ -13,8 +13,8 @@ import type { Enrichment } from "@fireround/core";
 import { acceptableSiteLine, registrableDomain, siteOneLiner, thinDescription, titleNamesCompany } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { fullerNameIn } from "./investor-names.ts";
 import { type EnrichmentData, listRounds, type PreviousRound, type RoundRow, toEnrichment } from "./persist.ts";
 import { findPrimarySource, needsPrimarySource, type PrimarySourceOutcome } from "./primary-source.ts";
@@ -203,7 +203,7 @@ const VALUATION_PAGES = 2;
 export async function planUndisclosed(
   handle: Db,
   rows: Pick<RoundRow, "id" | "company" | "stage" | "valuation_as_written" | "valuation_disclosed" | "sources">[],
-  client?: Firecrawl | null,
+  client?: NativeWebClient | null,
 ): Promise<{ list: Undisclosed[]; credits: number }> {
   const open = rows.filter((r) => !r.valuation_as_written && r.valuation_disclosed === null);
   const texts = await roundTexts(
@@ -244,7 +244,11 @@ export async function countStaleFingerprints(handle: Db): Promise<number> {
 }
 
 /** A verified homepage's own line, read again (one credit a company) for companies whose profile predates it. */
-async function planDescriptions(handle: Db, client: Firecrawl, companyIds: string[]): Promise<{ list: Description[]; credits: number }> {
+async function planDescriptions(
+  handle: Db,
+  client: NativeWebClient,
+  companyIds: string[],
+): Promise<{ list: Description[]; credits: number }> {
   if (companyIds.length === 0) return { list: [], credits: 0 };
   const rows = await handle
     .select({ id: companies.id, name: companies.name, description: companies.description, data: enrichments.data })
@@ -277,8 +281,8 @@ export interface PlanOptions {
   /** Round ids to plan for; every published round when absent. */
   ids?: string[];
   limit?: number;
-  /** Run the two steps that read the web (Firecrawl credits). */
-  client?: Firecrawl | null;
+  /** Run the two steps that read the web (NativeWebClient credits). */
+  client?: NativeWebClient | null;
   tiers?: Record<string, number>;
 }
 
@@ -372,7 +376,7 @@ export async function repairBackup(handle: Db, plan: RepairPlan): Promise<Record
 export async function applyRepair(
   handle: Db,
   plan: RepairPlan,
-  opts: { client?: Firecrawl | null; tiers?: Record<string, number> } = {},
+  opts: { client?: NativeWebClient | null; tiers?: Record<string, number> } = {},
 ): Promise<Record<string, number>> {
   const done = { holds: 0, names: 0, undisclosed: 0, fingerprints: 0, primary: 0, descriptions: 0 };
   for (const h of plan.holds) {

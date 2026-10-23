@@ -10,7 +10,7 @@ export function FoundWithFirecrawl({ className }: { className?: string }) {
   return (
     <p className={cn("flex items-center gap-1.5 text-body-small text-muted-foreground", className)}>
       <FlameMark size="sm" />
-      Found on X with Firecrawl search
+      Found on X with native web tools search
     </p>
   );
 }

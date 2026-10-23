@@ -26,7 +26,7 @@ const feeds = values("--feed");
 
 console.log(`SignalRound native collector (${apply ? "apply" : "dry run"})`);
 console.log(`Feeds: ${(feeds.length ? feeds : DEFAULT_NATIVE_FEEDS).join(", ")}`);
-console.log(`Window: ${days} day(s); maximum ${limit} observations; Firecrawl: disabled`);
+console.log(`Window: ${days} day(s); maximum ${limit} observations; NativeWebClient: disabled`);
 
 const observations = await collectNativeSignals({
   feeds,

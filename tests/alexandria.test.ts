@@ -5,8 +5,8 @@
 import { readFileSync } from "node:fs";
 import type { AlexandriaEnrichment } from "@fireround/core";
 import { ycFromRecord } from "@fireround/core";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { alexandriaBatch, pendingAlexandria } from "../lib/alexandria";
 import { companyFacts, factChips, ycBatchShort, ycFoundedYear } from "../lib/company-facts";
@@ -27,14 +27,15 @@ async function publishedCompany(db: Awaited<ReturnType<typeof testDb>>, name: st
   await setDisposition(db, item.id, "publish");
 }
 
-/** The fixtures answer as the API did: the SDK unwraps `data`, so the stub returns its contents. */
+/** Historical fixture facts are returned through the native search and structured-page contract. */
 function fixtureClient(): Firecrawl {
+  const hit = searchFixture.data.alexandria[0].data.records[0];
+  const company = companyFixture.data.alexandria[0].data.records[0];
   return {
-    scrape: async (req: { alexandria: { capability: string } }) => {
-      const capability = req.alexandria.capability;
-      if (capability === "companies/search") return searchFixture.data;
-      if (capability === "companies/company") return companyFixture.data;
-      throw new Error(`unexpected capability ${capability}`);
+    search: async () => ({ web: [{ url: "https://www.ycombinator.com/companies/firecrawl" }] }),
+    scrape: async (url: string) => {
+      if (url !== "https://www.ycombinator.com/companies/firecrawl") throw new Error(`unexpected URL ${url}`);
+      return { json: { ...company, name: hit.name, website: company.website ?? hit.website } };
     },
   } as unknown as Firecrawl;
 }
@@ -76,9 +77,9 @@ describe("company facts", () => {
       linkedin_url: null,
     });
     expect(factChips(yc, facts)).toEqual([
-      { label: "YC W25", title: "From Y Combinator via Firecrawl Alexandria" },
-      { label: "founded 2024", title: "From Y Combinator via Firecrawl Alexandria" },
-      { label: "3 people", title: "From Y Combinator via Firecrawl Alexandria" },
+      { label: "YC W25", title: "From Y Combinator public company profile" },
+      { label: "founded 2024", title: "From Y Combinator public company profile" },
+      { label: "3 people", title: "From Y Combinator public company profile" },
     ]);
     expect(companyFacts(null, null, null)).toEqual({ founded_year: null, headcount: null, linkedin_url: null });
     expect(factChips(null, null)).toEqual([]);
@@ -109,7 +110,7 @@ describe("alexandriaBatch and the pending list", () => {
     const r = await alexandriaBatch(db, fixtureClient(), [{ id: "firecrawl", name: "Firecrawl", domain: "firecrawl.dev" }]);
     expect(r.companies).toBe(1);
     expect(r.matched).toBe(1);
-    expect(r.credits).toBe(10);
+    expect(r.credits).toBe(0);
 
     const rows = await db.execute(sql`select kind, source_url from enrichments where company_id = 'firecrawl'`);
     expect(rows.rows).toEqual([{ kind: "alexandria", source_url: "https://www.ycombinator.com/companies/firecrawl" }]);

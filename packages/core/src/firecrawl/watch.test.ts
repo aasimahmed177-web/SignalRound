@@ -2,8 +2,8 @@
 // yields: unseen articles in page order under the watch query, priced at one read. The preset run
 // and the candidates ledger live in the root suite.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import { RATE } from "./credits.ts";
 import { isArticleLink, WATCH_READ_CREDITS, watchSiteCandidates } from "./watch.ts";
 

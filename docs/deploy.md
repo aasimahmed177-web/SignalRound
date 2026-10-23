@@ -1,10 +1,12 @@
 # Deploy
 
+Native migration: follow the current [README](../README.md) for setup. Firecrawl keys and hosted crawler integrations are retired; older operational examples below are historical. Direct page reads and native search work without a model key; structured extraction and verification need your own model provider. Agent Reach requires a separately configured mcporter installation. Native monitors run through `/api/cron/native-monitors`.
+
 Everything past the quick start: hosting on Vercel or anywhere else, running a public instance, and who can reach what. Every variable named here is in [configuration.md](configuration.md). Back to the [README](../README.md).
 
 ## Vercel
 
-Press the Deploy button in the README, or import the repo and add `FIRECRAWL_API_KEY` plus a Neon database from the Vercel Marketplace. Migrations apply at build.
+Import the repo and configure a model provider plus a Postgres database (for example Neon). Migrations apply at build. No Firecrawl key is needed.
 
 Set `CRON_SECRET` too (any random string of 16+ characters): Vercel sends it as the bearer on every cron call, and without it the scheduled sweep answers 401. `vercel.ts` sets the Vercel Cron schedule when the project builds, from `FIREROUND_SCHEDULE`. Unset, every route runs once a day (UTC): `/api/cron/accuracy` at 05:00, `/api/cron/sweep`, `/api/cron/company-newsrooms`, and `/api/cron/announcements` at 06:00, `/api/cron/slack-digest` at 07:00, `/api/cron/trending` at 08:00, `/api/cron/deliveries` at 09:00, `/api/cron/verify-rounds` at 10:00, `/api/cron/publication-audit` at 11:00, and `/api/cron/health` at 12:00. With `FIREROUND_SCHEDULE=frequent` (Vercel Pro), the sweep, Trending, and deliveries ([posting to X](#posting-to-x)) run hourly, announcements and verification every 15 minutes, the publication audit every 5, and the health check every 10 ([production alerts](#production-alerts)); accuracy, newsrooms, and the Slack digest keep their daily hours. The hourly tick is a clock, and the coverage rung decides which hours sweep. A change to `FIREROUND_SCHEDULE` takes effect at the next deployment.
 

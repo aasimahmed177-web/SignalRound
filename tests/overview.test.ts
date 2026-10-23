@@ -4,8 +4,8 @@
 // text (credits, runs, the review queue).
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, test } from "vitest";

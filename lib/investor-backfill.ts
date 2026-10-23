@@ -1,6 +1,6 @@
 // Every visible investor's website at once: the resolver the lanes run (lib/investor-enrich.ts), over
 // the whole directory, as a plan first and a write second. The plan reads the store and calls
-// Firecrawl but writes nothing, so it can run against production with a read-only role; the apply
+// NativeWebClient but writes nothing, so it can run against production with a read-only role; the apply
 // writes a saved plan without another call, so what was reviewed is what lands.
 //
 // An investor with no domain gets the full resolution. One that has a domain gets its homepage read
@@ -11,8 +11,8 @@
 import { type InvestorType, mapLimit, storedCandidate } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { type InvestorResolution, investorEvidence, pressReader, readInvestorHomepage, resolveInvestor } from "./investor-enrich.ts";
 
 const { fundingRounds, investors, roundInvestors } = schema;
@@ -106,7 +106,7 @@ function entryOf(inv: BackfillInvestor, action: BackfillAction, r: Partial<Inves
  */
 export async function planInvestorBackfill(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   list: BackfillInvestor[],
   options: { concurrency?: number; reverify?: boolean; onEntry?: (e: BackfillEntry) => void } = {},
 ): Promise<{ entries: BackfillEntry[]; pressCredits: number }> {

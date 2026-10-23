@@ -3,7 +3,6 @@
 // credit but the extraction still runs, so estimates use the full rate.
 // https://docs.firecrawl.dev/features/llm-extract
 
-import type { Firecrawl } from "firecrawl";
 import { jevCertaintyClassifier, jevIssuerClassifier, jevMoneyClassifier } from "../llm/jev.ts";
 import { mixedFinancingScope, moneyKindFromSentence, nonDilutiveLender } from "../records/money-kind.ts";
 import type { DateContext } from "../records/normalize.ts";
@@ -28,6 +27,7 @@ import { amountInEvidence, DEFAULT_TIMELINE_HOSTS, evidenceStatesDay } from "../
 import type { ExtractedRound, PageKind, RoundSource } from "../records/schema.ts";
 import { ROUNDS_PAGE_PROMPT, RoundsPageLenient, roundsPageJsonSchema } from "../records/schema.ts";
 import { namedNearby, totalIsValuation, totalRepeatsAmount } from "../records/valuation.ts";
+import type { NativeWebClient } from "../web/client.ts";
 import { extractionCredits, mapLimit } from "./credits.ts";
 import { groundQuotedPage, QuotedPage } from "./reader.ts";
 
@@ -70,7 +70,7 @@ export interface PageReading {
 
 export interface ExtractOptions {
   concurrency?: number;
-  /** Cache age in ms. Default 2 days on Firecrawl's side; 0 forces a live fetch. */
+  /** Cache age in ms. Default 2 days on NativeWebClient's side; 0 forces a live fetch. */
   maxAge?: number;
   onPage?: (page: ExtractResult["pages"][number]) => void;
   /** The scrape's clock, for telling a page's own date from the time it was fetched. */
@@ -779,7 +779,7 @@ export function visibleArticleDate(markdown: string | undefined, ctx: DateContex
  * results, section pages, and monitor alerts, and all of those carry such URLs) and counted on
  * the result as `notArticle`, with a failed page entry so the caller sees it was not read.
  */
-export async function extractRounds(client: Firecrawl, targets: ExtractTarget[], opts: ExtractOptions = {}): Promise<ExtractResult> {
+export async function extractRounds(client: NativeWebClient, targets: ExtractTarget[], opts: ExtractOptions = {}): Promise<ExtractResult> {
   const items: ExtractedItem[] = [];
   const pages: ExtractResult["pages"] = [];
   let notArticle = 0;

@@ -2,13 +2,12 @@
 // listed as customers, the round we just verified listed again as a "prior round", a total raised
 // from before that round, an employee called a founder, a directory's "alternatives" list called
 // competitors. So nothing it writes is shown until a model with the evidence in hand has ruled on
-// every claim. Firecrawl reads the dossier's own sources (the company's site first, then the wire
+// every claim. NativeWebClient reads the dossier's own sources (the company's site first, then the wire
 // and the press), plus a search when those are thin; our verified record is evidence too, and it
 // wins. The model only keeps or drops what the dossier says, item by item, and every kept claim
 // carries the words that state it, which must be found in the page it cites. It never writes a fact.
 
 import { generateText, Output } from "ai";
-import type { Document, Firecrawl, SearchResultWeb } from "firecrawl";
 import { z } from "zod";
 import { mapLimit } from "../firecrawl/credits.ts";
 import type { CompanyDossier } from "../firecrawl/deepdive.ts";
@@ -21,6 +20,7 @@ import {
   sharesBusinessWords,
 } from "../firecrawl/enrich.ts";
 import { classifyStage, hostOf, parseAmount } from "../records/normalize.ts";
+import type { Document, NativeWebClient, SearchResultWeb } from "../web/client.ts";
 import type { ReconcileModel } from "./model.ts";
 
 /** One of our rounds, as the store holds it: the facts the dossier must agree with. */
@@ -281,7 +281,7 @@ export interface DossierVerification {
   citations: Record<string, string>;
   /** Claims sent to the second pass. */
   rechecked: number;
-  /** Firecrawl credits the check's reads cost at the rate card. */
+  /** NativeWebClient credits the check's reads cost at the rate card. */
   credits: number;
 }
 
@@ -770,7 +770,7 @@ export interface VerifyDossierDeps {
   model: Pick<ReconcileModel, "label">;
   /** The structured calls; injected in tests, the AI SDK against the configured model otherwise. */
   generate: <T>(prompt: string, schema: z.ZodType<T>) => Promise<T>;
-  /** Firecrawl credits for one page read and for one search with its results read. */
+  /** NativeWebClient credits for one page read and for one search with its results read. */
   credits?: { page: number; search: (results: number) => number };
 }
 
@@ -902,8 +902,8 @@ export async function verifyDossier(
   };
 }
 
-/** Firecrawl reads the pages: markdown, main content, a week-old cached copy when it has one. An unreadable page is left out. */
-export function firecrawlDossierReader(client: Firecrawl, maxAge = 7 * DAY): ReadDossierPages {
+/** NativeWebClient reads the pages: markdown, main content, a week-old cached copy when it has one. An unreadable page is left out. */
+export function firecrawlDossierReader(client: NativeWebClient, maxAge = 7 * DAY): ReadDossierPages {
   return async (urls) => {
     const out: Array<{ url: string; title?: string; markdown: string }> = [];
     await mapLimit(urls, 4, async (url) => {
@@ -918,8 +918,8 @@ export function firecrawlDossierReader(client: Firecrawl, maxAge = 7 * DAY): Rea
   };
 }
 
-/** One Firecrawl search with each result's main content read in the same call. */
-export function firecrawlDossierSearch(client: Firecrawl): SearchDossier {
+/** One NativeWebClient search with each result's main content read in the same call. */
+export function firecrawlDossierSearch(client: NativeWebClient): SearchDossier {
   return async (query, limit) => {
     const result = await client.search(query, {
       limit,

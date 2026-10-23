@@ -3,8 +3,8 @@ process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { beforeAll, describe, expect, test } from "vitest";
 import { POST as mcpPost } from "../app/api/mcp/route";
 import { GET as openapiGet } from "../app/api/v1/openapi.json/route";
@@ -427,53 +427,12 @@ describe("feed item ids", () => {
   });
 });
 
-describe("POST /api/webhooks/firecrawl", () => {
-  const body = JSON.stringify({
-    success: true,
-    type: "monitor.check.completed",
-    id: "evt-1",
-    data: [{ monitorId: "m", checkId: "c", status: "completed" }],
-  });
-
-  test("rejects a bad signature when a secret is set, accepts a good one, ignores non-page events, dedupes by id", async () => {
-    process.env.FIRECRAWL_WEBHOOK_SECRET = "topsecret";
-    const bad = await webhookPost(
-      new Request("http://app.test/api/webhooks/firecrawl", { method: "POST", body, headers: { "x-firecrawl-signature": "sha256=00" } }),
-    );
-    expect(bad.status).toBe(401);
-
-    const good = await webhookPost(
-      new Request("http://app.test/api/webhooks/firecrawl", {
-        method: "POST",
-        body,
-        headers: { "x-firecrawl-signature": signForTests(body, "topsecret") },
-      }),
-    );
-    expect(good.status).toBe(200);
-    expect(await good.json()).toEqual({ ok: true, ignored: "monitor.check.completed" });
-
-    const dup = await webhookPost(
-      new Request("http://app.test/api/webhooks/firecrawl", {
-        method: "POST",
-        body,
-        headers: { "x-firecrawl-signature": signForTests(body, "topsecret") },
-      }),
-    );
-    expect(await dup.json()).toEqual({ ok: true, duplicate: true });
-    delete process.env.FIRECRAWL_WEBHOOK_SECRET;
-  });
-
-  test("requires the bearer token when configured", async () => {
-    process.env.WEBHOOK_BEARER_TOKEN = "bearer-1";
-    const other = JSON.stringify({ success: true, type: "monitor.check.completed", id: "evt-2", data: [] });
-    const noAuth = await webhookPost(new Request("http://app.test/api/webhooks/firecrawl", { method: "POST", body: other }));
-    expect(noAuth.status).toBe(401);
-    const ok = await webhookPost(
-      new Request("http://app.test/api/webhooks/firecrawl", { method: "POST", body: other, headers: { authorization: "Bearer bearer-1" } }),
-    );
-    expect(ok.status).toBe(200);
-    delete process.env.WEBHOOK_BEARER_TOKEN;
-  });
+test("the legacy webhook is gone even with valid-looking credentials", async () => {
+  const response = await webhookPost(
+    new Request("http://app.test/api/webhooks/firecrawl", { method: "POST", body: "{}", headers: { authorization: "Bearer old" } }),
+  );
+  expect(response.status).toBe(410);
+  expect(await response.json()).toHaveProperty("error");
 });
 
 test("a name both a company and an investor carry is one suggestion, not two", async () => {

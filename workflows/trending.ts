@@ -1,15 +1,14 @@
 // The Trending lane as a durable run, hourly. Follow every visible round first seen in the last 72
-// hours; search the ones a checkpoint has come for (first seen, +6h, +24h, +48h) on X with Firecrawl
+// hours; search the ones a checkpoint has come for (first seen, +6h, +24h, +48h) on X with NativeWebClient
 // search; ask Hacker News about the ones due; rescore every followed round from what is stored (so
 // the decay stays current without a credit); read likes and reposts for the labelled rounds' top
-// posts through Firecrawl's X scrape; record the run. Each step is idempotent: posts upsert by
+// posts through NativeWebClient's X scrape; record the run. Each step is idempotent: posts upsert by
 // status id and a checkpoint is marked done with the posts it found.
 
 import type { HnStory } from "@fireround/core";
 import { aboutRound, hnStories, homepageHandles, readXPost, searchRoundOnX } from "@fireround/core";
 import { db } from "@/lib/db";
 import { invalidateAllEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { recordRun } from "@/lib/persist";
 import {
   dueCheckpoint,
@@ -28,6 +27,7 @@ import {
   storeSearch,
   subjectOf,
 } from "@/lib/trending";
+import { getWebClient } from "@/lib/web-client";
 
 /** Rounds searched per step: a few seconds each, so a step stays well inside a function's time. */
 const SEARCH_BATCH = 6;
@@ -134,7 +134,7 @@ async function planStep(startedAt: string): Promise<Plan> {
 async function searchStep(rounds: FollowedRound[], startedAt: string): Promise<{ credits: number; counts: Record<string, number> }> {
   "use step";
   const handle = await db();
-  const client = getFirecrawl();
+  const client = getWebClient();
   const plannedAt = new Date(startedAt);
   let credits = 0;
   const counts: Record<string, number> = {
@@ -198,7 +198,7 @@ async function hnStep(rounds: FollowedRound[]): Promise<{ checked: number; stori
   return { checked: rounds.length, stories };
 }
 
-/** The hourly rescore from stored posts, press sources, and stories; no Firecrawl call. */
+/** The hourly rescore from stored posts, press sources, and stories; no NativeWebClient call. */
 async function scoreStep(): Promise<{ scored: number; labelled: string[]; stale: number; people: number }> {
   "use step";
   const result = await rescore(await db(), new Date());
@@ -215,7 +215,7 @@ async function showcasePlanStep(labelled: string[]): Promise<ShowcaseTarget[]> {
 async function showcaseStep(targets: ShowcaseTarget[]): Promise<{ read: number; errors: number; credits: number }> {
   "use step";
   const handle = await db();
-  const client = getFirecrawl();
+  const client = getWebClient();
   let read = 0;
   let errors = 0;
   let credits = 0;

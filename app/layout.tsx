@@ -10,7 +10,7 @@ import { feedAlternateTypes } from "@/lib/feed-discovery";
 import { siteOrigin } from "@/lib/origin";
 import "./globals.css";
 
-// Inter stands in for Suisse (licensed) per the Firecrawl brand reference; Geist Mono for numbers and labels.
+// Inter stands in for Suisse (licensed) per the NativeWebClient brand reference; Geist Mono for numbers and labels.
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 // The Latin subset, not the `geist` package's full variable file. Its fallbacks stay monospace, as the
 // package had them: the default adjusted fallback is metric-matched Arial, which would unalign figures.

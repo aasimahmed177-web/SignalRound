@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Fireround",
     short_name: "Fireround",
-    description: "Startup funding, pre-seed to growth, checked at the source. An open-source feed built on Firecrawl.",
+    description: "Startup funding, pre-seed to growth, checked at the source. An open-source feed built on NativeWebClient.",
     start_url: "/feed",
     display: "standalone",
     background_color: "#f9f9f9",

@@ -8,13 +8,13 @@
 // date, the lead list), nulls what the page never states, and marks a record whose page is history
 // or another company's as not news; publish requires a confirmed or corrected verdict.
 
-import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { applyCorrection } from "../records/correction.ts";
 import type { RateTable } from "../records/fx.ts";
 import { registrableDomain } from "../records/normalize.ts";
 import { amountInEvidence } from "../records/resolve.ts";
 import type { FeedRecord } from "../records/schema.ts";
+import type { NativeWebClient } from "../web/client.ts";
 import { mapLimit } from "./credits.ts";
 
 const nullableString = z.union([z.string(), z.null()]);
@@ -172,13 +172,13 @@ export interface JudgeResult {
 }
 
 /** 5 credits: the page (cached or not) plus the json format. */
-export const JUDGE_CREDITS_PER_RECORD = 5;
+export const JUDGE_CREDITS_PER_RECORD = 0;
 
 /**
  * Read each record's primary page once more with the record in hand. A record with no source, or
  * whose page cannot be read, keeps its fields and is marked skipped rather than confirmed.
  */
-export async function judgeRecords(client: Firecrawl, records: FeedRecord[], opts: JudgeOptions): Promise<JudgeResult> {
+export async function judgeRecords(client: NativeWebClient, records: FeedRecord[], opts: JudgeOptions): Promise<JudgeResult> {
   const out: FeedRecord[] = [];
   const tally = { judged: 0, confirmed: 0, corrected: 0, contradicted: 0, notNews: 0, failed: 0 };
   await mapLimit(records, opts.concurrency ?? 6, async (record) => {

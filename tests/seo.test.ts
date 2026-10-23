@@ -276,7 +276,7 @@ describe("feedJsonLd", () => {
     });
     expect(ld).toMatchObject({ "@type": "Dataset", url: "https://fireround.dev/feed", isAccessibleForFree: true });
     expect(ld.description.length).toBeGreaterThan(50);
-    expect(ld.creator["@id"]).toBe("https://www.firecrawl.dev/#organization");
+    expect(ld.creator["@id"]).toBe("https://fireround.dev/#organization");
     expect(ld.distribution.map((d) => d.contentUrl)).toEqual([
       "https://fireround.dev/api/v1/rounds",
       "https://fireround.dev/api/v1/rounds?format=csv",
@@ -323,12 +323,12 @@ test("answer engines' crawlers get metadata in <head>; Next's own list stays, an
 });
 
 describe("siteJsonLd", () => {
-  test("the site is published by Firecrawl's Organization node", () => {
+  test("the site identifies SignalRound as publisher", () => {
     const ld = siteJsonLd("https://fireround.dev", "d");
     const [site, org] = ld["@graph"];
-    expect(site).toMatchObject({ "@type": "WebSite", name: "Fireround", url: "https://fireround.dev/" });
+    expect(site).toMatchObject({ "@type": "WebSite", name: "SignalRound", url: "https://fireround.dev/" });
     expect(site.publisher).toEqual({ "@id": org["@id"] });
-    expect(org).toMatchObject({ "@type": "Organization", name: "Firecrawl" });
+    expect(org).toMatchObject({ "@type": "Organization", name: "SignalRound" });
   });
 });
 

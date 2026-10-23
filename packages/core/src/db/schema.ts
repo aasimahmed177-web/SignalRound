@@ -391,7 +391,7 @@ export const presetMonitors = pgTable("preset_monitors", {
   createdAt: timestamps.createdAt,
 });
 
-/** Webhook intake, keyed on Firecrawl's payload id. Replay defense lives here (signatures carry no timestamp). */
+/** Webhook intake, keyed on NativeWebClient's payload id. Replay defense lives here (signatures carry no timestamp). */
 export const webhookDeliveries = pgTable("webhook_deliveries", {
   id: text("id").primaryKey(),
   type: text("type").notNull(),

@@ -44,7 +44,7 @@ const posthog = process.env.NEXT_PUBLIC_POSTHOG_KEY ? posthogHosts(process.env.N
 const nextConfig: NextConfig = {
   cacheComponents: true,
   transpilePackages: ["@fireround/core"],
-  serverExternalPackages: ["@electric-sql/pglite"],
+  serverExternalPackages: ["@electric-sql/pglite", "playwright", "playwright-core"],
   // Next's dev badge covers a control in every corner (the sidebar footer, a toast's Undo, the phone
   // menu button); off, build and runtime errors still surface in the overlay.
   devIndicators: false,

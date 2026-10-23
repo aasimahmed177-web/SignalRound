@@ -3,16 +3,14 @@
 import { classifyStage, extractRounds, NEWSROOM_PAGE_LIMIT, namesCompany, newsroomFundingLinks, parseAmount } from "@fireround/core";
 import { discoverNewsrooms } from "@fireround/core/company-newsrooms";
 import { schema } from "@fireround/core/db";
+import { NativeWebClient } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import { Firecrawl } from "firecrawl";
 import { companyNewsroomTargets } from "../lib/company-newsrooms.ts";
 import { openStore } from "../lib/db.ts";
 
-const key = process.env.FIRECRAWL_API_KEY;
-if (!key) throw new Error("FIRECRAWL_API_KEY is required");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL must point to the restored production copy");
 const handle = await openStore();
-const client = new Firecrawl({ apiKey: key });
+const client = new NativeWebClient();
 const targets = (await companyNewsroomTargets(handle)).slice(0, 100);
 const findings: Array<{
   company: string;

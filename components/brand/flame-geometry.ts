@@ -1,4 +1,4 @@
-// The Firecrawl flame: the shape, and where it sits. Generated, not authored.
+// The NativeWebClient flame: the shape, and where it sits. Generated, not authored.
 //
 // Extracted verbatim from the served https://www.firecrawl.dev header lockup
 // (the animated flame beside the wordmark). The brand rule is that the mark is

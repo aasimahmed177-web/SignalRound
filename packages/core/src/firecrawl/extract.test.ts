@@ -2,11 +2,11 @@
 // the URL slug as the tie-breaker when the title names another company), and a round whose
 // evidence is not in the page's own text is ungrounded and dropped by the resolver.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { hostOf, humanizeSlug, urlSlug, windowStartFor } from "../records/normalize.ts";
 import { resolveRounds } from "../records/resolve.ts";
 import type { ExtractedRound } from "../records/schema.ts";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import {
   articleTitle,
   editStamp,
@@ -477,7 +477,7 @@ describe("extractRounds", () => {
     expect(result.items[0].source.title).toBe("Ollie Raises $7.5M Seed");
     expect(result.items.map((i) => i.grounded)).toEqual([true, false]);
     expect(result.pages[0]).toMatchObject({ ok: true, rounds: 2, ungrounded: 1, cached: false });
-    expect(result.creditsEstimated).toBe(5);
+    expect(result.creditsEstimated).toBe(0);
   });
 
   test("the page's own headline stands even when it does not name the company and the slug does", async () => {

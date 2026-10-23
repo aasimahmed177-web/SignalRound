@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
 import { enqueueDeliveries, flushDeliveries } from "../lib/delivery";

@@ -100,7 +100,7 @@ vi.mock("@fireround/core", async (original) => {
   };
 });
 
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({}) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({}) }));
 vi.mock("@/lib/delivery", () => ({ enqueueDeliveries: async () => 0, flushDeliveries: async () => undefined }));
 vi.mock("@/workflows/enrich", () => ({
   enrichPending: async () => ({ companies: 0, credits: 0, alexandriaCredits: 0, investorCredits: 0 }),

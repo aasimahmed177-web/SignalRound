@@ -2,8 +2,8 @@ process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { and, eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { expect, test } from "vitest";
 import { checkCompanySection, companyNewsroomTargets, discoverCompany } from "../lib/company-newsrooms";
 import { queueNewsroomHistoryLeads } from "../lib/request-research";

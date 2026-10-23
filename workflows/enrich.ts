@@ -11,10 +11,10 @@ import { type AlexandriaCompany, alexandriaBatch, pendingAlexandria } from "@/li
 import { db } from "@/lib/db";
 import { type EnrichCompany, enrichBatch } from "@/lib/enrich";
 import { invalidateAllEntityPages, invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { fetchInvestorLogos, resolveInvestorDomains } from "@/lib/investor-enrich";
 import { bumpRunCount, recordRun } from "@/lib/persist";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { companyHistoryWorkflow } from "@/workflows/history";
 
 const BATCH = 10;
@@ -163,7 +163,7 @@ export async function enrichStep(companies: PendingCompany[]): Promise<{ resolve
   const handle = await db();
   // The Lite rung reads the homepage only; every other rung follows the pricing link too.
   const plan = await getCoverage(handle);
-  const { resolved, pricing, credits } = await enrichBatch(handle, getFirecrawl(), companies, {
+  const { resolved, pricing, credits } = await enrichBatch(handle, getWebClient(), companies, {
     pricingPage: plan.enrichment !== "homepage",
   });
   if (companies.length) await invalidateEntityPages(handle, { companyIds: companies.map((company) => company.id) });
@@ -186,7 +186,7 @@ export async function alexandriaStep(companies: AlexandriaCompany[]): Promise<{ 
   "use step";
   if (companies.length === 0) return { companies: 0, credits: 0 };
   const handle = await db();
-  const { companies: n, credits } = await alexandriaBatch(handle, getFirecrawl(), companies);
+  const { companies: n, credits } = await alexandriaBatch(handle, getWebClient(), companies);
   await invalidateEntityPages(handle, { companyIds: companies.map((company) => company.id) });
   return { companies: n, credits };
 }
@@ -260,8 +260,8 @@ export async function investorDomainsStep(
       const handle = await db();
       const verify = await verifiesInvestors(handle);
       const limit = verify ? scope.limit : Math.min(scope.limit, LITE_INVESTORS_PER_RUN);
-      tally(out, await resolveInvestorDomains(handle, getFirecrawl(), { ...inScope, limit, verify }));
-      const backlog = await fetchInvestorLogos(handle, getFirecrawl(), { ...inScope, limit: scope.limit });
+      tally(out, await resolveInvestorDomains(handle, getWebClient(), { ...inScope, limit, verify }));
+      const backlog = await fetchInvestorLogos(handle, getWebClient(), { ...inScope, limit: scope.limit });
       out.logos += backlog.scraped;
       out.logosFound += backlog.found;
       out.logoCredits += backlog.credits;
@@ -291,7 +291,7 @@ export async function investorBacklogStep(presetSlug: string): Promise<InvestorS
     const verify = await verifiesInvestors(handle);
     tally(
       out,
-      await resolveInvestorDomains(handle, getFirecrawl(), {
+      await resolveInvestorDomains(handle, getWebClient(), {
         presetSlug,
         limit: verify ? INVESTOR_BACKLOG_PER_RUN : LITE_BACKLOG_PER_RUN,
         retryAfterDays: INVESTOR_RETRY_DAYS,

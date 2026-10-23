@@ -20,8 +20,8 @@ import {
   websiteQuery,
 } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import {
   clearProfile,
@@ -291,14 +291,15 @@ describe("enrichCompanies identity verification", () => {
     // The LinkedIn page the verified homepage links, never the namesake's or a person's.
     expect(e?.linkedin_url).toBe("https://www.linkedin.com/company/ollie-ai");
     expect(e?.error).toBeUndefined();
-    // One five-result search plus two homepage extractions: the rejected candidate is paid for too.
+    // Both the one-candidate and two-candidate paths use no hosted scraping credits.
     const { enrichments: oneScrape, creditsEstimated: oneScrapeCredits } = await enrichCompanies(
       fakeClient(["https://ollie.ai/"], { "ollie.ai": { json: ASSISTANT } }).client,
       [OLLIE],
       { pricingPage: false },
     );
     expect(oneScrape[0]?.company_website).toBe("https://ollie.ai");
-    expect(creditsEstimated).toBeGreaterThan(oneScrapeCredits);
+    expect(creditsEstimated).toBe(0);
+    expect(oneScrapeCredits).toBe(0);
   });
 
   test("no candidate verifies: unverified, nothing written, the error names every host tried", async () => {

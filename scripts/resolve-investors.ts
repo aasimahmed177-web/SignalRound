@@ -1,5 +1,5 @@
 // Websites, logos, and profiles for every investor on a visible round (lib/investor-backfill.ts).
-// Dry run by default: reads the store, calls Firecrawl, writes nothing to the store, and saves the
+// Dry run by default: reads the store, calls NativeWebClient, writes nothing to the store, and saves the
 // plan and a report to --out. --apply writes a saved plan without another call.
 //   pnpm resolve-investors                                   # plan every visible investor into ./investor-backfill
 //   pnpm resolve-investors -- --out ../fireround-devdata/investors --limit 300
@@ -15,9 +15,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import path from "node:path";
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../lib/db.ts";
-import { getFirecrawl } from "../lib/firecrawl.ts";
 import { applyInvestorBackfill, type BackfillEntry, planInvestorBackfill, visibleInvestors } from "../lib/investor-backfill.ts";
 import { invalidateScriptEntityPages } from "../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 function arg(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
@@ -41,7 +41,7 @@ if (apply && !planFile) throw new Error("--apply requires --plan; planning never
 if (apply && planFile) {
   const handle = await openStore();
   const entries = JSON.parse(readFileSync(planFile, "utf8")) as BackfillEntry[];
-  console.log(`APPLY: writing ${entries.length} planned investors from ${planFile}; no Firecrawl call.`);
+  console.log(`APPLY: writing ${entries.length} planned investors from ${planFile}; no NativeWebClient call.`);
   const done = await applyInvestorBackfill(handle, entries);
   console.log(
     `set ${done.set} · confirmed ${done.confirm} · cleared ${done.clear} · people ${done.person} · checked ${done.none} · kept ${done.keep}`,
@@ -89,7 +89,7 @@ console.log(
 );
 
 let n = 0;
-const { entries, pressCredits } = await planInvestorBackfill(handle, getFirecrawl(), list, {
+const { entries, pressCredits } = await planInvestorBackfill(handle, getWebClient(), list, {
   concurrency,
   reverify,
   onEntry: (e) => {

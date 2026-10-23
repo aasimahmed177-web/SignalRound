@@ -66,7 +66,7 @@ export function requestSteps(
     {
       key: "dossier",
       label: "Company dossier",
-      hint: dossier === "failed" ? "did not finish" : "Firecrawl Agent, usually 3 to 8 minutes",
+      hint: dossier === "failed" ? "did not finish" : "Native research, bounded source reads",
       state: dossier === "done" ? "done" : dossier === "running" && !stopped ? "current" : "pending",
     },
     { key: "rounds", label: "Earlier rounds verified", ...rounds },

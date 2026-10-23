@@ -7,7 +7,6 @@ import { corroborateModel, corroborateRecord, promoteCheckedRound } from "@/lib/
 import { db } from "@/lib/db";
 import { enqueueDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { listRounds, recordRun } from "@/lib/persist";
 import { grownRows, reconcileGrownRows } from "@/lib/reconcile";
 import {
@@ -20,6 +19,7 @@ import {
 } from "@/lib/round-verification";
 import { loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 
 const BATCH = 6;
 
@@ -72,7 +72,7 @@ export async function corroborateStep(
 ): Promise<{ corroborated: number; newsroom: number; credits: number }> {
   "use step";
   const handle = await db();
-  const client = getFirecrawl();
+  const client = getWebClient();
   let newsroom = 0;
   let credits = 0;
   const grew: string[] = [];

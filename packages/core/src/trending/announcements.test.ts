@@ -3,10 +3,10 @@
 // under which a post lands on its own. The fixtures are search results as Firecrawl returned them on
 // September 24, 2026.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { resolveRounds } from "../records/resolve.ts";
 import { STAGE_BANDS } from "../records/routing.ts";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import {
   type AnnouncementLead,
   bioFromProfile,
@@ -263,10 +263,19 @@ describe("the lane's September 25 fixes", () => {
     expect(r.rejected.profile).toBe(X_ANNOUNCEMENT_QUERIES.length);
   });
 
-  test("X's own index through Alexandria reads a post whole, minutes old, the same way a search result is read", async () => {
+  test("public X search results are read as leads without invoking a hosted live-index provider", async () => {
     const calls: unknown[] = [];
     const client = {
-      search: async () => ({ web: [] }),
+      search: async () => ({
+        web: [
+          {
+            url: "https://x.com/startupandrew/status/2107163635810472259",
+            title: "Andrew Lee (@StartupAndrew) / X",
+            description:
+              "20 minutes ago · Today, I'm excited to share we've raised an additional $12.8M at a $500M valuation. @TaskletAI is built for teams.",
+          },
+        ],
+      }),
       scrape: async (req: { alexandria: { options: { query: string; from_date: string } } }) => {
         calls.push(req.alexandria);
         return {
@@ -290,13 +299,7 @@ describe("the lane's September 25 fixes", () => {
       },
     } as unknown as Firecrawl;
     const r = await searchAnnouncements(client, NOW, { queries: [{ key: "weve_raised", q: `site:x.com "we've raised" led by` }] });
-    expect(calls).toEqual([
-      {
-        provider: "x-com",
-        capability: "posts/search",
-        options: { query: `"we've raised" led by`, limit: 10, from_date: expect.any(String) },
-      },
-    ]);
+    expect(calls).toEqual([]);
     expect(r.leads).toHaveLength(1);
     expect(r.leads[0]).toMatchObject({
       key: "2107163635810472259",
@@ -304,7 +307,7 @@ describe("the lane's September 25 fixes", () => {
       amountAsWritten: "$12.8M",
       url: "https://x.com/startupandrew/status/2107163635810472259",
     });
-    expect(r.calls.find((c) => c.key === "weve_raised:live")).toMatchObject({ results: 1, leads: 1, credits: 30 });
+    expect(r.calls).toEqual([expect.objectContaining({ key: "weve_raised", results: 1, leads: 1, credits: 0 })]);
   });
 
   test("a profile page is never a lead: every one measured was an older post under the page's newest time", () => {

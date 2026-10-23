@@ -3,8 +3,8 @@
 // the stored year (Sammmm's January 2025 seed, re-reported in a September 2026 snippet).
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { expect, test } from "vitest";
 import { extractionDater, type PageDater, repairPageYears } from "../lib/page-years";
 import { persistRecords } from "../lib/persist";

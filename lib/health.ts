@@ -125,7 +125,7 @@ const LANE_CAUSES: Record<ScheduledLane, string> = {
   announcements: "Vercel Cron is not calling /api/cron/announcements, or its workflow is not starting (Vercel cron and Workflow logs).",
   trending: "Vercel Cron is not calling /api/cron/trending, or its workflow is not starting (Vercel cron and Workflow logs).",
   monitor:
-    "Firecrawl monitor webhooks stopped arriving: a monitor paused or deleted on Firecrawl, or FIRECRAWL_WEBHOOK_SECRET no longer matches.",
+    "NativeWebClient monitor webhooks stopped arriving: a monitor paused or deleted on NativeWebClient, or FIRECRAWL_WEBHOOK_SECRET no longer matches.",
 };
 
 /**
@@ -139,7 +139,7 @@ export const LANE_GRACE_MS = 2 * HOUR;
 const TICK_LOOKBACK_MS = 8 * DAY;
 
 /**
- * Firecrawl owns a monitor's clock and posts only when a check finds pages (observed: an "hourly"
+ * NativeWebClient owns a monitor's clock and posts only when a check finds pages (observed: an "hourly"
  * monitor checking every six hours), so a quiet hour proves nothing. The check can only catch intake
  * that stopped outright: nothing for a day past the plan's interval.
  */
@@ -281,7 +281,7 @@ export interface RunOutcome {
 
 /**
  * Per scheduled lane, the share of its newest finished runs (last day) that errored. Eight runs is two
- * hourly sweep ticks of three presets, so one bad tick (a Firecrawl blip) stays under half and two
+ * hourly sweep ticks of three presets, so one bad tick (a NativeWebClient blip) stays under half and two
  * do not. The agent lanes are left out: a deep dive records a verdict ("dossier rejected") as its error.
  */
 export function errorRateFindings(runs: RunOutcome[]): Finding[] {
@@ -370,7 +370,7 @@ export const SPEND_MIN_HISTORY_DAYS = 3;
 export const SPEND_SPIKE_MULTIPLE = 2;
 
 /**
- * The Firecrawl credits the runs recorded in the last 24 hours (`days[0]`; `days[1]` is the 24 hours
+ * The NativeWebClient credits the runs recorded in the last 24 hours (`days[0]`; `days[1]` is the 24 hours
  * before, and so on) against a ceiling: `ceiling` when the operator set one (CREDIT_ALERT_PER_DAY),
  * else twice the busiest of the eight spans before. Busiest rather than average, so a rung that sweeps
  * once a week compares its sweep day with last week's. A store with under three spans of history owes nothing.

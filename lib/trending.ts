@@ -370,7 +370,7 @@ export interface RescoreSummary {
 
 /**
  * The hourly rescore: every round still inside its 72 hours, from the posts, press sources, and
- * Hacker News stories on record, with no Firecrawl call. Outlet flags on the posts are refreshed
+ * Hacker News stories on record, with no NativeWebClient call. Outlet flags on the posts are refreshed
  * (an account becomes an aggregator as it turns up on more rounds), then the score, the stale
  * verdict, the rank, and the label are written back. Rounds past their window lose rank and label.
  */

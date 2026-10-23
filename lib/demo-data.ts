@@ -1,4 +1,4 @@
-// Fictional sample rounds for an empty store, so the dashboard has something to show before a Firecrawl
+// Fictional sample rounds for an empty store, so the dashboard has something to show before a NativeWebClient
 // key or a first sweep (`pnpm demo-data`, scripts/demo-data.ts). Every company, investor, and source is
 // made up; the sources point at the reserved example.com, example.org, and example.net.
 import type { FeedRecord, Stage } from "@fireround/core";

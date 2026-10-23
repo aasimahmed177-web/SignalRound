@@ -1,12 +1,14 @@
 # Configuration
 
-Every environment variable, in one table; [`.env.example`](../.env.example) has the same list with comments. Only `FIRECRAWL_API_KEY` is required to run sweeps (`pnpm demo-data` shows the dashboard with none), and a production deployment also needs `CRON_SECRET` for anything to run on a schedule; the rest have working defaults. Where to set them and why: [deploy.md](deploy.md). Back to the [README](../README.md).
+Native migration: no Firecrawl key or hosted crawler is used. See the [README](../README.md) and [`.env.example`](../.env.example) for current native search settings. Direct reads and feed discovery need no model key; structured research requires a configured model provider. Production schedules require `CRON_SECRET`. The remaining operational reference below includes historical ledger terminology.
 
 ## Variables
 
 | Variable | | Purpose |
 |---|---|---|
-| `FIRECRAWL_API_KEY` | required | Your Firecrawl key |
+| `NATIVE_SEARCH_PROVIDER` | optional | `duckduckgo` (default), `searxng`, or `agent-reach` |
+| `SEARXNG_URL` | for searxng | Your SearXNG instance URL |
+| `AGENT_REACH_MCPORTER` | for agent-reach | Path to your configured mcporter executable |
 | `DATABASE_URL` | optional | Any Postgres 15+; unset uses embedded PGlite. Run `pnpm db:migrate` once after setting it. A local Postgres without TLS takes a plain URL (`postgres://postgres:postgres@localhost:5432/postgres`); `?sslmode=require` fails against it. A pooled URL (Neon's `-pooler` host, PlanetScale's PgBouncer on port 6432) is right for the app; scripts, migrations, and backups switch to the direct endpoint themselves |
 | `DATABASE_DRIVER` | optional | `neon` or `pg`, overriding the choice from the URL |
 | `DATABASE_POOL_MAX` | optional | Connections one process holds in its pg pool (default 3). Hosts can raise this; behind a PgBouncer, keep instances times this under its client-connection ceiling |
@@ -17,13 +19,13 @@ Every environment variable, in one table; [`.env.example`](../.env.example) has 
 | `DASHBOARD_PASSWORD` | recommended on any public deployment | Basic auth on the dashboard and `/api/v1`; unset means open (or, with `PUBLIC_DEMO`, no admin tier) |
 | `PUBLIC_DEMO` | optional | `1` hosts a read-only public instance: reads are open; admin paths and operator writes are not. Company requests are a separate opt-in public write |
 | `LANDING` | optional | `1` serves the landing page at `/` and keeps the dashboard at `/feed`; the page always answers at `/home` |
-| `COMPANY_REQUESTS` | optional | `1` accepts public company website requests and runs verified research in a durable workflow; needs Firecrawl and a configured dossier verification model. Unset hides the entry points and returns 404 from the request API |
+| `COMPANY_REQUESTS` | optional | `1` accepts public company website requests and runs native research in a durable workflow; needs a configured extraction/verification model. Unset hides the entry points and returns 404 from the request API |
 | `COMPANY_REQUESTS_DAILY_MAX` | optional | Maximum new company research jobs per UTC day across the instance; default 50. Each address may start at most three per day. Rate counting fails closed for requests |
 | `ALEXANDRIA_API_KEY` | optional, public demos | The bearer Firecrawl's Alexandria sends to `/api/v1`; its calls skip the per-address budgets and read the same public rows ([deploy.md](deploy.md#alexandria)) |
 | `MCP_API_KEY` | required for MCP on password-protected private deployments | Bearer for `/api/mcp`; without it, a private instance with `DASHBOARD_PASSWORD` refuses MCP. A keyless public demo exposes read tools, not `mark_seen`; a private instance without a password remains open |
 | `APP_ORIGIN` | optional | Public HTTPS origin for webhooks, Slack links, and share cards; company newsroom monitors use it for section-change webhooks |
 | `SITE_URL` | optional | Where search engines should keep the pages, when another site serves them under its own address (a path is allowed, e.g. `https://www.example.com/funding`). Every canonical tag, `og:url`, sitemap entry, `/llms.txt` page link, and JSON-LD page URL is built on it; the API, the MCP server, and share images stay on `APP_ORIGIN`. Unset, canonicals follow `APP_ORIGIN` |
-| `FIRECRAWL_WEBHOOK_SECRET` | required in production for monitors | Verifies the signature on monitor webhooks (Firecrawl dashboard, Advanced settings) |
+| Native monitor scheduling | no webhook secret | `/api/cron/native-monitors` uses `CRON_SECRET`; the retired vendor webhook returns 410 |
 | `WEBHOOK_BEARER_TOKEN` | optional | A bearer the monitor sends on top of the signature |
 | `AI_GATEWAY_API_KEY` | optional | Turns on the reconcile step through the Vercel AI Gateway; needed on Vercel too, since a deployed function does not see the OIDC token in its environment |
 | `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY` | optional | Other reconcile providers; the first key set wins |

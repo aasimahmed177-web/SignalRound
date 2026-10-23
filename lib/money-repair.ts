@@ -62,7 +62,7 @@ export interface MoneyRepair {
   changes: MoneyChange[];
 }
 
-/** What re-ground mode reads with: the pages, the money reading, and a pause between rows so the model and Firecrawl are asked gently. */
+/** What re-ground mode reads with: the pages, the money reading, and a pause between rows so the model and NativeWebClient are asked gently. */
 export interface RegroundDeps {
   read: ReadPages;
   generate: (prompt: string) => Promise<MoneyReading>;

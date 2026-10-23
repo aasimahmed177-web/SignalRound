@@ -1,4 +1,4 @@
-// The Built with strip reads a row into the Firecrawl primitives it passed through.
+// The Built with strip reads a row into the native web tools primitives it passed through.
 
 import { describe, expect, test } from "vitest";
 import { type BuiltWithInput, builtWithSteps } from "../lib/built-with";
@@ -18,10 +18,12 @@ const fact = (steps: ReturnType<typeof builtWithSteps>, key: string) => steps.fi
 
 describe("builtWithSteps", () => {
   test("search: the query's text stays out (it is the instance's own tuning); a lane marker reads as its lane", () => {
-    expect(fact(builtWithSteps(row()), "search")).toBe("found by Firecrawl search");
+    expect(fact(builtWithSteps(row()), "search")).toBe("found by native web tools search");
     const long = row({ sources: [{ host: "news.example", query: "q".repeat(80) }] });
-    expect(fact(builtWithSteps(long), "search")).toBe("found by Firecrawl search");
-    expect(fact(builtWithSteps(row({ sources: [{ host: "news.example", query: "search" }] })), "search")).toBe("found by Firecrawl search");
+    expect(fact(builtWithSteps(long), "search")).toBe("found by native web tools search");
+    expect(fact(builtWithSteps(row({ sources: [{ host: "news.example", query: "search" }] })), "search")).toBe(
+      "found by native web tools search",
+    );
     for (const [query, expected] of [
       ["monitor:mon-1", "found by a monitor"],
       ["check:chk-1", "found by a monitor"],
@@ -31,7 +33,7 @@ describe("builtWithSteps", () => {
       ["manual", "added by hand from its URL"],
       ["x:@acme", "found on X: @acme"],
       ["agent:gap-fill", "found by the research agent"],
-      [null, "found by Firecrawl search"],
+      [null, "found by native web tools search"],
     ] as const) {
       expect(fact(builtWithSteps(row({ sources: [{ host: "news.example", query }] })), "search")).toBe(expected);
     }
@@ -70,7 +72,7 @@ describe("builtWithSteps", () => {
     });
     expect(fact(builtWithSteps(grown), "verify")).toBe("checked against 1 of 2 sources");
     expect(fact(builtWithSteps(row({ verification: { status: "confirmed", verifier: "judge" } })), "verify")).toBe(
-      "checked against its page with Firecrawl",
+      "checked against its page with native web tools",
     );
     expect(fact(builtWithSteps(row({ verification: null })), "verify")).toBe("not yet checked against its sources");
     // No sources_seen falls back to the row's own source count.
@@ -93,21 +95,21 @@ describe("builtWithSteps", () => {
   test("alexandria: a step when YC matched, none when it did not", () => {
     expect(builtWithSteps(row()).map((s) => s.key)).not.toContain("alexandria");
     expect(fact(builtWithSteps(row({ alexandria: { yc: { batch: "Summer 2022" } } })), "alexandria")).toBe(
-      "founders and batch from Y Combinator via Alexandria",
+      "founders and batch from Y Combinator from its public profile",
     );
     expect(builtWithSteps(row({ alexandria: { yc: null } })).map((s) => s.key)).not.toContain("alexandria");
   });
 
   test("agent: only when the company has a dossier", () => {
     expect(builtWithSteps(row()).map((s) => s.key)).not.toContain("agent");
-    expect(fact(builtWithSteps(row(), { dossier: true }), "agent")).toBe("company research by the Firecrawl agent");
+    expect(fact(builtWithSteps(row(), { dossier: true }), "agent")).toBe("company research by the native web tools agent");
   });
 
   test("x: only when the Trending lane found people posting about the round, before the agent step", () => {
     expect(builtWithSteps(row()).map((s) => s.key)).not.toContain("x");
     expect(builtWithSteps(row(), { xPeople: 0 }).map((s) => s.key)).not.toContain("x");
-    expect(fact(builtWithSteps(row(), { xPeople: 14 }), "x")).toBe("posts from 14 people, found with Firecrawl search");
-    expect(fact(builtWithSteps(row(), { xPeople: 1 }), "x")).toBe("posts from 1 person, found with Firecrawl search");
+    expect(fact(builtWithSteps(row(), { xPeople: 14 }), "x")).toBe("posts from 14 people, found with native web tools search");
+    expect(fact(builtWithSteps(row(), { xPeople: 1 }), "x")).toBe("posts from 1 person, found with native web tools search");
     expect(
       builtWithSteps(row(), { xPeople: 3, dossier: true })
         .map((s) => s.key)

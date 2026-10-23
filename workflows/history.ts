@@ -16,7 +16,6 @@ import { start } from "workflow/api";
 import { db } from "@/lib/db";
 import { backfillChunk, dealLanes } from "@/lib/durable";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import {
   failPromotion,
   finishPromotion,
@@ -43,6 +42,7 @@ import {
 } from "@/lib/history-tally";
 import { mergeRunCounts, recordRun } from "@/lib/persist";
 import { queueCompanyTimeline, TIMELINE_RECHECK_DAYS } from "@/lib/request-research";
+import { getWebClient } from "@/lib/web-client";
 
 /** Put a company's prior rounds on the ledger; the keys due now. */
 export async function queueHistoryStep(companyId: string): Promise<string[]> {
@@ -52,12 +52,12 @@ export async function queueHistoryStep(companyId: string): Promise<string[]> {
 
 export async function planStep(companyId: string, key: string, claimer: string, includeRecent = false): Promise<HistoryPlan> {
   "use step";
-  return planPromotion(await db(), firecrawlHistoryReader(getFirecrawl()), companyId, key, claimer, new Date(), includeRecent);
+  return planPromotion(await db(), firecrawlHistoryReader(getWebClient()), companyId, key, claimer, new Date(), includeRecent);
 }
 
 export async function readStep(plan: HistoryPlan): Promise<HistoryReading> {
   "use step";
-  return readPlan(await db(), firecrawlHistoryReader(getFirecrawl()), plan);
+  return readPlan(await db(), firecrawlHistoryReader(getWebClient()), plan);
 }
 
 /** The read-back and persist; throws (and the step retries) when the read-back could not run. */
@@ -69,7 +69,7 @@ export async function finishStep(
 ): Promise<PromotionOutcome> {
   "use step";
   const handle = await db();
-  const outcome = await finishPromotion(handle, firecrawlHistoryReader(getFirecrawl()), plan, reading, runId, new Date(), includeRecent);
+  const outcome = await finishPromotion(handle, firecrawlHistoryReader(getWebClient()), plan, reading, runId, new Date(), includeRecent);
   await invalidateEntityPages(handle, { companyIds: [plan.companyId], roundIds: outcome.roundId ? [outcome.roundId] : [] });
   return outcome;
 }
@@ -88,9 +88,11 @@ async function failStep(companyId: string, key: string, error: string, credits: 
  */
 export async function processPrior(companyId: string, key: string, runId: string, includeRecent = false): Promise<PromotionOutcome> {
   let spent = 0;
+  let searched = false;
   try {
     const plan = await planStep(companyId, key, runId, includeRecent);
     if (plan.skip) return skippedOutcome(companyId, key, plan.skip);
+    searched = true;
     spent = plan.credits;
     const reading = await readStep(plan);
     spent += reading.credits;
@@ -98,7 +100,7 @@ export async function processPrior(companyId: string, key: string, runId: string
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     await failStep(companyId, key, error, spent);
-    return failedOutcome(companyId, key, error, spent);
+    return failedOutcome(companyId, key, error, spent, searched);
   }
 }
 
@@ -158,12 +160,12 @@ export async function companyHistoryWorkflow(companyId: string, includeRecent = 
 
 export async function timelineStep(companyId: string, force = false): Promise<void> {
   "use step";
-  await queueCompanyTimeline(await db(), firecrawlHistoryReader(getFirecrawl()), companyId, new Date(), force);
+  await queueCompanyTimeline(await db(), firecrawlHistoryReader(getWebClient()), companyId, new Date(), force);
 }
 
 export async function startCompanyTimelinesStep(companyIds: string[], limit: number, force = false): Promise<number> {
   "use step";
-  if (!process.env.FIRECRAWL_API_KEY || limit <= 0 || companyIds.length === 0) return 0;
+  if (limit <= 0 || companyIds.length === 0) return 0;
   const handle = await db();
   const rows = await handle
     .select()

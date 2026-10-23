@@ -2,9 +2,9 @@
 // for and how far back it looks, and which of a company's own newsroom posts are about the round.
 // Acceptance against a stored record and the database-backed run live in the root suite.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_TIERS } from "../records/resolve.ts";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import {
   corroborationQuery,
   corroborationTbs,
@@ -205,7 +205,7 @@ describe("searchCorroboration fallback", () => {
       },
     ]);
     expect(result.resultCount).toBe(2);
-    expect(result.creditsEstimated).toBe(8);
+    expect(result.creditsEstimated).toBe(0);
     expect(result.query).toContain('"Instinct" $250M AI assistant');
   });
 
@@ -220,7 +220,7 @@ describe("searchCorroboration fallback", () => {
       highlights: false,
     });
     expect(result.candidates.map((candidate) => candidate.url)).toEqual([wsj.url]);
-    expect(result.creditsEstimated).toBe(2);
+    expect(result.creditsEstimated).toBe(0);
   });
 
   test("does not retry when page extraction was explicitly disabled", async () => {

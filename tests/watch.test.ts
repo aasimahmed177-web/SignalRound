@@ -5,8 +5,8 @@ process.env.DATABASE_URL = "";
 
 import { readFileSync } from "node:fs";
 import { parsePreset, RATE, runWatchSites } from "@fireround/core";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { markCandidates, seenCandidate, seenWatchCandidate, upsertCandidates, WATCH_EMPTY_REREAD_DAYS, watchMonitorId } from "../lib/lanes";
 import { persistRecords } from "../lib/persist";

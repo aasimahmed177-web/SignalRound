@@ -1,6 +1,6 @@
 // Whether a round's valuation was disclosed. A null valuation means two different things: the
 // sources never mention one (unknown), or they say outright that it was not disclosed. The second
-// is a fact a reader can use ("Firecrawl did not disclose its valuation"), so it is kept as
+// is a fact a reader can use ("NativeWebClient did not disclose its valuation"), so it is kept as
 // `valuation_disclosed: false`; a stated valuation is `true`; anything else stays null.
 
 import { namesCompany, titleNamesCompany } from "@fireround/core";
@@ -48,7 +48,7 @@ function aboutAnotherRound(sentence: string, stage: string | undefined): boolean
  */
 export function undisclosedSentence(text: string, companyName: string, title?: string | null, stage?: string): string | null {
   const list = sentences(text);
-  // A page about this one round ("Firecrawl raises $75M ..."): "The round's valuation was not disclosed" is about it.
+  // A page about this one round ("NativeWebClient raises $75M ..."): "The round's valuation was not disclosed" is about it.
   const aboutRound = Boolean(title) && titleNamesCompany(title, companyName) && !ROUNDUP_TITLE.test(title ?? "");
   const found = list.find((sentence, i) => {
     if (!UNDISCLOSED.some((re) => re.test(sentence)) || !NEGATED.test(sentence) || aboutAnotherRound(sentence, stage)) return false;

@@ -7,14 +7,14 @@ const { save, scrape, search } = vi.hoisted(() => ({
 }));
 
 vi.mock("@fireround/core/snapshots", () => ({ savePageSnapshot: save }));
-vi.mock("firecrawl", () => ({
-  Firecrawl: class {
+vi.mock("@fireround/core/web", () => ({
+  NativeWebClient: class {
     scrape = scrape;
     search = search;
   },
 }));
 
-import { getFirecrawl } from "../lib/firecrawl.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 beforeAll(() => {
   process.env.FIRECRAWL_API_KEY = "fc-test";
@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 
 test("captures extraction markdown and raw JSON but skips links-only scrapes", async () => {
-  const client = getFirecrawl();
+  const client = getWebClient();
   const doc = await client.scrape("https://example.com/raise", { formats: ["markdown"] });
   expect(doc.markdown).toContain("Acme raised");
   expect(save).toHaveBeenCalledWith("https://example.com/raise", doc.markdown, doc.json);
@@ -35,7 +35,7 @@ test("captures extraction markdown and raw JSON but skips links-only scrapes", a
 });
 
 test("a failed snapshot write never fails a scrape or search", async () => {
-  const client = getFirecrawl();
+  const client = getWebClient();
   save.mockRejectedValueOnce(new Error("database unavailable"));
   await expect(client.scrape("https://example.com/raise", { formats: ["markdown"] })).resolves.toHaveProperty("markdown");
   save.mockRejectedValueOnce(new Error("database unavailable"));

@@ -3,7 +3,7 @@
 // (extract, resolve, read-back, persist). This module holds the rules that pipeline does not
 // already have: the key a prior round is tracked under, the search for its announcement, which
 // results to read first, the window a page is resolved in, and whether a round the page reports
-// is the prior round the dossier named. lib/history.ts runs them against the store and Firecrawl.
+// is the prior round the dossier named. lib/history.ts runs them against the store and NativeWebClient.
 
 import { businessWords, hostCovered, searchName, sharesBusinessWords } from "../firecrawl/enrich.ts";
 import type { PageVerdict } from "../llm/jev.ts";

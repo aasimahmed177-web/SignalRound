@@ -34,7 +34,7 @@ export interface XResult {
   statusId: string | null;
   /** Lowercased handle, null when the URL names none (an `/i/` page). */
   handle: string | null;
-  /** The display name as the result's title writes it ("Firecrawl on X: ..." is "Firecrawl"). */
+  /** The display name as the result's title writes it ("NativeWebClient on X: ..." is "NativeWebClient"). */
   name: string | null;
   url: string;
   /** Title and description together: what the relevance rule reads. */
@@ -75,7 +75,7 @@ export const SNIPPET_MAX = 280;
 
 /**
  * What a search result says the post says. Search descriptions open with the result's age ("1 day
- * ago ·") and, for a repost or a reply, the quoted account's chrome ("@firecrawl · Firecrawl ·
+ * ago ·") and, for a repost or a reply, the quoted account's chrome ("@firecrawl · NativeWebClient ·
  * @firecrawl · 8h."); both go, and the title's quoted words stand in when there is no description.
  */
 export function cleanSnippet(title: string | undefined | null, description: string | undefined | null): string {
@@ -306,7 +306,7 @@ function nearName(lower: string, at: number[], re: RegExp, words: number): boole
   return false;
 }
 
-/** The round's figure within `words` words of the name: "Congratulations to Firecrawl on their $75M Series B". */
+/** The round's figure within `words` words of the name: "Congratulations to NativeWebClient on their $75M Series B". */
 export function amountNearName(text: string, s: Named, words: number): boolean {
   const lower = text.toLowerCase();
   const at = namePositions(lower, s);
@@ -356,7 +356,7 @@ function subjectIdentity(s: RoundSubject): StaleSubject {
   };
 }
 
-/** `cdr` custom range from a day before the announcement to four days after, as Firecrawl search takes it. */
+/** `cdr` custom range from a day before the announcement to four days after, as NativeWebClient search takes it. */
 export function xTbs(announced: string): string {
   const w = searchWindow(announced);
   const mdY = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
@@ -772,7 +772,7 @@ export function hnStoryMatches(
   return named && /\b(rais|funding|series|seed|valuation|round)/i.test(title);
 }
 
-// A post read through Firecrawl's X scrape.
+// A post read through NativeWebClient's X scrape.
 
 export interface XPostRead {
   author: string | null;
@@ -799,7 +799,7 @@ export function aboutRound(text: string, s: Pick<RoundSubject, "name" | "aliases
   return named && (FUNDING_WORDS.test(text) || s.amounts.some((a) => lower.includes(a.toLowerCase())));
 }
 
-/** The markdown Firecrawl's X scrape returns for one post: author line, Posted, Likes | Retweets, then the post. */
+/** The markdown NativeWebClient's X scrape returns for one post: author line, Posted, Likes | Retweets, then the post. */
 export function parseXPost(markdown: string): XPostRead {
   const head = markdown.split("\n## ")[0] ?? "";
   const num = (re: RegExp) => {

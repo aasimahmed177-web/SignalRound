@@ -24,7 +24,6 @@ import { measuredCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { flushDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { type CorroborationTally, corroborateUnstated } from "@/lib/intel";
 import { screenWithJev } from "@/lib/jev-shadow";
 import { markCandidates, seenWatchCandidate, upsertCandidates, watchMonitorId } from "@/lib/lanes";
@@ -34,6 +33,7 @@ import { reconcileGrownRows } from "@/lib/reconcile";
 import { enqueueRouted, persistRouted, routingTable } from "@/lib/routing";
 import { loadAliases, loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { newRoundCompanyIdsStep, startCompanyTimelinesStep } from "@/workflows/history";
 
 const BATCH = 12;
@@ -152,7 +152,7 @@ export async function watchSitesWorkflow(presetSlug: string, runId: string, orig
 async function creditsStep(): Promise<number | null> {
   "use step";
   try {
-    return (await getFirecrawl().getCreditUsage()).remainingCredits;
+    return (await getWebClient().getCreditUsage()).remainingCredits;
   } catch {
     return null;
   }
@@ -179,7 +179,7 @@ async function gatherStep(
 }> {
   "use step";
   const [preset, handle] = await Promise.all([loadPreset(presetSlug), db()]);
-  const r = await runWatchSites(getFirecrawl(), withQueries ? preset : { ...preset, watchQueries: [] }, {
+  const r = await runWatchSites(getWebClient(), withQueries ? preset : { ...preset, watchQueries: [] }, {
     seen: (url) => seenWatchCandidate(handle, watchMonitorId(hostOf(url)), url),
     markSeen: (host, urls) => upsertCandidates(handle, watchMonitorId(host), urls, "pending", runId),
   });
@@ -218,7 +218,7 @@ async function gatherStep(
 
 async function extractStep(candidates: ExtractTarget[]): Promise<{ items: ExtractedItem[]; ok: string[]; failed: string[] }> {
   "use step";
-  const r = await extractRounds(getFirecrawl(), candidates, { concurrency: 20 });
+  const r = await extractRounds(getWebClient(), candidates, { concurrency: 20 });
   return {
     items: r.items,
     ok: r.pages.filter((p) => p.ok).map((p) => p.url),
@@ -281,8 +281,8 @@ async function judgeStep(
   const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
   const model = reconcileModel(process.env, "feed");
   const r = model
-    ? await reconcileRecords(records, firecrawlReader(getFirecrawl()), model, { rates, tiers })
-    : await judgeRecords(getFirecrawl(), records, { rates, tiers });
+    ? await reconcileRecords(records, firecrawlReader(getWebClient()), model, { rates, tiers })
+    : await judgeRecords(getWebClient(), records, { rates, tiers });
   const settled = model ? r.records : r.records.map((x) => settleDate(x));
   return {
     records: settled.filter((x) => x.verification?.status !== "not_news"),
@@ -327,7 +327,7 @@ async function persistStep(
 async function corroborateStep(ids: string[]): Promise<CorroborationTally & { targets: string[] }> {
   "use step";
   const handle = await db();
-  const result = await corroborateUnstated(handle, getFirecrawl(), ids);
+  const result = await corroborateUnstated(handle, getWebClient(), ids);
   if (ids.length) await invalidateEntityPages(handle, { roundIds: ids });
   return result;
 }
@@ -341,7 +341,7 @@ async function rereconcileStep(ids: string[], rates: RateTable | null): Promise<
   const plan = await getCoverage(handle);
   if (!plan.judge) return { reconciled: 0, credits: 0 };
   const tiers = await loadPublisherTiers();
-  const result = await reconcileGrownRows(handle, getFirecrawl(), model, [...new Set(ids)], {
+  const result = await reconcileGrownRows(handle, getWebClient(), model, [...new Set(ids)], {
     rates,
     tiers: { ...DEFAULT_TIERS, ...tiers },
   });

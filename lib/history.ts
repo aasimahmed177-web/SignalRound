@@ -72,8 +72,8 @@ import {
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import type { HistoryOrigin, HistoryPrior } from "@fireround/core/db/schema";
+import type { Document, NativeWebClient, SearchResultNews, SearchResultWeb } from "@fireround/core/web";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
-import type { Document, Firecrawl, SearchResultNews, SearchResultWeb } from "firecrawl";
 import { verifiedDossierSql } from "./deepdive.ts";
 import {
   failedOutcome,
@@ -584,8 +584,8 @@ export async function classifyCandidates(
   });
 }
 
-/** The reader over Firecrawl: search, map, the rounds extraction, and the same read-back the ingest runs. */
-export function firecrawlHistoryReader(client: Firecrawl): HistoryReader {
+/** The reader over NativeWebClient: search, map, the rounds extraction, and the same read-back the ingest runs. */
+export function firecrawlHistoryReader(client: NativeWebClient): HistoryReader {
   return {
     async search(query, limit) {
       const result = await client.search(query, { sources: ["web", "news"], limit, highlights: true });
@@ -1233,9 +1233,11 @@ export async function promotePrior(
   now: Date = new Date(),
 ): Promise<PromotionOutcome> {
   let spent = 0;
+  let searched = false;
   try {
     const plan = await planPromotion(handle, reader, companyId, key, runId, now);
     if (plan.skip) return skippedOutcome(companyId, key, plan.skip);
+    searched = true;
     spent = plan.credits;
     const reading = await readPlan(handle, reader, plan, now);
     spent += reading.credits;
@@ -1243,7 +1245,7 @@ export async function promotePrior(
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     await failPromotion(handle, companyId, key, error, spent, now);
-    return failedOutcome(companyId, key, error, spent);
+    return failedOutcome(companyId, key, error, spent, searched);
   }
 }
 

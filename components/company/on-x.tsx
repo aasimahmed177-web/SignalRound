@@ -49,7 +49,7 @@ function Engagement({ likes, reposts }: { likes: number | null; reposts: number 
 /**
  * The company page's "On X" block: up to three posts per round (the company's own first), who
  * posted, what they said, when, and the likes once read, each linking to the post; the counts
- * behind the Trending rank; and one quiet line saying the posts were found with Firecrawl. `labels` names
+ * behind the Trending rank; and one quiet line saying the posts were found with native web tools. `labels` names
  * each round when the company has more than one with posts. An admin also sees why a round was
  * kept out of Trending when its date looks late.
  */

@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The funding feed pipeline: Firecrawl lanes, extraction schema, normalization, entity resolution, storage, delivery.",
+  "description": "The funding feed pipeline: native web collection, extraction schema, normalization, entity resolution, storage, delivery.",
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./web": "./src/web/client.ts",
+    "./web/transport": "./src/web/transport.ts",
     "./company-newsrooms": "./src/firecrawl/company-newsrooms.ts",
     "./db": "./src/db/index.ts",
     "./db/schema": "./src/db/schema.ts",
@@ -26,7 +28,8 @@
     "ai": "^7.0.110",
     "chrono-node": "^2.10.1",
     "drizzle-orm": "1.0.0-rc.4",
-    "firecrawl": "^4.42.4",
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^5.11.2",
     "pg": "^8.23.0",
     "tldts": "^7.4.14",
     "zod": "^4.6.5"

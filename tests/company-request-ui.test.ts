@@ -115,7 +115,7 @@ describe("one company address per request", () => {
       createElement(RequestProgress, { initial: publicRequestStatus(running as NonNullable<typeof running>) }),
     );
     expect(researching).toContain("Funding search");
-    expect(researching).toContain("Firecrawl Agent, usually 3 to 8 minutes");
+    expect(researching).toContain("Native research, bounded source reads");
     expect(researching).toContain("You don&#x27;t need to stay on this page.");
     expect(researching).toContain('href="/companies"');
     expect(researching).not.toContain("private");
@@ -212,7 +212,7 @@ describe("one company address per request", () => {
       "Company dossier",
       "Earlier rounds verified",
     ]);
-    expect(steps[3].hint).toBe("Firecrawl Agent, usually 3 to 8 minutes");
+    expect(steps[3].hint).toBe("Native research, bounded source reads");
     expect(
       requestSteps({ status: "done", step: "rounds", dossier: { status: "failed", startedAt: null, finishedAt: null } })[3],
     ).toMatchObject({
@@ -267,7 +267,7 @@ describe("one company address per request", () => {
 
   test("the still-researching line shows while the dossier runs", () => {
     expect(renderToStaticMarkup(createElement(DossierPending, { id }))).toContain(
-      "Still researching: a company dossier from Firecrawl&#x27;s Agent may add earlier rounds and founders.",
+      "Still researching: a company dossier from native web tools&#x27;s Agent may add earlier rounds and founders.",
     );
     const html = renderToStaticMarkup(
       createElement(RequestFundingHistory, { tally: { found: 0, verified: 0, priors: [] }, dossierRunning: true }),

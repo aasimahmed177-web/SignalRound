@@ -10,9 +10,9 @@ import { db } from "@/lib/db";
 import { DossierCheckUnavailable, dossierCheckAvailable } from "@/lib/dossier-check";
 import { clearProfile, enrichBatch, isVerified } from "@/lib/enrich";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { companyHref } from "@/lib/links";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { companyDossierWorkflow } from "@/workflows/dossiers";
 
 export interface DeepDiveActionResult {
@@ -84,7 +84,7 @@ export async function reenrichCompany(companyId: string): Promise<ActionResult<{
       .limit(1);
     if (!company) throw new Error(`No company ${companyId}`);
     const plan = await getCoverage(handle);
-    const result = await enrichBatch(handle, getFirecrawl(), [company], { pricingPage: plan.enrichment !== "homepage" });
+    const result = await enrichBatch(handle, getWebClient(), [company], { pricingPage: plan.enrichment !== "homepage" });
     await invalidateEntityPages(handle, { companyIds: [companyId] });
     const [e] = result.enrichments;
     revalidatePath(companyHref(companyId));

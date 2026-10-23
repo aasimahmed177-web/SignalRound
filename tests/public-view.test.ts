@@ -5,8 +5,8 @@ process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { POST as mcpPost } from "../app/api/mcp/route";
 import { GET as openapiGet } from "../app/api/v1/openapi.json/route";

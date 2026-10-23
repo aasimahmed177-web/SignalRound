@@ -1,6 +1,6 @@
-import type { Firecrawl } from "firecrawl";
 import { canonicalUrl, isArticleUrl, registrableDomain } from "../records/normalize.ts";
 import { companySite, linkedSites } from "../records/source-fit.ts";
+import type { NativeWebClient } from "../web/client.ts";
 import { isArticleLink, watchLinkDate } from "./watch.ts";
 
 export const NEWSROOM_TERMS = ["news", "press", "blog", "announcements", "funding"] as const;
@@ -98,9 +98,9 @@ export function newsroomFundingLinks(links: readonly NewsroomLink[], section: st
   return [...out];
 }
 
-/** Firecrawl map is scoped to a company-owned site; unlinked lookalike domains are never mapped. */
+/** NativeWebClient map is scoped to a company-owned site; unlinked lookalike domains are never mapped. */
 export async function discoverNewsrooms(
-  client: Pick<Firecrawl, "map" | "scrape">,
+  client: Pick<NativeWebClient, "map" | "scrape">,
   homepage: string,
   aliases: string[],
 ): Promise<{ sections: string[]; linked: string[]; calls: number }> {

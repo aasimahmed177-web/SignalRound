@@ -24,8 +24,8 @@ const log = vi.hoisted(() => ({
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 vi.mock("workflow/api", () => ({ start: vi.fn(async () => undefined) }));
-vi.mock("@/lib/firecrawl", () => ({
-  getFirecrawl: () => ({
+vi.mock("@/lib/web-client", () => ({
+  getWebClient: () => ({
     async scrape(_url: string, opts: { formats: unknown[] }) {
       // The branding read asks for the brand and the homepage's links; the identity check asks for its JSON.
       if (opts.formats[0] === "branding") {

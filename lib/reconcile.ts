@@ -6,8 +6,8 @@ import type { FeedRecord, RateTable, ReconcileModel } from "@fireround/core";
 import { firecrawlReader, normalizeCompanyKey, reconcileRecords, registrableDomain } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { listRounds, persistRecords, type RoundRow, setDisposition } from "./persist.ts";
 
 /** A stored row as the record the reconciler reads: every field it may correct, every source it may cite. */
@@ -59,7 +59,7 @@ export function grownRows(rows: RoundRow[]): RoundRow[] {
 
 export async function reconcileGrownRows(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   model: ReconcileModel,
   ids: string[],
   opts: { rates: RateTable | null; tiers?: Record<string, number> },

@@ -6,9 +6,9 @@
 // Nothing the agent returns is shown as is: llm/dossier-verify.ts checks every claim first.
 // https://docs.firecrawl.dev/features/agent
 
-import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { cleanText } from "../records/normalize.ts";
+import type { NativeWebClient } from "../web/client.ts";
 
 const nullableString = z.string().nullable();
 
@@ -193,14 +193,14 @@ export function toDeepDiveResult(
 }
 
 /** One agent run, waited on inline. The durable path uses startDeepDive and awaitDeepDive instead, so no function waits ten minutes. */
-export async function deepDive(client: Firecrawl, input: DeepDiveInput, opts: DeepDiveOptions = {}): Promise<DeepDiveResult> {
+export async function deepDive(client: NativeWebClient, input: DeepDiveInput, opts: DeepDiveOptions = {}): Promise<DeepDiveResult> {
   const started = Date.now();
   const result = await client.agent({ ...agentArgs(input, opts), pollInterval: 5, timeout: 15 * 60 });
   return toDeepDiveResult(result, Math.round((Date.now() - started) / 1000));
 }
 
 /** Start the agent and return its job id without waiting. */
-export async function startDeepDive(client: Firecrawl, input: DeepDiveInput, opts: DeepDiveOptions = {}): Promise<string> {
+export async function startDeepDive(client: NativeWebClient, input: DeepDiveInput, opts: DeepDiveOptions = {}): Promise<string> {
   const job = await client.startAgent(agentArgs(input, opts));
   if (!job.success || !job.id) throw new Error(`agent did not start: ${job.error ?? "no job id"}`);
   return job.id;
@@ -211,7 +211,7 @@ export async function startDeepDive(client: Firecrawl, input: DeepDiveInput, opt
  * processing for the caller to poll again from a fresh step. `startedAt` (epoch ms) dates the run.
  */
 export async function awaitDeepDive(
-  client: Firecrawl,
+  client: NativeWebClient,
   jobId: string,
   startedAt: number,
   opts: { budgetSeconds?: number; pollSeconds?: number; sleep?: (ms: number) => Promise<void> } = {},

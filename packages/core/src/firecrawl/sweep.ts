@@ -2,7 +2,6 @@
 // URLs, then extract each unique page once. This is the weekly recall pass.
 // https://docs.firecrawl.dev/features/search
 
-import type { Document, Firecrawl, SearchResultNews, SearchResultWeb } from "firecrawl";
 import type { Preset } from "../presets/types.ts";
 import type { Window } from "../records/normalize.ts";
 import {
@@ -18,6 +17,7 @@ import type { ResolveOptions, ResolveResult } from "../records/resolve.ts";
 import { resolveRounds } from "../records/resolve.ts";
 import { STAGE_BANDS } from "../records/routing.ts";
 import type { Stage } from "../records/stages.ts";
+import type { Document, NativeWebClient, SearchResultNews, SearchResultWeb } from "../web/client.ts";
 import { CreditTally, mapLimit, searchCredits } from "./credits.ts";
 import type { ExtractOptions, ExtractResult, ExtractTarget } from "./extract.ts";
 import { extractRounds } from "./extract.ts";
@@ -114,7 +114,7 @@ export function articleCandidates(candidates: Iterable<Candidate>): { kept: Cand
 
 /** Step 1: run the preset's queries and merge the result URLs. No page content yet. */
 export async function searchCandidates(
-  client: Firecrawl,
+  client: NativeWebClient,
   preset: Preset,
   window: Window,
   options: SearchOptions = {},
@@ -228,7 +228,7 @@ export interface SweepOptions {
 }
 
 /** The whole lane: search, extract once per unique URL, resolve into records. */
-export async function sweep(client: Firecrawl, preset: Preset, opts: SweepOptions = {}): Promise<SweepResult> {
+export async function sweep(client: NativeWebClient, preset: Preset, opts: SweepOptions = {}): Promise<SweepResult> {
   const window = opts.window ?? "week";
   const now = opts.now ?? new Date();
   const windowStart = resolveWindowStartFor(window, now);

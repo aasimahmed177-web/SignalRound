@@ -68,6 +68,7 @@ const cases = [
   { name: "company-newsrooms", method: "GET", query: "" },
   { name: "deliveries", method: "GET", query: "" },
   { name: "health", method: "GET", query: "" },
+  { name: "native-monitors", method: "GET", query: "?force=1" },
   { name: "publication-audit", method: "GET", query: "" },
   { name: "history-rounds", method: "POST", query: "" },
   { name: "slack-digest", method: "GET", query: "" },

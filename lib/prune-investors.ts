@@ -5,7 +5,7 @@
 // TVS Motors, or Speciale Invest as investors in this specific round". And persist put a demoted lead
 // back as a lead, so rows whose verdict says "not leads: X" still showed X leading. This pass reads
 // what the store already holds (the verdict's notes and the investor links), makes no model call and
-// no Firecrawl call, and writes only with `apply`. `scripts/maintenance/prune-unsupported-investors.ts` is the command.
+// no NativeWebClient call, and writes only with `apply`. `scripts/maintenance/prune-unsupported-investors.ts` is the command.
 
 import { DEFAULT_TIERS, dedupeInvestorNames, type FeedRecord, hasLeadLanguage, investorMentions, scoreConfidence } from "@fireround/core";
 import type { Db } from "@fireround/core/db";

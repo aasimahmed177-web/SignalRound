@@ -52,11 +52,11 @@ import {
 import { db } from "@/lib/db";
 import { flushDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { type PersistOptions, recordRun } from "@/lib/persist";
 import { enqueueRouted, persistRouted, routingTable } from "@/lib/routing";
 import { loadAliases, loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { enrichPending } from "@/workflows/enrich";
 
 /** The note a lead keeps once its founder's bio was read and did not link the company, so it is not read again. */
@@ -140,7 +140,7 @@ async function discoverStep(startedAt: string, lookbackHours: number): Promise<{
   "use step";
   const handle = await db();
   const now = new Date(startedAt);
-  const r = await searchAnnouncements(getFirecrawl(), now, { lookbackHours });
+  const r = await searchAnnouncements(getWebClient(), now, { lookbackHours });
   const fresh = await storeLeads(handle, r.leads, now);
   const counts: Record<string, number> = {
     searches: r.calls.length,
@@ -175,7 +175,7 @@ async function attemptStep(
 }> {
   "use step";
   const handle = await db();
-  const client = getFirecrawl();
+  const client = getWebClient();
   const [aliases, publisherTiers, rates, table, plan] = await Promise.all([
     loadAliases(handle),
     loadPublisherTiers(),

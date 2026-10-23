@@ -1,6 +1,6 @@
 // The reconciling model, resolved from whichever key the operator set. The Vercel AI Gateway is the
 // default (one key, any model, failover and spend in one place); a direct OpenAI, OpenRouter, or
-// Anthropic key works the same way. No key means no reconciliation: the pipeline runs on Firecrawl alone.
+// Anthropic key works the same way. No key means no reconciliation: the pipeline runs on NativeWebClient alone.
 
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGateway } from "@ai-sdk/gateway";

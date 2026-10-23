@@ -6,8 +6,8 @@
 
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, gte, inArray, max, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { corroborateRecord, RecordGone } from "./corroborate.ts";
 import type { CoveragePlan } from "./coverage.ts";
 import { verifiedDossierSql } from "./deepdive.ts";
@@ -59,7 +59,7 @@ export interface CorroborationTally {
  */
 export async function corroborateForPlan(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   plan: CoveragePlan,
   ids: PersistedIds,
 ): Promise<CorroborationTally> {
@@ -105,7 +105,7 @@ export async function unstatedDays(handle: Db, ids: string[]): Promise<string[]>
 /** Corroborate the rows unstatedDays names among these ids, ten at a time: the pre-delivery read for a lane whose rung would not. */
 export async function corroborateUnstated(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   ids: string[],
 ): Promise<CorroborationTally & { targets: string[] }> {
   const targets = ids;
@@ -131,7 +131,7 @@ export interface AgentTally {
 }
 
 /** At the auto rung, every new record still in review gets one gap-fill run. Serial: agent runs are heavy. */
-export async function gapFillForPlan(handle: Db, client: Firecrawl, plan: CoveragePlan, insertedIds: string[]): Promise<AgentTally> {
+export async function gapFillForPlan(handle: Db, client: NativeWebClient, plan: CoveragePlan, insertedIds: string[]): Promise<AgentTally> {
   const tally: AgentTally = { gap_filled: 0, deep_dives: 0, agent_credits: 0 };
   if (plan.agent.gapFill !== "auto" || insertedIds.length === 0) return tally;
   const { rows } = await listRounds(handle, { ids: insertedIds, includeReview: true, limit: insertedIds.length });

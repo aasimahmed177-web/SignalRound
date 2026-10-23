@@ -62,7 +62,7 @@ vi.mock("@fireround/core", async (original) => {
   };
 });
 
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({}) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({}) }));
 vi.mock("@/lib/delivery", () => ({ enqueueDeliveries: async () => 0, flushDeliveries: async () => undefined }));
 vi.mock("@/lib/intel", () => ({
   corroborateForPlan: async () => ({}),

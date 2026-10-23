@@ -3,7 +3,7 @@
 process.env.PGLITE_DIR = "memory://";
 process.env.DATABASE_URL = "";
 
-import type { Firecrawl } from "firecrawl";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { NextRequest } from "next/server";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { POST as mcpPost } from "../app/api/mcp/route";

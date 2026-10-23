@@ -1,10 +1,10 @@
-// The house company: the one this feed is built on. Fireround runs on Firecrawl, so when Firecrawl
+// The house company: the one this feed is built on. Fireround runs on NativeWebClient, so when NativeWebClient
 // itself turns up in the record (a round, a company page, a share card) it wears the flame in place
 // of its fetched favicon and a quiet "this is us" line. Keyed on the record's domain, never a date.
 //
 // HOUSE_DOMAIN overrides the domain (server-side only): point it at the registrable domain the
 // house record lives under if a fork stores it differently, or set it to `off` to drop the
-// treatment. The treatment draws the Firecrawl flame, so it only makes sense on a Firecrawl record.
+// treatment. The treatment draws the NativeWebClient flame, so it only makes sense on a NativeWebClient record.
 
 /** The house company's registrable domain unless HOUSE_DOMAIN says otherwise. */
 export const DEFAULT_HOUSE_DOMAIN = "firecrawl.dev";
@@ -14,7 +14,7 @@ export const HOUSE_FRESH_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** "https://www.Firecrawl.dev/pricing" and "firecrawl.dev" compare equal. */
+/** "https://www.NativeWebClient.dev/pricing" and "firecrawl.dev" compare equal. */
 function bareDomain(value: string): string {
   return value
     .trim()
@@ -72,7 +72,7 @@ export function withArticle(figure: string): string {
 
 /**
  * The featured strip's sentence, as parts so the figure can set in mono and a phone can drop the
- * leads: "Firecrawl raised a " + "$75M" + " Series B" + ", led by Smash Capital". No figure reads
+ * leads: "NativeWebClient raised a " + "$75M" + " Series B" + ", led by Smash Capital". No figure reads
  * "raised a Series B".
  */
 export function houseHeadline(r: { name: string; amount: string; stage: string; leads: string[] }): {

@@ -9,8 +9,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { companySizes } from "./accuracy.ts";
 import { isVerified } from "./enrich.ts";
 
@@ -66,7 +66,12 @@ export async function companyNewsroomTargets(handle: Db): Promise<CompanyNewsroo
     .map((target, index) => ({ ...target, top: index < TOP_NEWSROOMS, monitor: index < MONITORED_COMPANIES }));
 }
 
-export async function discoverCompany(handle: Db, client: Firecrawl, target: CompanyNewsroomTarget, now = new Date()): Promise<number> {
+export async function discoverCompany(
+  handle: Db,
+  client: NativeWebClient,
+  target: CompanyNewsroomTarget,
+  now = new Date(),
+): Promise<number> {
   const result = await discoverNewsrooms(client, target.homepage, target.aliases);
   if (result.linked.length > 0) {
     await handle
@@ -98,7 +103,7 @@ export async function discoverCompany(handle: Db, client: Firecrawl, target: Com
 /** Claim unseen funding-looking URLs atomically; only claimed URLs enter the ordinary ingest workflow. */
 export async function checkCompanySection(
   handle: Db,
-  client: Pick<Firecrawl, "map" | "scrape">,
+  client: Pick<NativeWebClient, "map" | "scrape">,
   companyId: string,
   section: string,
   now = new Date(),

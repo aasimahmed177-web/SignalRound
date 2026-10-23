@@ -1,8 +1,8 @@
 import type { CompanyDossier, DossierRecheck, DossierVerdict } from "@fireround/core";
 import { DossierVerdict as DossierVerdictSchema } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { and, eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, it } from "vitest";
 import { getCompany } from "../lib/company.ts";
 import { corroborateRecord } from "../lib/corroborate.ts";

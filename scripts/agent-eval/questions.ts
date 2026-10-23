@@ -612,7 +612,7 @@ export function questions(d: Days): Question[] {
     },
     {
       id: "profile-firecrawl-url",
-      ask: "Firecrawl's funding (the agent passes the full URL)",
+      ask: "NativeWebClient's funding (the agent passes the full URL)",
       capability: "companies/profile",
       params: { id: "https://www.firecrawl.dev/" },
       tags: ["alias"],

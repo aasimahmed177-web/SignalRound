@@ -3,7 +3,6 @@
 // company's and investor's sites. Every attached page still passes same-round acceptance.
 // https://docs.firecrawl.dev/features/search
 
-import type { Document, Firecrawl, SearchResultNews, SearchResultWeb } from "firecrawl";
 import type { PageClassifier } from "../llm/jev.ts";
 import { dedupeInvestorNames } from "../records/investors.ts";
 import {
@@ -25,6 +24,7 @@ import { BAND_OF_STAGE, isStageless } from "../records/routing.ts";
 import type { FeedRecord, Stage } from "../records/schema.ts";
 import { STAGES } from "../records/schema.ts";
 import { sourceFit } from "../records/source-fit.ts";
+import type { Document, NativeWebClient, SearchResultNews, SearchResultWeb } from "../web/client.ts";
 import { extractionCredits, searchCredits } from "./credits.ts";
 import { searchName } from "./enrich.ts";
 import type { ExtractResult } from "./extract.ts";
@@ -323,7 +323,7 @@ export function selectNewsroomLinks(
 }
 
 /** One `map` credit. */
-export const MAP_CREDITS = 1;
+export const MAP_CREDITS = 0;
 
 /**
  * The company's own page about the round, found by mapping its site: the source that fixes the day, the
@@ -331,7 +331,7 @@ export const MAP_CREDITS = 1;
  * when the record knows the company's domain and has none of its pages yet.
  */
 async function mapNewsroom(
-  client: Firecrawl,
+  client: NativeWebClient,
   input: CorroborationInput,
   refreshKnown = false,
 ): Promise<{ candidates: CorroborationCandidate[]; creditsEstimated: number }> {
@@ -362,7 +362,7 @@ async function mapNewsroom(
 
 /** Step 1: search news and web, retrying a less constrained shape only when no page is selectable. */
 export async function searchCorroboration(
-  client: Firecrawl,
+  client: NativeWebClient,
   input: CorroborationInput,
   opts: CorroborationOptions = {},
 ): Promise<CorroborationSearch> {
@@ -687,7 +687,7 @@ function foldFragments(records: FeedRecord[], stage: Stage): FeedRecord {
  * of them this one are counted as rejected.
  */
 export async function corroborate(
-  client: Firecrawl,
+  client: NativeWebClient,
   input: CorroborationInput,
   opts: CorroborationOptions = {},
 ): Promise<CorroborationResult> {
@@ -720,7 +720,7 @@ export async function corroborate(
  * that is not this one. The credits are the extraction's alone.
  */
 export async function readCandidates(
-  client: Firecrawl,
+  client: NativeWebClient,
   input: CorroborationInput,
   candidates: CorroborationCandidate[],
   opts: CorroborationOptions = {},
@@ -761,7 +761,7 @@ export async function readCandidates(
       )
         disputed.push(r);
       // A post on the company's own site may be read under its product's name ("Introducing Alexandria
-      // and Firecrawl's $75M Series B" read as Alexandria's round): kept aside, for a caller that checks the facts itself.
+      // and NativeWebClient's $75M Series B" read as Alexandria's round): kept aside, for a caller that checks the facts itself.
       if (
         !verdict.accept &&
         verdict.reason === "company" &&

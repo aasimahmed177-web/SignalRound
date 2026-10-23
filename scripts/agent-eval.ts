@@ -1,7 +1,6 @@
 // How well an agent gets answers from the Fireround data pack, scored against the database:
-//   pnpm agent-eval                                  every question against https://fireround.dev's public API (free)
-//   pnpm agent-eval -- --via-alexandria              the same calls through Alexandria (5 credits each; FIRECRAWL_API_KEY)
-//   pnpm agent-eval -- --routing                     also ask Alexandria's free tool search which capability each question routes to
+//   pnpm agent-eval                                  every question against http://localhost:3000
+// Hosted Alexandria evaluation and routing modes are retired.
 //   pnpm agent-eval -- --only profile-supabase,top-90d --base https://preview.example --out ./agent-eval
 //   pnpm agent-eval -- --baseline ./agent-eval.json  list the questions whose verdict changed since an earlier run
 //   pnpm agent-eval -- --sha abc1234                 name the deployed commit when the deployment record is not readable
@@ -23,14 +22,13 @@ const option = (name: string) => {
   return i >= 0 ? argv[i + 1] : undefined;
 };
 
-const base = (option("--base") ?? "https://fireround.dev").replace(/\/+$/, "");
+const base = (option("--base") ?? "http://localhost:3000").replace(/\/+$/, "");
 const viaAlexandria = flag("--via-alexandria");
 const routing = flag("--routing");
 const maxCredits = Number(option("--max-credits") ?? 400);
 const only = option("--only")?.split(",");
 const out = option("--out");
 const baseline = option("--baseline");
-const firecrawl = (process.env.FIRECRAWL_API_URL ?? "https://api.firecrawl.dev").replace(/\/+$/, "");
 const CREDITS_PER_CALL = 5;
 const CONCURRENCY = 4;
 
@@ -96,17 +94,17 @@ async function callApi(question: Question): Promise<Call> {
   return { answer: readAnswer(question.capability, res.status, json), ms: performance.now() - started, bytes: body.length, credits: 0 };
 }
 
-async function alexandria(provider: string, capability: string, options: Record<string, unknown>) {
-  const res = await fetchRetrying(`${firecrawl}/v2/scrape`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ alexandria: [{ provider, capability, options }] }),
-  });
-  const body = (await res.json().catch(() => null)) as {
-    data?: { alexandria?: Array<{ data?: unknown; error?: { message?: string; status?: number } }>; creditsCost?: number };
-    error?: string;
-  } | null;
-  return { status: res.status, item: body?.data?.alexandria?.[0], credits: body?.data?.creditsCost ?? 0, error: body?.error };
+async function alexandria(
+  _provider: string,
+  _capability: string,
+  _options: Record<string, unknown>,
+): Promise<{
+  status: number;
+  item: { data?: unknown; error?: { message?: string; status?: number } } | undefined;
+  credits: number;
+  error: string;
+}> {
+  throw new Error("Hosted Alexandria evaluation was removed. Use the local API with --base.");
 }
 
 async function callAlexandria(question: Question): Promise<Call> {
@@ -177,7 +175,7 @@ async function pool<T, R>(items: T[], n: number, run: (item: T) => Promise<R>): 
 const now = new Date();
 const set = questions(days(now)).filter((q) => !only || only.includes(q.id));
 if (set.length === 0) throw new Error(`no question matches --only ${only?.join(",")}`);
-if ((viaAlexandria || routing) && !process.env.FIRECRAWL_API_KEY) throw new Error("--via-alexandria and --routing need FIRECRAWL_API_KEY");
+if (viaAlexandria || routing) throw new Error("Hosted Alexandria evaluation was removed. Use the local API with --base.");
 if (viaAlexandria && set.length * CREDITS_PER_CALL > maxCredits) {
   throw new Error(
     `${set.length} questions through Alexandria cost ${set.length * CREDITS_PER_CALL} credits, over --max-credits ${maxCredits}; narrow with --only`,

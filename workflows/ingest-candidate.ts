@@ -22,7 +22,6 @@ import { FatalError } from "workflow";
 import { db } from "@/lib/db";
 import { flushDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { type AgentTally, type CorroborationTally, corroborateForPlan, gapFillForPlan, type PersistedIds } from "@/lib/intel";
 import { bumpRunCount, ensureCheckRun } from "@/lib/persist";
 import { reconcileGrownRows } from "@/lib/reconcile";
@@ -30,6 +29,7 @@ import { queueNewsroomHistoryLeads } from "@/lib/request-research";
 import { enqueueRouted, persistRouted, routingTable } from "@/lib/routing";
 import { loadAliases, loadPublisherTiers } from "@/lib/rules";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { deepDiveTargetsStep, processDossierTargets } from "@/workflows/dossiers";
 import { enrichPending, recordEnrichmentStep } from "@/workflows/enrich";
 import { newRoundCompanyIdsStep, startCompanyTimelinesStep } from "@/workflows/history";
@@ -99,7 +99,7 @@ async function recordCheckStep(
   "use step";
   const handle = await db();
   await ensureCheckRun(handle, checkId, presetSlug, async () => {
-    const check = await getFirecrawl().getMonitorCheck(monitorId, checkId, { limit: 1 });
+    const check = await getWebClient().getMonitorCheck(monitorId, checkId, { limit: 1 });
     return {
       startedAt: check.startedAt,
       estimatedCredits: check.estimatedCredits,
@@ -115,7 +115,7 @@ async function recordCheckStep(
 /** The page's rounds, and whether the URL was declined unread as a non-article (a monitor alerts on section pages too). */
 async function extractStep(url: string, query?: string): Promise<{ items: ExtractedItem[]; notArticle: number }> {
   "use step";
-  const result = await extractRounds(getFirecrawl(), [{ url, query }], { concurrency: 1, maxAge: 0 });
+  const result = await extractRounds(getWebClient(), [{ url, query }], { concurrency: 1, maxAge: 0 });
   const page = result.pages[0];
   if (page && !page.ok && /\b4\d\d\b/.test(page.error ?? "")) throw new FatalError(`unrecoverable scrape: ${page.error}`);
   return { items: result.items, notArticle: result.notArticle };
@@ -156,8 +156,8 @@ async function resolveStep(
   if (!plan.judge || r.kept.length === 0) return { kept: r.kept, ungrounded: r.dropped.ungrounded, nonArticle: r.dropped.nonArticle };
   const model = reconcileModel(process.env, "feed");
   const judged = model
-    ? await reconcileRecords(r.kept, firecrawlReader(getFirecrawl()), model, { rates, tiers: { ...DEFAULT_TIERS, ...publisherTiers } })
-    : await judgeRecords(getFirecrawl(), r.kept, { rates, tiers: { ...DEFAULT_TIERS, ...publisherTiers } });
+    ? await reconcileRecords(r.kept, firecrawlReader(getWebClient()), model, { rates, tiers: { ...DEFAULT_TIERS, ...publisherTiers } })
+    : await judgeRecords(getWebClient(), r.kept, { rates, tiers: { ...DEFAULT_TIERS, ...publisherTiers } });
   const records = model ? judged.records : judged.records.map((x) => settleDate(x));
   return {
     kept: records.filter((x) => x.verification?.status !== "not_news"),
@@ -196,7 +196,7 @@ async function corroborateStep(ids: PersistedIds): Promise<CorroborationTally> {
   "use step";
   const handle = await db();
   const plan = await getCoverage(handle);
-  const result = await corroborateForPlan(handle, getFirecrawl(), plan, ids);
+  const result = await corroborateForPlan(handle, getWebClient(), plan, ids);
   await invalidateEntityPages(handle, { roundIds: ids.persistedIds });
   return result;
 }
@@ -209,7 +209,7 @@ async function rereconcileStep(ids: string[]): Promise<{ reconciled: number; cre
   const plan = await getCoverage(handle);
   if (!plan.judge) return { reconciled: 0, credits: 0 };
   const [rates, tiers] = await Promise.all([fetchRates("latest").catch(() => null), loadPublisherTiers()]);
-  const result = await reconcileGrownRows(handle, getFirecrawl(), model, [...new Set(ids)], {
+  const result = await reconcileGrownRows(handle, getWebClient(), model, [...new Set(ids)], {
     rates,
     tiers: { ...DEFAULT_TIERS, ...tiers },
   });
@@ -221,7 +221,7 @@ async function gapFillStep(insertedIds: string[]): Promise<AgentTally> {
   "use step";
   const handle = await db();
   const plan = await getCoverage(handle);
-  const result = await gapFillForPlan(handle, getFirecrawl(), plan, insertedIds);
+  const result = await gapFillForPlan(handle, getWebClient(), plan, insertedIds);
   if (insertedIds.length) await invalidateEntityPages(handle, { roundIds: insertedIds });
   return result;
 }

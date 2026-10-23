@@ -51,7 +51,7 @@ export const Preset = z.object({
   /** Results per source per query on the sweep. */
   limit: z.number().int().min(1).max(100).default(10),
   /**
-   * X accounts whose latest posts the sweep reads (handles without the @). Firecrawl serves
+   * X accounts whose latest posts the sweep reads (handles without the @). NativeWebClient serves
    * x.com through Grok at 34 credits a profile, so a few funding-dense accounts, not many.
    */
   xAccounts: z

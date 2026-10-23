@@ -1,14 +1,12 @@
-// The Trending layer's Firecrawl calls: X search for one round (search restricted to x.com, then
+// The Trending layer's NativeWebClient calls: X search for one round (search restricted to x.com, then
 // every result dated by its status id), the company's handle from its homepage links, and one
-// post read through Firecrawl's X scrape for its likes and reposts. The announcements lane also
+// post read through NativeWebClient's X scrape for its likes and reposts. The announcements lane also
 // searches X's own index through Alexandria's X provider, which sees a post minutes after it is posted.
 // https://docs.firecrawl.dev/features/search and https://docs.firecrawl.dev/features/scrape
 
-import type { Firecrawl, SearchResultWeb } from "firecrawl";
-import { alexandriaCall } from "../firecrawl/alexandria.ts";
 import { mapLimit, RATE, searchCredits } from "../firecrawl/credits.ts";
+import type { NativeWebClient, SearchResultWeb } from "../web/client.ts";
 import {
-  ANNOUNCEMENT_LOOKBACK_HOURS,
   type AnnouncementLead,
   bioFromProfile,
   type LeadRejection,
@@ -60,7 +58,7 @@ export interface RoundXSearch {
   credits: number;
 }
 
-async function runQuery(client: Firecrawl, query: XQuery): Promise<{ call: XSearchCall; web: SearchResultWeb[] }> {
+async function runQuery(client: NativeWebClient, query: XQuery): Promise<{ call: XSearchCall; web: SearchResultWeb[] }> {
   try {
     const res = await client.search(query.q, { limit: X_SEARCH_LIMIT, tbs: query.tbs, sources: ["web"] });
     const web = (res.web ?? []).filter((w): w is SearchResultWeb => typeof (w as SearchResultWeb).url === "string");
@@ -83,7 +81,7 @@ export interface HandleInput {
  * Every result is parsed, deduped by status id (a profile hit by its account), and classified.
  */
 export async function searchRoundOnX(
-  client: Firecrawl,
+  client: NativeWebClient,
   subject: Omit<RoundSubject, "handle">,
   handles: HandleInput,
   searchedAt: Date = new Date(),
@@ -118,7 +116,7 @@ export async function searchRoundOnX(
 
 /** X handles linked from the company's homepage (links only, 1 credit), status links excluded. */
 export async function homepageHandles(
-  client: Firecrawl,
+  client: NativeWebClient,
   website: string,
 ): Promise<{ handles: string[]; credits: number; error: string | null }> {
   try {
@@ -129,9 +127,9 @@ export async function homepageHandles(
   }
 }
 
-/** One post through Firecrawl's X scrape: likes and reposts (views and replies are not reliable there). */
+/** One post through NativeWebClient's X scrape: likes and reposts (views and replies are not reliable there). */
 export async function readXPost(
-  client: Firecrawl,
+  client: NativeWebClient,
   url: string,
 ): Promise<{ post: XPostRead | null; credits: number; error: string | null }> {
   try {
@@ -152,12 +150,12 @@ export interface AnnouncementSearch {
 }
 
 /**
- * The lane's searches for funding posts, all at once (Firecrawl allows far more concurrent requests
+ * The lane's searches for funding posts, all at once (NativeWebClient allows far more concurrent requests
  * than eight), every result read into a lead or a reason it is not one; a post two searches return
  * is one lead.
  */
 export async function searchAnnouncements(
-  client: Firecrawl,
+  client: NativeWebClient,
   now: Date = new Date(),
   opts: { queries?: ReadonlyArray<{ key: string; q: string }>; lookbackHours?: number } = {},
 ): Promise<AnnouncementSearch> {
@@ -173,39 +171,7 @@ export async function searchAnnouncements(
     if (!byKey.has(lead.key)) byKey.set(lead.key, lead);
     return 1;
   };
-  // X's own index through Alexandria's X provider: a post is there minutes after it is posted, with its
-  // whole text, where web search sees it hours later as a clipped snippet. Same queries, same reading.
-  const since = new Date(now.getTime() - (opts.lookbackHours ?? ANNOUNCEMENT_LOOKBACK_HOURS) * 3_600_000).toISOString().slice(0, 10);
-  const live = await Promise.all(
-    queries.map(async ({ key, q }) => {
-      const call = await alexandriaCall(client, {
-        provider: "x-com",
-        capability: "posts/search",
-        options: { query: q.replace(/^site:x\.com\s+/, ""), limit: 10, from_date: since },
-      });
-      if (!call.ok)
-        return { key: `${key}:live`, results: 0, leads: 0, credits: 0, error: call.kind === "error" ? call.message : call.kind };
-      let leads = 0;
-      for (const p of call.records as LivePost[]) {
-        if (!p?.id || !p.username || !p.text) continue;
-        const handle = p.username.toLowerCase();
-        leads += read(
-          {
-            kind: "post",
-            statusId: p.id,
-            handle,
-            name: p.name,
-            url: `https://x.com/${handle}/status/${p.id}`,
-            text: p.text,
-            snippet: p.text,
-            postedAt: p.created_at ? new Date(p.created_at) : null,
-          },
-          undefined,
-        );
-      }
-      return { key: `${key}:live`, results: call.records.length, leads, credits: call.credits, error: null };
-    }),
-  );
+  // Public search only. Authenticated social workers can submit additional observations through /api/v1/signals.
   const calls = await Promise.all(
     queries.map(async ({ key, q }) => {
       try {
@@ -224,28 +190,19 @@ export async function searchAnnouncements(
       }
     }),
   );
-  const all = [...live, ...calls];
+  const all = calls;
   return { leads: [...byKey.values()], rejected, calls: all, credits: all.reduce((n, c) => n + c.credits, 0) };
-}
-
-/** A post as Alexandria's X provider returns it. */
-interface LivePost {
-  id: string | null;
-  username: string | null;
-  name: string | null;
-  text: string | null;
-  created_at: string | null;
 }
 
 /** The announcement searches' recency: the past day, sorted by date. */
 export const X_ANNOUNCEMENT_TBS = "sbd:1,qdr:d";
 
-/** A founder's X profile read for its bio, through Firecrawl's X scrape: 1 base plus 29 for the X query. */
+/** A founder's X profile read for its bio, through NativeWebClient's X scrape: 1 base plus 29 for the X query. */
 export const X_PROFILE_READ_CREDITS = RATE.xProfileRequest;
 
 /** One X profile's bio and links, for the check that a founder's account is tied to the company. */
 export async function profileBio(
-  client: Firecrawl,
+  client: NativeWebClient,
   handle: string,
 ): Promise<{ bio: string; links: string[]; credits: number; error: string | null }> {
   try {
@@ -266,7 +223,7 @@ export const LEAD_ARTICLE_LIMIT = 10;
 
 /** The search for a lead's article, and the pages worth reading from it (not yet read for this lead). */
 export async function searchLeadArticles(
-  client: Firecrawl,
+  client: NativeWebClient,
   lead: AnnouncementLead,
   alreadyRead: readonly string[] = [],
 ): Promise<{ picks: Array<{ url: string; title?: string }>; results: number; credits: number; error: string | null }> {

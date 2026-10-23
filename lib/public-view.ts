@@ -64,7 +64,7 @@ export function publicValuationDisclosed(r: Partial<Pick<RoundRow, "valuation" |
 }
 
 /**
- * A verdict's verifier as a reader may see it: "judge" (Firecrawl read the primary page) or "model"
+ * A verdict's verifier as a reader may see it: "judge" (NativeWebClient read the primary page) or "model"
  * (every source read together). The stored label names the model and gateway, which is operator
  * detail; the UI only ever asks whether a row was reconciled.
  */

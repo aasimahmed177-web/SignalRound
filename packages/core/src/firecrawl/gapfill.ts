@@ -5,9 +5,9 @@
 // credits by default, effort low, so a click costs cents and finishes in a minute.
 // https://docs.firecrawl.dev/features/agent
 
-import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { SECTOR_HINT, SECTORS } from "../records/sectors.ts";
+import type { NativeWebClient } from "../web/client.ts";
 
 export const GapFill = z.object({
   announced_date: z
@@ -85,7 +85,7 @@ export interface GapFillResult {
   raw: unknown;
 }
 
-export async function gapFill(client: Firecrawl, input: GapFillInput, opts: GapFillOptions = {}): Promise<GapFillResult> {
+export async function gapFill(client: NativeWebClient, input: GapFillInput, opts: GapFillOptions = {}): Promise<GapFillResult> {
   const started = Date.now();
   const result = await client.agent({
     prompt: gapFillPrompt(input),

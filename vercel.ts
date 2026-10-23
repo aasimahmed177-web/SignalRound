@@ -13,6 +13,7 @@ interface Cron {
 }
 
 const FREQUENT: Cron[] = [
+  { path: "/api/cron/native-monitors", schedule: "0 * * * *" },
   { path: "/api/cron/sweep", schedule: "0 * * * *" },
   { path: "/api/cron/deliveries", schedule: "0 * * * *" },
   { path: "/api/cron/trending", schedule: "0 * * * *" },
@@ -29,6 +30,7 @@ const FREQUENT: Cron[] = [
 // sweep at 06 (the hour Lite's weekly sweep and Deep's announcements search are due), then delivery,
 // verification, and the audit of what it found.
 const DAILY: Cron[] = [
+  { path: "/api/cron/native-monitors", schedule: "0 9 * * *" },
   { path: "/api/cron/accuracy", schedule: "0 5 * * *" },
   { path: "/api/cron/sweep", schedule: "0 6 * * *" },
   { path: "/api/cron/company-newsrooms", schedule: "0 6 * * *" },

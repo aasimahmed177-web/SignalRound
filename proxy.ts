@@ -1,6 +1,6 @@
 // The dashboard password gates the whole app: every page, the read API, and the server-action
 // POSTs that land on those pages. The excluded routes carry their own secrets instead: the
-// webhook verifies the Firecrawl signature, the cron routes take CRON_SECRET, the MCP server
+// webhook verifies the NativeWebClient signature, the cron routes take CRON_SECRET, the MCP server
 // MCP_API_KEY, and the feeds their per-token path. With DASHBOARD_PASSWORD unset nothing is
 // gated: a laptop, or a host with its own protection in front.
 //

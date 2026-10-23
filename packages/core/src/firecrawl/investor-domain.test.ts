@@ -271,10 +271,10 @@ describe("investorSearchTarget", () => {
 });
 
 describe("cost", () => {
-  test("one ten-result search is the minimum search charge; a homepage verdict is a page plus JSON; a run is capped", () => {
-    expect(investorDomainCredits(1)).toBe(2);
-    expect(investorDomainCredits(INVESTOR_DOMAINS_PER_RUN)).toBe(120);
-    expect(investorHomepageCredits(1)).toBe(5);
+  test("native searches and homepage reads accrue no hosted scraping credits", () => {
+    expect(investorDomainCredits(1)).toBe(0);
+    expect(investorDomainCredits(INVESTOR_DOMAINS_PER_RUN)).toBe(0);
+    expect(investorHomepageCredits(1)).toBe(0);
   });
 
   test("a pass's cap is proportional to its scope: one ingested round resolves at most 20, never above 60", () => {

@@ -20,8 +20,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { earliestReport, releaseDay, storedReleaseSources } from "./freshness.ts";
 import { applyFill, type RecordFill } from "./gapfill.ts";
 import { listRounds, type RoundRow } from "./persist.ts";
@@ -141,7 +141,7 @@ export class RecordGone extends Error {
 
 export async function corroborateRecord(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   roundId: string,
   opts: CorroborateRecordOptions = {},
 ): Promise<CorroborateOutcome> {

@@ -17,9 +17,9 @@ import { capitalise } from "@/lib/share";
 export function llmsTxt(base: string, origin: string, feeds: Record<string, Array<{ url: string; title: string }>> | undefined): string {
   const feedLinks = Object.values(feeds ?? {}).flatMap((links) => links.map((l) => `- [${l.title}](${origin}${l.url})`));
   return [
-    "# Fireround",
+    "# SignalRound",
     "",
-    "> Fireround is an open-source startup funding feed built on Firecrawl. It finds funding announcements across the open web, pre-seed to growth, extracts each round into a structured record (company, stage, amount, announcement date, lead and other investors), merges duplicate reports, and checks each round against the pages that reported it. Every round links to its sources.",
+    "> SignalRound is an open-source startup funding feed built on native web tools. It finds funding announcements across the open web, pre-seed to growth, extracts each round into a structured record (company, stage, amount, announcement date, lead and other investors), merges duplicate reports, and checks each round against the pages that reported it. Every round links to its sources.",
     "",
     "How to read a round:",
     "",

@@ -88,7 +88,7 @@ export function seesSpend(v: Viewer): boolean {
 }
 
 /** Paths that stay behind the password in demo mode; lib/nav.ts hides the same entries for visitors. */
-export const ADMIN_PATHS = ["/signals", "/review", "/presets", "/settings"] as const;
+export const ADMIN_PATHS = ["/signals", "/scraper", "/review", "/presets", "/settings"] as const;
 
 /**
  * Route handlers that change configuration (the admin Add to Slack creates a delivery target): admin
@@ -116,7 +116,7 @@ export function adminRefusal(authorization: string | null): Response | null {
 }
 
 /**
- * Whether the request carries ALEXANDRIA_API_KEY as a bearer. Firecrawl's Alexandria serves the read
+ * Whether the request carries ALEXANDRIA_API_KEY as a bearer. NativeWebClient's Alexandria serves the read
  * API to every agent that calls the fireround provider from a handful of addresses, so its calls are
  * not counted per address. It is not a viewer tier: it reads exactly what a demo visitor reads.
  */

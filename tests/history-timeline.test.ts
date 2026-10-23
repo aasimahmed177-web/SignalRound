@@ -12,8 +12,8 @@ import {
   priorKey,
 } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { requestTally } from "../lib/company-requests";
 import { firecrawlHistoryReader, promotePrior, queueCompanyHistory } from "../lib/history";

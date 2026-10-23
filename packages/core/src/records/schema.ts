@@ -1,5 +1,5 @@
 // The one definition of a funding-round record, in Zod 4.
-// Three artifacts derive from it: TypeScript types, the JSON Schema Firecrawl's
+// Three artifacts derive from it: TypeScript types, the JSON Schema NativeWebClient's
 // `json` format and `/agent` extract against, and (via db/schema.ts) the tables.
 
 import { z } from "zod";
@@ -55,7 +55,7 @@ export const FieldQuotes = z.object({
 
 /**
  * One funding round as extracted from one page. Field descriptions are the
- * extraction prompt: Firecrawl's guidance is short prompts, constraints in the
+ * extraction prompt: NativeWebClient's guidance is short prompts, constraints in the
  * schema, enums for fixed values, "null if not stated" on every optional field.
  */
 export const ExtractedRound = z.object({
@@ -180,7 +180,7 @@ export const ExtractedRound = z.object({
     ),
   certainty_quote: nullableString.optional().describe("Exact evidence sentence supporting certainty, null if no sentence states it."),
   certainty_checked: z.enum(["announced", "reported", "expected"]).nullable().optional(),
-  field_quotes: FieldQuotes.optional().describe("One source quote for every stated field. Required in new Firecrawl readings."),
+  field_quotes: FieldQuotes.optional().describe("One source quote for every stated field. Required in new NativeWebClient readings."),
   lead_evidence: z.array(z.string()).optional().describe("Grounded lead sentences retained by the quoted reader for role validation."),
 });
 export type ExtractedRound = z.infer<typeof ExtractedRound>;
@@ -221,7 +221,7 @@ export const RoundsPageLenient = RoundsPage.extend({
   page_date: nullableString.catch(null),
 });
 
-/** JSON Schema handed to Firecrawl (`formats: [{ type: "json", schema }]` and `/agent`). */
+/** JSON Schema handed to NativeWebClient (`formats: [{ type: "json", schema }]` and `/agent`). */
 export const roundsPageJsonSchema = z.toJSONSchema(
   RoundsPage.safeExtend({
     rounds: z.array(
@@ -338,7 +338,7 @@ export interface FeedRecord {
     status: "unverified" | "confirmed" | "corrected" | "contradicted" | "not_news" | "skipped";
     notes: string[];
     url: string | null;
-    /** Who verified: "judge" (Firecrawl's single-page read) or the reconciling model ("gateway:openai/gpt-6-luna"). */
+    /** Who verified: "judge" (NativeWebClient's single-page read) or the reconciling model ("gateway:openai/gpt-6-luna"). */
     verifier?: string;
     /** How many pages the verifier actually read (at most MAX_SOURCES, each cut at PAGE_CHARS). */
     sources_seen?: number;

@@ -1,7 +1,7 @@
 import { acceptCorroboration, DEFAULT_TIERS, type RoundsPage, sourceMentionsCompany } from "@fireround/core";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, it } from "vitest";
 import { corroborateRecord, fragmentToFill } from "../lib/corroborate.ts";
 import { corroborateUnstated, corroborationTargets } from "../lib/intel.ts";
@@ -428,7 +428,7 @@ describe("corroborateRecord", () => {
     expect(outcome.added.fields).toEqual(expect.arrayContaining(["date", "lead"]));
     expect(outcome.confidence.after).toBeGreaterThan(outcome.confidence.before);
     expect(outcome.disposition).toEqual({ before: "review", after: "review" });
-    expect(outcome.creditsEstimated).toBeGreaterThan(0);
+    expect(outcome.creditsEstimated).toBe(0);
 
     const after = (await listRounds(handle, { ids: [row.id], includeReview: true })).rows[0];
     expect(after?.announced_on).toBe("2026-09-02");

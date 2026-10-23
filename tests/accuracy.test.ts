@@ -21,7 +21,7 @@ vi.mock("workflow/api", () => ({
     return { runId: `wf-${started.length}` };
   }),
 }));
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({}) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({}) }));
 vi.mock("@/lib/dossier-check", async (original) => ({
   ...(await original<typeof import("@/lib/dossier-check")>()),
   dossierCheckAvailable: () => checkModel.available,
@@ -504,15 +504,14 @@ describe("remedies", () => {
     expect(started.map((s) => s.args[0])).toEqual([{ companyId: "co0", action: "dive" }, "openai"]);
   });
 
-  test("remedies off, or no Firecrawl key: flags only, nothing spent", async () => {
+  test("remedies off records flags; native remedies do not require a vendor key", async () => {
     await flaggedCompanies(2);
     const off = await accuracyWorkflow({ topN: 100, remedies: false, caps: { profile: 5, dossier: 5, history: 5 } }, "accuracy:off");
     expect(off.remedies_profile + off.remedies_dossier + off.remedies_history).toBe(0);
     delete process.env.FIRECRAWL_API_KEY;
     const keyless = await accuracyWorkflow({ topN: 100, remedies: true, caps: { profile: 5, dossier: 5, history: 5 } }, "accuracy:keyless");
-    expect(keyless.remedies_profile + keyless.remedies_dossier).toBe(0);
-    expect(enriched.ids).toEqual([]);
-    expect(started).toEqual([]);
+    expect(keyless.remedies_profile).toBeGreaterThan(0);
+    expect(enriched.ids.length).toBeGreaterThan(0);
   });
 });
 

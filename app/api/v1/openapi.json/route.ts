@@ -36,7 +36,7 @@ export function GET(request: Request) {
   const Trending = {
     type: ["object", "null"],
     description:
-      "The Trending lane's reading while the round is inside its first 72 hours (null after, or before it is scored): distinct people posting about it on X (found with Firecrawl search, outlets and aggregator accounts left out), distinct press outlets, and Hacker News points, combined into a score weighted toward the last 24 hours. Counts are distinct accounts and outlets, not likes. label is true for the rounds that earn Trending: at most five, each with 10+ people on X and 3+ outlets.",
+      "The Trending lane's reading while the round is inside its first 72 hours (null after, or before it is scored): distinct people posting about it on X (found with NativeWebClient search, outlets and aggregator accounts left out), distinct press outlets, and Hacker News points, combined into a score weighted toward the last 24 hours. Counts are distinct accounts and outlets, not likes. label is true for the rounds that earn Trending: at most five, each with 10+ people on X and 3+ outlets.",
     properties: {
       label: { type: "boolean" },
       rank: { type: ["integer", "null"], description: "Position by score among the rounds being followed; 1 is the most discussed" },
@@ -205,7 +205,7 @@ export function GET(request: Request) {
       alexandria: {
         type: ["object", "null"],
         description:
-          "The company's Y Combinator record through Firecrawl Alexandria, keyed on its verified domain; null when YC does not list it",
+          "The company's Y Combinator record through NativeWebClient Alexandria, keyed on its verified domain; null when YC does not list it",
         properties: {
           yc: {
             type: ["object", "null"],

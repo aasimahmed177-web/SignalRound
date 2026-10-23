@@ -8,24 +8,20 @@ import { randomUUID } from "node:crypto";
 import { fetchRates, formatWindow, parseWindow, sweep } from "@fireround/core";
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../lib/db.ts";
-import { firecrawlKey, getFirecrawl, MISSING_FIRECRAWL_KEY } from "../lib/firecrawl.ts";
 import { persistRecords, recordRun } from "../lib/persist.ts";
 import { loadPreset } from "../lib/presets.ts";
 import { invalidateScriptEntityPages } from "../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 function arg(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-if (!firecrawlKey()) {
-  console.error(MISSING_FIRECRAWL_KEY);
-  process.exit(1);
-}
 const presetSlug = arg("--preset", "series-a-b");
 const window = parseWindow(arg("--window", "week"));
 const preset = await loadPreset(presetSlug);
-const client = getFirecrawl();
+const client = getWebClient();
 const handle = await openStore();
 const runId = randomUUID();
 const startedAt = new Date();

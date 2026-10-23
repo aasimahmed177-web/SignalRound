@@ -1,6 +1,6 @@
 // The SEC Form D lane as a durable run: search EDGAR for the window's filings, read each unseen
 // one, keep the venture-shaped placements, resolve, persist under the "form-d" preset slug,
-// record the run, queue and flush deliveries. No Firecrawl credits. Seen state is the candidates
+// record the run, queue and flush deliveries. No NativeWebClient credits. Seen state is the candidates
 // table under monitor id `formd`, keyed by the filing's index URL.
 
 import type { ExtractedItem, FeedRecord, FormDSpan, RateTable } from "@fireround/core";

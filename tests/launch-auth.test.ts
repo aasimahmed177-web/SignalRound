@@ -70,48 +70,10 @@ describe("private MCP access", () => {
   });
 });
 
-describe("production Firecrawl signatures", () => {
-  test("a bearer alone cannot replace the production HMAC requirement", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("FIRECRAWL_WEBHOOK_SECRET", "");
-    vi.stubEnv("WEBHOOK_BEARER_TOKEN", "bearer-secret");
-    const { POST } = await import("../app/api/webhooks/firecrawl/route");
-    const response = await POST(
-      new Request("https://app.test/api/webhooks/firecrawl", {
-        method: "POST",
-        headers: { authorization: "Bearer bearer-secret" },
-        body: JSON.stringify({ id: "unsigned", type: "monitor.check.completed" }),
-      }),
-    );
-    expect(response.status).toBe(401);
-  });
-
-  test("when configured, the bearer is required in addition to the signature", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("FIRECRAWL_WEBHOOK_SECRET", "signing-secret");
-    vi.stubEnv("WEBHOOK_BEARER_TOKEN", "bearer-secret");
-    const { POST } = await import("../app/api/webhooks/firecrawl/route");
-    const { signForTests } = await import("../lib/firecrawl-webhook");
-    const body = "not json";
-    const incompleteHeaders: Record<string, string>[] = [
-      { authorization: "Bearer bearer-secret" },
-      { "x-firecrawl-signature": signForTests(body, "signing-secret") },
-    ];
-    for (const headers of incompleteHeaders) {
-      expect((await POST(new Request("https://app.test/api/webhooks/firecrawl", { method: "POST", headers, body }))).status).toBe(401);
-    }
-    expect(
-      (
-        await POST(
-          new Request("https://app.test/api/webhooks/firecrawl", {
-            method: "POST",
-            headers: { authorization: "Bearer bearer-secret", "x-firecrawl-signature": signForTests(body, "signing-secret") },
-            body,
-          }),
-        )
-      ).status,
-    ).toBe(400);
-  });
+test("the retired webhook remains closed in production", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  const { POST } = await import("../app/api/webhooks/firecrawl/route");
+  expect((await POST(new Request("https://app.test/api/webhooks/firecrawl", { method: "POST", body: "{}" }))).status).toBe(410);
 });
 
 describe("Postgres pool size", () => {

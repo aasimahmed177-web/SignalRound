@@ -1,5 +1,5 @@
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { getCompany } from "../lib/company";
 import { corroborateRecord } from "../lib/corroborate";

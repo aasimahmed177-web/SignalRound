@@ -114,11 +114,9 @@ export function buildSitemap(
   ];
 }
 
-const FIRECRAWL = { url: "https://www.firecrawl.dev", id: "https://www.firecrawl.dev/#organization" };
-
 /**
- * The landing page's JSON-LD: the Fireround site, published by Firecrawl. Fireround is a product,
- * not a company, so the one Organization node is Firecrawl's.
+ * The landing page's JSON-LD: the Fireround site, published by NativeWebClient. Fireround is a product,
+ * not a company, so the one Organization node is NativeWebClient's.
  */
 export function siteJsonLd(origin: string, description: string) {
   return {
@@ -127,19 +125,19 @@ export function siteJsonLd(origin: string, description: string) {
       {
         "@type": "WebSite",
         "@id": `${origin}/#website`,
-        name: "Fireround",
+        name: "SignalRound",
         url: `${origin}/`,
         description,
         inLanguage: "en",
-        publisher: { "@id": FIRECRAWL.id },
+        publisher: { "@id": `${origin}/#organization` },
       },
       {
         "@type": "Organization",
-        "@id": FIRECRAWL.id,
-        name: "Firecrawl",
-        url: FIRECRAWL.url,
-        logo: `${FIRECRAWL.url}/brand/firecrawl-wordmark.svg`,
-        sameAs: ["https://github.com/firecrawl", REPO_URL],
+        "@id": `${origin}/#organization`,
+        name: "SignalRound",
+        url: origin,
+        logo: `${origin}/icon.svg`,
+        sameAs: [REPO_URL],
       },
     ],
   };
@@ -344,7 +342,7 @@ export function companyJsonLd(page: CompanyPage, base: string, asOf: Date) {
 }
 
 /**
- * The feed's JSON-LD: the rounds as a Dataset, published by Firecrawl, downloadable from the API
+ * The feed's JSON-LD: the rounds as a Dataset, published by NativeWebClient, downloadable from the API
  * and, on a public instance, the public feeds. `base` names the page, `origin` the deployment that
  * serves the downloads.
  */
@@ -366,10 +364,10 @@ export function feedJsonLd(base: string, origin: string, feeds: Record<string, A
     inLanguage: "en",
     isAccessibleForFree: true,
     keywords: ["startup funding", "funding rounds", "venture capital", "seed", "Series A", "investors"],
-    creator: { "@type": "Organization", "@id": FIRECRAWL.id, name: "Firecrawl", url: FIRECRAWL.url },
+    creator: { "@type": "Organization", "@id": `${base}/#organization`, name: "SignalRound", url: base },
     variableMeasured: ["company", "stage", "amount", "announcement date", "lead investors", "other investors", "sources"],
     measurementTechnique:
-      "Funding announcements found with Firecrawl web search, extracted to a schema, deduplicated, and checked against the pages that reported them.",
+      "Funding announcements found with NativeWebClient web search, extracted to a schema, deduplicated, and checked against the pages that reported them.",
     distribution: [
       download("application/json", "/api/v1/rounds", "Funding rounds API (JSON)"),
       download("text/csv", "/api/v1/rounds?format=csv", "Funding rounds API (CSV)"),

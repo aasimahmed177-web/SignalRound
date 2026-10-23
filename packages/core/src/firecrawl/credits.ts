@@ -1,20 +1,16 @@
-// Rate card and a running tally, printed beside the measured account delta.
-// https://www.firecrawl.dev/pricing and https://docs.firecrawl.dev/features/monitoring#pricing
+// Legacy ledger compatibility. Native scraping has no service-credit charge.
+// Model-provider and hosting costs are separate; zero here does not mean free compute.
 
 export const RATE = {
-  searchPer10Results: 2,
-  scrapePage: 1,
-  jsonFormatPerPage: 4,
-  /**
-   * The branding format: the billing page's surcharge list (JSON, query, highlights, audio, video,
-   * PII redaction, zero data retention) does not name it, so a branding-only read is the base page.
-   * https://docs.firecrawl.dev/billing
-   */
+  searchPer10Results: 0,
+  scrapePage: 0,
+  jsonFormatPerPage: 0,
+  /** Branding is parsed locally from public page metadata. */
   brandingFormatPerPage: 0,
-  /** x.com goes through Grok: 1 base + 29 for the X query, before the JSON format. https://docs.firecrawl.dev/billing */
-  xProfileRequest: 30,
-  monitorJudgePerResult: 1,
-  mapCall: 1,
+  /** Publicly indexed posts only; there is no hosted X reader. */
+  xProfileRequest: 0,
+  monitorJudgePerResult: 0,
+  mapCall: 0,
 } as const;
 
 export const X_HOSTS = new Set(["x.com", "twitter.com", "mobile.twitter.com"]);

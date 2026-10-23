@@ -9,7 +9,6 @@
 // in the round's press release. A guessed domain never becomes a candidate.
 // https://docs.firecrawl.dev/features/scrape
 
-import type { BrandingProfile, Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { brandSearchName } from "../records/brand-name.ts";
 import {
@@ -20,6 +19,7 @@ import {
   registrableDomain,
   SOCIAL_AND_DIRECTORY_HOSTS,
 } from "../records/normalize.ts";
+import type { BrandingProfile, NativeWebClient } from "../web/client.ts";
 import { extractionCredits, mapLimit, RATE, searchCredits } from "./credits.ts";
 
 // Field order is deliberate: the model writes what the site sells before it judges whether that
@@ -274,7 +274,7 @@ const LINKEDIN_WEBSITE_FIELD = /(?:Website|Sitio web|Site web|Webseite|Sito web|
  * result was another company's page a third of the time (Prevalent AI's search returns Prevalent Networks).
  */
 export async function findLinkedinPage(
-  client: Firecrawl,
+  client: NativeWebClient,
   company: { name: string; domain: string },
 ): Promise<{ url: string | null; credits: number }> {
   try {
@@ -361,7 +361,7 @@ export function thinDescription(description: string | null | undefined): boolean
  * The company's own line from its verified homepage, or null and the record's description stands. Its
  * meta description's first sentence when the company is its subject ("PlannerPal automates admin tasks
  * for financial advisers"), else what its title says beside its name when that names a product or a kind
- * of business ("Firecrawl | Web Data API for AI Agents" reads "Web Data API for AI Agents"). A slogan
+ * of business ("NativeWebClient | Web Data API for AI Agents" reads "Web Data API for AI Agents"). A slogan
  * ("Any Orbit. Any Time."), self-praise ("India's #1 AI Tutor"), a pitch to the reader ("Unlock your
  * potential"), and a line in another language never do.
  */
@@ -854,7 +854,7 @@ export interface WebsiteSearch {
  * only hosts that do not, so krakentechnology.com is not dropped for the "tech" in it.
  */
 export async function searchWebsites(
-  client: Firecrawl,
+  client: NativeWebClient,
   context: CompanyContext,
   max = 3,
   opts: { loose?: boolean } = {},
@@ -904,7 +904,7 @@ function pathOf(url: string): string {
 }
 
 /** Up to three homepages a five-result grounded search offers for the company, in search order, one per host. */
-export async function findWebsite(client: Firecrawl, context: CompanyContext, max = 3): Promise<string[]> {
+export async function findWebsite(client: NativeWebClient, context: CompanyContext, max = 3): Promise<string[]> {
   return (await searchWebsites(client, context, max)).homepages;
 }
 
@@ -1088,7 +1088,11 @@ export interface EnrichOptions {
   pricingPage?: boolean;
 }
 
-export async function enrichCompanies(client: Firecrawl, companies: EnrichInput[], options: EnrichOptions = {}): Promise<EnrichResult> {
+export async function enrichCompanies(
+  client: NativeWebClient,
+  companies: EnrichInput[],
+  options: EnrichOptions = {},
+): Promise<EnrichResult> {
   const { concurrency = 6, pricingPage = true } = options;
   let searches = 0;
   let pages = 0;

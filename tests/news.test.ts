@@ -2,8 +2,8 @@
 // which stay on the record (the company page and the feed's expanded row) without being news.
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
 import { countArticles, FILING_HOSTS, listNews, listStories } from "../lib/news";

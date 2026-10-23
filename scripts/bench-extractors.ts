@@ -190,7 +190,7 @@ for (const [id, entries] of [
     }
   }
   console.log(
-    `\n${id}: ${pages} paired pages, ${failed} rejected/failed, ${(totalMs / pages / 1000).toFixed(1)} sec/page, $${(totalCost / pages).toFixed(4)} model/page plus Firecrawl scrape`,
+    `\n${id}: ${pages} paired pages, ${failed} rejected/failed, ${(totalMs / pages / 1000).toFixed(1)} sec/page, $${(totalCost / pages).toFixed(4)} model/page plus NativeWebClient scrape`,
   );
   for (const field of fields) {
     const s = scores[field];

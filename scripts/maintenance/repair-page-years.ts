@@ -1,14 +1,14 @@
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../../lib/db.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { extractionDater, repairPageYears } from "../../lib/page-years.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 // node scripts/maintenance/repair-page-years.ts [--reread] [--ids a,b] [--apply]
 const apply = process.argv.includes("--apply");
 const at = process.argv.indexOf("--ids");
 const ids = at >= 0 ? process.argv[at + 1]?.split(",").filter(Boolean) : undefined;
-const client = getFirecrawl();
+const client = getWebClient();
 // A cached copy up to a month old reads the same and costs no fetch.
 const read = (url: string) =>
   client

@@ -37,7 +37,7 @@ export function DossierPending({ id }: { id: string }) {
   if (!pending) return null;
   return (
     <p className="text-body-small text-muted-foreground" role="status">
-      Still researching: a company dossier from Firecrawl's Agent may add earlier rounds and founders. Usually a few more minutes.
+      Still researching: a company dossier from native web tools's Agent may add earlier rounds and founders. Usually a few more minutes.
     </p>
   );
 }

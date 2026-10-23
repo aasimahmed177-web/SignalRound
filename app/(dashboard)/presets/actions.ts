@@ -13,10 +13,10 @@ import { TAG_PRESETS } from "@/lib/cached";
 import { estimateSweep as estimate, type SweepEstimate } from "@/lib/coverage";
 import { requireDashboard } from "@/lib/dashboard-auth.server";
 import { db } from "@/lib/db";
-import { firecrawlKey, getFirecrawl, MISSING_FIRECRAWL_KEY } from "@/lib/firecrawl";
 import { bumpRunCount } from "@/lib/persist";
 import { deleteCustomPreset, isCustomPreset, listPresets, loadPreset, saveCustomPreset } from "@/lib/presets";
 import { getCoverage } from "@/lib/settings";
+import { getWebClient } from "@/lib/web-client";
 import { enrichWorkflow } from "@/workflows/enrich";
 import { ingestCandidate } from "@/workflows/ingest-candidate";
 import { sweepWorkflow } from "@/workflows/sweep";
@@ -43,7 +43,6 @@ export async function estimateSweep(presetSlug: string): Promise<SweepEstimate> 
 export async function startSweep(presetSlug: string, window: "day" | "week"): Promise<ActionResult<{ value: { runId: string } }>> {
   return attempt(async () => {
     await requireDashboard();
-    if (!firecrawlKey()) throw new Error(MISSING_FIRECRAWL_KEY);
     const runId = randomUUID();
     await start(sweepWorkflow, [[{ presetSlug, window, runId }], await origin()]);
     revalidatePath("/runs");
@@ -54,7 +53,6 @@ export async function startSweep(presetSlug: string, window: "day" | "week"): Pr
 export async function startEnrich(presetSlug: string, limit = 50): Promise<ActionResult<{ value: { runId: string } }>> {
   return attempt(async () => {
     await requireDashboard();
-    if (!firecrawlKey()) throw new Error(MISSING_FIRECRAWL_KEY);
     const runId = randomUUID();
     await start(enrichWorkflow, [presetSlug, runId, limit]);
     revalidatePath("/runs");
@@ -70,10 +68,7 @@ export async function createMonitor(
     const handle = await db();
     // The monitor's cadence is the coverage rung's, not the preset file's.
     const [preset, plan] = await Promise.all([loadPreset(presetSlug), getCoverage(handle)]);
-    const bearer = process.env.WEBHOOK_BEARER_TOKEN;
-    const monitor = await createPresetMonitor(getFirecrawl(), preset, {
-      webhookUrl: `${await origin()}/api/webhooks/firecrawl`,
-      webhookHeaders: bearer ? { authorization: `Bearer ${bearer}` } : undefined,
+    const monitor = await createPresetMonitor(getWebClient(), preset, {
       schedule: plan.monitorSchedule,
     });
     await handle
@@ -100,10 +95,11 @@ export async function runMonitorCheck(
     const handle = await db();
     const [row] = await handle.select().from(schema.presetMonitors).where(eq(schema.presetMonitors.presetSlug, presetSlug)).limit(1);
     if (!row) throw new Error("No monitor for this preset yet.");
-    const client = getFirecrawl();
+    const client = getWebClient();
     const appOrigin = await origin();
     const check = await runMonitorNow(client, row.monitorId);
     const detail = await client.getMonitorCheck(row.monitorId, check.id, { limit: 100 });
+    if (detail.status !== "completed") throw new Error(detail.error ?? `Monitor check ${detail.status}`);
     const alerted = (detail.pages ?? []).filter((p) => p.status === "new");
     // The run row exists before any ingest starts; each ingest then adds its page and records to it.
     await handle
@@ -144,7 +140,7 @@ export async function deleteMonitor(presetSlug: string): Promise<ActionResult> {
     const handle = await db();
     const [row] = await handle.select().from(schema.presetMonitors).where(eq(schema.presetMonitors.presetSlug, presetSlug)).limit(1);
     if (!row) return;
-    await getFirecrawl().deleteMonitor(row.monitorId);
+    await getWebClient().deleteMonitor(row.monitorId);
     await handle.delete(schema.presetMonitors).where(eq(schema.presetMonitors.presetSlug, presetSlug));
     revalidatePath("/presets");
   });

@@ -101,7 +101,9 @@ export async function DemoHero({ stats, preset, house }: { stats: DemoStats; pre
               </Fragment>
             ))}
           </p>
-          <p className="hidden text-body-small text-muted-foreground lg:block">Open source, and built on Firecrawl search and scrape.</p>
+          <p className="hidden text-body-small text-muted-foreground lg:block">
+            Open source, and built on native web tools search and scrape.
+          </p>
         </div>
       </div>
     </section>

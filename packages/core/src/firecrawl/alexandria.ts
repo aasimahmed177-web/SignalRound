@@ -5,8 +5,9 @@
 // as a typed outcome, not a crash, so the page can say what an admin must do.
 // https://docs.firecrawl.dev/alexandria
 
-import type { AlexandriaCall, Firecrawl } from "firecrawl";
+import { z } from "zod";
 import { registrableDomain } from "../records/normalize.ts";
+import type { NativeWebClient } from "../web/client.ts";
 
 export interface AlexandriaFounder {
   name: string;
@@ -44,34 +45,65 @@ export type AlexandriaOutcome =
   | { ok: false; kind: "terms_required"; url: string }
   | { ok: false; kind: "error"; message: string };
 
-const TERMS_URL = /https:\/\/\S+/;
+interface CatalogueCall {
+  provider: string;
+  capability: string;
+  options?: Record<string, unknown>;
+}
+
+const YcProfile = z.object({
+  name: z.string(),
+  slug: z.string(),
+  website: z.string().nullable(),
+  batch_name: z.string().nullable(),
+  year_founded: z.number().nullable(),
+  team_size: z.number().nullable(),
+  location: z.string().nullable(),
+  one_liner: z.string().nullable(),
+  tags: z.array(z.string()),
+  ycdc_status: z.string().nullable(),
+  founders: z.array(
+    z.object({ name: z.string(), title: z.string().nullable(), linkedin_url: z.string().nullable(), twitter_url: z.string().nullable() }),
+  ),
+});
 
 /**
  * One Alexandria execution. The terms gate fails the whole request before it runs, so the SDK
  * throws; a per-call failure (a bad option, a provider error) lands on the item instead and
  * costs nothing. `records` reads `data.records`, falling back to `data.data`.
  */
-export async function alexandriaCall(client: Firecrawl, call: AlexandriaCall): Promise<AlexandriaOutcome> {
+export async function alexandriaCall(client: NativeWebClient, call: CatalogueCall): Promise<AlexandriaOutcome> {
   try {
-    const res = await client.scrape({ alexandria: call });
-    const item = res.alexandria[0];
-    if (!item) return { ok: false, kind: "error", message: "the call returned no result" };
-    if (item.error) return { ok: false, kind: "error", message: item.error.message };
-    const data = item.data as { records?: unknown[]; data?: unknown[] } | undefined;
-    return {
-      ok: true,
-      records: data?.records ?? data?.data ?? [],
-      credits: item.creditsCost ?? res.creditsCost ?? 0,
-    };
-  } catch (e) {
-    // Read the error's shape rather than instanceof SdkError: two copies of the SDK in one
-    // process (root and workspace package) fail instanceof, and a value import would pull
-    // the SDK's axios chain into the workflow bundle, which has no `require`.
-    const err = e as { code?: string; message?: string; requiresAction?: { type?: string; url?: string } } | null;
-    const action = err?.requiresAction;
-    if (action?.type === "accept_terms" || err?.code === "THIRD_PARTY_DATA_TERMS_REQUIRED") {
-      return { ok: false, kind: "terms_required", url: action?.url ?? String(err?.message ?? "").match(TERMS_URL)?.[0] ?? "" };
+    if (call.provider !== "ycombinator-com") throw new Error("Only the public YC directory is supported by native catalogue research.");
+    let urls: string[] = [];
+    if (call.capability === "companies/company") {
+      const slug = String(call.options?.slug ?? "");
+      if (!/^[a-z0-9-]+$/i.test(slug)) throw new Error("Invalid YC company slug");
+      urls = [`https://www.ycombinator.com/companies/${slug}`];
+    } else if (call.capability === "companies/search") {
+      const result = await client.search(`site:ycombinator.com/companies ${String(call.options?.query ?? "")}`, { limit: 4 });
+      urls = (result.web ?? []).flatMap((hit) => {
+        const url = hit.url;
+        return typeof url === "string" && /^https:\/\/(?:www\.)?ycombinator\.com\/companies\/[a-z0-9-]+\/?$/i.test(url) ? [url] : [];
+      });
+    } else throw new Error("Unsupported native catalogue capability");
+    const records: unknown[] = [];
+    for (const url of [...new Set(urls)].slice(0, 4)) {
+      const doc = await client.scrape(url, {
+        formats: [
+          {
+            type: "json",
+            schema: z.toJSONSchema(YcProfile),
+            prompt:
+              "Read this YC company profile. Use only facts on this page. Null for missing values. Do not infer founders or websites.",
+          },
+        ],
+      });
+      const parsed = YcProfile.safeParse(doc.json);
+      if (parsed.success) records.push({ ...parsed.data, url });
     }
+    return { ok: true, records, credits: 0 };
+  } catch (e) {
     return { ok: false, kind: "error", message: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -164,7 +196,7 @@ function callError(outcome: Exclude<AlexandriaOutcome, { ok: true }>): { status:
  * domain, then that company's profile.
  */
 export async function alexandriaEnrich(
-  client: Firecrawl,
+  client: NativeWebClient,
   company: { company_key: string; company_name: string; domain: string },
 ): Promise<AlexandriaEnrichment> {
   let credits = 0;

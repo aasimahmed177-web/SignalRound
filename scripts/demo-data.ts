@@ -1,5 +1,5 @@
 // Fill an empty store with fictional sample rounds, so the dashboard has something to show before a
-// Firecrawl key or a first sweep:
+// NativeWebClient key or a first sweep:
 //   pnpm demo-data
 // It refuses a store that already has rounds, so it never mixes into real data. Clear the samples before
 // your first real sweep with `pnpm reset-data -- --yes`. The samples are in lib/demo-data.ts.

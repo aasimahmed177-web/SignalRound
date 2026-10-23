@@ -2,9 +2,8 @@
 // when its website resolves to it, and a provider whose terms are not accepted is a typed
 // outcome, not a crash.
 
-import type { Firecrawl } from "firecrawl";
-import { SdkError } from "firecrawl";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import { alexandriaCall, pickYcHit, ycFromRecord } from "./alexandria.ts";
 
 const SEARCH_RECORD = {
@@ -58,17 +57,6 @@ const COMPANY_RECORD = {
   ],
 };
 
-function stubClient(result: unknown): Firecrawl {
-  return { scrape: async () => result } as unknown as Firecrawl;
-}
-
-const okResult = (records: unknown[], creditsCost = 5, key = "records") => ({
-  scrapeId: "s1",
-  requestId: "r1",
-  creditsCost,
-  alexandria: [{ provider: "ycombinator-com", capability: "companies/search", creditsCost, data: { [key]: records } }],
-});
-
 describe("pickYcHit", () => {
   test("picks the hit whose website resolves to the verified domain, never a same-name namesake", () => {
     const records = [{ ...SEARCH_RECORD, name: "Firecrawl", website: "https://firecrawl-namesake.io", slug: "namesake" }, SEARCH_RECORD];
@@ -96,53 +84,54 @@ describe("ycFromRecord", () => {
 });
 
 describe("alexandriaCall", () => {
-  test("a success returns the records and what the call cost", async () => {
-    const r = await alexandriaCall(stubClient(okResult([SEARCH_RECORD])), { provider: "ycombinator-com", capability: "companies/search" });
-    expect(r).toEqual({ ok: true, records: [SEARCH_RECORD], credits: 5 });
-  });
-
-  test("a per-call error is a typed error, not a throw", async () => {
-    const result = {
-      scrapeId: "s1",
-      requestId: "r1",
-      creditsCost: 0,
-      alexandria: [
-        {
-          provider: "ycombinator-com",
-          capability: "companies/search",
-          error: { code: "invalid_option", message: "companies/search does not take limit.", status: 400 },
-        },
+  test("reads only public YC company search hits and records zero scraping credits", async () => {
+    const profile = { ...COMPANY_RECORD, name: SEARCH_RECORD.name };
+    const scrape = vi.fn(async (_url: string) => ({ json: profile }));
+    const search = vi.fn(async () => ({
+      web: [
+        { url: SEARCH_RECORD.url },
+        { url: SEARCH_RECORD.url },
+        { url: "https://ycombinator.com.evil.example/companies/firecrawl" },
+        { url: "https://www.ycombinator.com/companies" },
       ],
-    };
-    const r = await alexandriaCall(stubClient(result), { provider: "ycombinator-com", capability: "companies/search" });
-    expect(r).toEqual({ ok: false, kind: "error", message: "companies/search does not take limit." });
+    }));
+    const r = await alexandriaCall({ scrape, search } as unknown as Firecrawl, {
+      provider: "ycombinator-com",
+      capability: "companies/search",
+      options: { query: "Firecrawl" },
+    });
+    expect(r).toMatchObject({ ok: true, records: [{ name: "Firecrawl", slug: "firecrawl", url: SEARCH_RECORD.url }], credits: 0 });
+    expect(scrape).toHaveBeenCalledTimes(1);
+    expect(scrape.mock.calls[0]?.[0]).toBe(SEARCH_RECORD.url);
+    expect(search).toHaveBeenCalledWith("site:ycombinator.com/companies Firecrawl", { limit: 4 });
   });
 
-  test("a thrown terms error is the terms_required outcome with the page to visit", async () => {
+  test("search failures remain explicit provider errors", async () => {
     const client = {
-      scrape: async () => {
-        throw new SdkError(
-          "An organization admin must accept the example provider's terms. Accept them at https://www.firecrawl.dev/app/alexandria/example",
-          403,
-          "THIRD_PARTY_DATA_TERMS_REQUIRED",
-          undefined,
-          undefined,
-          undefined,
-          { type: "accept_terms", terms: "example", url: "https://www.firecrawl.dev/app/alexandria/example" },
-        );
+      search: async () => {
+        throw new Error("Search unavailable");
       },
     } as unknown as Firecrawl;
-    const r = await alexandriaCall(client, { provider: "example", capability: "companies/lookup" });
-    expect(r).toEqual({ ok: false, kind: "terms_required", url: "https://www.firecrawl.dev/app/alexandria/example" });
+    const r = await alexandriaCall(client, { provider: "ycombinator-com", capability: "companies/search" });
+    expect(r).toEqual({ ok: false, kind: "error", message: "Search unavailable" });
   });
 
-  test("a terms error without requiresAction still parses the url out of the message", async () => {
-    const client = {
-      scrape: async () => {
-        throw new SdkError("Accept them at https://www.firecrawl.dev/app/alexandria/example", 403, "THIRD_PARTY_DATA_TERMS_REQUIRED");
-      },
-    } as unknown as Firecrawl;
-    const r = await alexandriaCall(client, { provider: "example", capability: "companies/lookup" });
-    expect(r).toEqual({ ok: false, kind: "terms_required", url: "https://www.firecrawl.dev/app/alexandria/example" });
+  test("unsupported hosted providers are refused before any network request", async () => {
+    const scrape = vi.fn();
+    const r = await alexandriaCall({ scrape } as unknown as Firecrawl, { provider: "example", capability: "companies/lookup" });
+    expect(r).toMatchObject({ ok: false, kind: "error", message: expect.stringContaining("Only the public YC directory") });
+    expect(scrape).not.toHaveBeenCalled();
+  });
+
+  test("invalid company slugs and invalid structured profiles never produce records", async () => {
+    const scrape = vi.fn(async () => ({ json: { name: "Unvalidated data" } }));
+    const client = { scrape } as unknown as Firecrawl;
+    expect(
+      await alexandriaCall(client, { provider: "ycombinator-com", capability: "companies/company", options: { slug: "../private" } }),
+    ).toMatchObject({ ok: false, message: "Invalid YC company slug" });
+    expect(scrape).not.toHaveBeenCalled();
+    expect(
+      await alexandriaCall(client, { provider: "ycombinator-com", capability: "companies/company", options: { slug: "firecrawl" } }),
+    ).toEqual({ ok: true, records: [], credits: 0 });
   });
 });

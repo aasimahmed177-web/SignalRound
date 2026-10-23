@@ -6,10 +6,10 @@ import { requestTally } from "@/lib/company-requests";
 import { db } from "@/lib/db";
 import { dealLanes } from "@/lib/durable";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { firecrawlHistoryReader } from "@/lib/history";
 import { addTallies, emptyHistoryTally, type HistoryTally, tallyPromotion } from "@/lib/history-tally";
 import { companyFromHomepage, fillRequestSector, queueFundingSearch, queueGapSearch, readBrand } from "@/lib/request-research";
+import { getWebClient } from "@/lib/web-client";
 import { awaitDiveStep, finishDiveStep, startDiveStep } from "@/workflows/dossiers";
 import { processPrior, queueHistoryStep, recordCompanyStep, scheduleHistoryRetryStep } from "@/workflows/history";
 
@@ -48,7 +48,7 @@ export async function researchHomepage(id: string): Promise<{ status: "verified"
   const handle = await db();
   const [request] = await handle.select().from(companyRequests).where(eq(companyRequests.id, id)).limit(1);
   if (!request) throw new Error("Request not found");
-  const identity = await companyFromHomepage(handle, getFirecrawl(), {
+  const identity = await companyFromHomepage(handle, getWebClient(), {
     domain: request.domain,
     url: request.submittedUrl,
     sites: request.brand?.sites ?? [],
@@ -90,14 +90,14 @@ export async function brandStep(id: string): Promise<void> {
     .where(eq(companyRequests.id, id))
     .limit(1);
   if (!request) return;
-  const brand = await readBrand(getFirecrawl(), request.url);
+  const brand = await readBrand(getWebClient(), request.url);
   if (brand) await handle.update(companyRequests).set({ brand, updatedAt: new Date() }).where(eq(companyRequests.id, id));
 }
 
 /** Targeted searches for the rounds the known ones imply but nobody found; their leads are verified like any other. */
 export async function gapSearchStep(companyId: string): Promise<number> {
   "use step";
-  return (await queueGapSearch(await db(), firecrawlHistoryReader(getFirecrawl()), companyId)).queued;
+  return (await queueGapSearch(await db(), firecrawlHistoryReader(getWebClient()), companyId)).queued;
 }
 
 /** A requested company whose rounds left its sector empty or other takes one from its verified profile or dossier. */
@@ -111,7 +111,7 @@ async function sectorStep(companyId: string): Promise<void> {
 /** The quick funding search, beside the Deep dive: its candidate rounds join the ledger as leads. */
 export async function fundingSearchStep(companyId: string): Promise<number> {
   "use step";
-  return (await queueFundingSearch(await db(), firecrawlHistoryReader(getFirecrawl()), companyId)).queued;
+  return (await queueFundingSearch(await db(), firecrawlHistoryReader(getWebClient()), companyId)).queued;
 }
 
 /**

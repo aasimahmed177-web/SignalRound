@@ -358,9 +358,9 @@ describe("sources: timelines and per-item links", () => {
     const candidates = xProfileCandidates(preset);
     expect(candidates.map((c) => c.url)).toEqual(["https://x.com/crunchbasenews", "https://x.com/dealroomco"]);
     expect(candidates[0].kinds).toEqual(["x"]);
-    expect(extractionCredits(candidates.map((c) => c.url))).toBe(68);
-    expect(extractionCredits(["https://news.example/a", "https://x.com/dealroomco"])).toBe(5 + 34);
-    expect(extractionCredits(3)).toBe(15);
+    expect(extractionCredits(candidates.map((c) => c.url))).toBe(0);
+    expect(extractionCredits(["https://news.example/a", "https://x.com/dealroomco"])).toBe(0);
+    expect(extractionCredits(3)).toBe(0);
     expect(() =>
       parsePreset({ slug: "t", name: "t", description: "t", queries: ["q"], goal: "g", stages: ["series_a"], xAccounts: ["@bad"] }),
     ).toThrow();

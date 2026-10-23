@@ -16,8 +16,8 @@ import { closeDb, schema } from "@fireround/core/db";
 import { desc, eq } from "drizzle-orm";
 import { openStore } from "../../lib/db.ts";
 import { replayFinancing, sourceSentenceDecision } from "../../lib/financing-repair.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 const apply = process.argv.includes("--apply");
 const reground = process.argv.includes("--reground");
@@ -26,7 +26,7 @@ const limitAt = process.argv.indexOf("--limit");
 const limit = limitAt < 0 ? Number.POSITIVE_INFINITY : Number(process.argv[limitAt + 1]);
 const idsAt = process.argv.indexOf("--ids");
 const ids = idsAt < 0 ? null : new Set((process.argv[idsAt + 1] ?? "").split(","));
-const client = reground ? getFirecrawl() : null;
+const client = reground ? getWebClient() : null;
 const store = await openStore();
 let readCount = 0;
 const rates = new Map<string, Awaited<ReturnType<typeof fetchRates>>>();
@@ -253,6 +253,6 @@ console.log(
 );
 console.log(`${result.leadCorrections} lead investor lists corrected${reground ? " with source rereads" : ""}.`);
 console.log(`${result.stageCorrections} unlettered stages corrected from source sentences.`);
-if (reground) console.log(`${readCount} source pages independently re-read with Firecrawl.`);
+if (reground) console.log(`${readCount} source pages independently re-read with NativeWebClient.`);
 await invalidateScriptEntityPages();
 await closeDb();

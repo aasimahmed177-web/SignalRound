@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { PageBody } from "@/components/shell/page-body";
 import { PageHeader } from "@/components/shell/page-header";
+import { DiscoveryForm } from "@/components/signals/discovery-form";
 import { SignalActions } from "@/components/signals/signal-actions";
 import { CardListSkeleton } from "@/components/ui/skeletons";
 import { db } from "@/lib/db";
@@ -160,6 +161,7 @@ async function SignalsBody({ searchParams }: { searchParams: Promise<Record<stri
 
   return (
     <PageBody>
+      <DiscoveryForm />
       <section className="overflow-hidden rounded-16 border border-signal-ink/10 bg-paper text-signal-ink dark:border-white/10 dark:bg-[#18212b] dark:text-white">
         <div className="grid lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,.65fr)]">
           <div className="p-6 sm:p-8">

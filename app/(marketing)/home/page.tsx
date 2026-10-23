@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 
 const TITLE = "SignalRound: who just raised, found without scraping credits";
 const DESCRIPTION =
-  "Self-hosted startup funding discovery from public feeds and first-party websites, with source-backed public contact emails and no Firecrawl credits.";
+  "Self-hosted startup funding discovery from public feeds and first-party websites, with source-backed public contact emails and no scraping credits.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -476,7 +476,9 @@ function SelfHost() {
               Read the README
             </a>
           </div>
-          <p className="mt-4 text-body-small text-muted-foreground">No Firecrawl account or credits are required for native collection.</p>
+          <p className="mt-4 text-body-small text-muted-foreground">
+            No hosted scraping account or credits are required for native collection.
+          </p>
           <dl className="mt-10 divide-y divide-border-faint border-y border-border-faint">
             {FACTS.map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-6 py-3">

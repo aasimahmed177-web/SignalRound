@@ -1,8 +1,8 @@
 import { dateFromUrl, extractRounds, normalizeCompanyKey, parseStatedDate } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { NEWS_WINDOW_DAYS } from "./deliverable.ts";
 
 const DAY_MS = 86_400_000;
@@ -46,7 +46,7 @@ export type PageDater = (pages: ReadTarget[], company: string) => Promise<string
  * a reading of the company's round that is not background gives its day, else its page's day. A page
  * that recalls the round as history dates the page, not the round, so it gives nothing.
  */
-export function extractionDater(client: Firecrawl): PageDater {
+export function extractionDater(client: NativeWebClient): PageDater {
   return async (pages, company) => {
     const read = await extractRounds(
       client,

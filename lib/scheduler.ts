@@ -41,7 +41,14 @@ export function nextVerifyDelayMs(now: Date): number {
  * deliveries (with the X lane) hourly, the accuracy check at 05:00 UTC, the Slack digest at 07:00 UTC.
  */
 export function tickPaths(now: Date): string[] {
-  const paths = ["/api/cron/sweep", "/api/cron/trending", "/api/cron/announcements", "/api/cron/verify-rounds", "/api/cron/deliveries"];
+  const paths = [
+    "/api/cron/sweep",
+    "/api/cron/native-monitors",
+    "/api/cron/trending",
+    "/api/cron/announcements",
+    "/api/cron/verify-rounds",
+    "/api/cron/deliveries",
+  ];
   if (now.getUTCHours() === 5) paths.push("/api/cron/accuracy");
   if (now.getUTCHours() === 6) paths.push("/api/cron/company-newsrooms");
   if (now.getUTCHours() === 7) paths.push("/api/cron/slack-digest");

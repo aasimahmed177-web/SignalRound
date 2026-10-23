@@ -2,11 +2,10 @@
 // "led by" against "participated"), and one page at a time nobody can arbitrate them. This step hands a
 // model the record and every source's text together and asks for the round as the sources state it,
 // each field with the source that states it and the sentence it is stated in. It replaces the single-page
-// judge when a model is configured, and runs again when a row gains sources. Firecrawl still fetches
-// every page; the model only reads what Firecrawl fetched.
+// judge when a model is configured, and runs again when a row gains sources. NativeWebClient still fetches
+// every page; the model only reads what NativeWebClient fetched.
 
 import { generateText, Output } from "ai";
-import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { mapLimit } from "../firecrawl/credits.ts";
 import { groundingCheck } from "../firecrawl/extract.ts";
@@ -27,6 +26,7 @@ import {
   valuationSupport,
   withBasis,
 } from "../records/valuation.ts";
+import type { NativeWebClient } from "../web/client.ts";
 import type { ReconcileModel } from "./model.ts";
 
 const Cited = z.object({
@@ -409,8 +409,8 @@ export function sourcesToRead(record: FeedRecord): FeedRecord["sources"] {
 
 export type ReadPages = (urls: FeedRecord["sources"]) => Promise<SourceText[]>;
 
-/** Firecrawl reads the pages: markdown only, main content, the extractor's cached copy when it has one. */
-export function firecrawlReader(client: Firecrawl, maxAge = 7 * 86_400_000): ReadPages {
+/** NativeWebClient reads the pages: markdown only, main content, the extractor's cached copy when it has one. */
+export function firecrawlReader(client: NativeWebClient, maxAge = 7 * 86_400_000): ReadPages {
   return async (sources) => {
     const out: SourceText[] = [];
     await mapLimit(sources, 4, async (s) => {
@@ -441,7 +441,7 @@ export interface ReconcileResult {
   contradicted: number;
   notNews: number;
   failed: number;
-  /** Firecrawl credits: one per page read. */
+  /** NativeWebClient credits: one per page read. */
   creditsEstimated: number;
   /** Model tokens, when the provider reports them. */
   tokens: { input: number; output: number };
@@ -496,7 +496,6 @@ export async function reconcileRecords(
       return;
     }
     const pages = await read(sources);
-    tally.credits += sources.length;
     if (pages.length === 0) {
       tally.failed++;
       out.push({

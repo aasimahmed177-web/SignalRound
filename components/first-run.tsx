@@ -48,19 +48,18 @@ export function FirstRun({
           </div>
           <h2 className="text-title-h5">Nothing here yet. A sweep fills it.</h2>
           <p className="mt-2 text-body-medium text-muted-foreground">
-            One sweep searches the web for the last week of {presetName} rounds, reads every article Firecrawl finds, extracts each round
-            with its evidence, checks it against its sources, and lands it here with a logo and a description. About ten minutes, {estimate}
-            . After that the schedule keeps it fresh (Vercel Cron on Vercel; elsewhere <code className="text-mono-small">pnpm start</code>{" "}
+            One sweep searches the web for the last week of {presetName} rounds, reads matching articles directly, extracts each round with
+            its evidence, checks it against its sources, and lands it here with a logo and a description. About ten minutes, {estimate}.
+            After that the schedule keeps it fresh (Vercel Cron on Vercel; elsewhere <code className="text-mono-small">pnpm start</code>{" "}
             with <code className="text-mono-small">CRON_SECRET</code> set), and Presets lets you widen or narrow the net.
           </p>
           {!hasKey && (
             <p className="mt-3 text-body-small text-crimson-ink">
-              Set <code className="text-mono-small">FIRECRAWL_API_KEY</code> in <code className="text-mono-small">.env</code> first: get a
-              key at{" "}
-              <a href="https://www.firecrawl.dev/app/api-keys" className="underline" target="_blank" rel="noreferrer">
-                firecrawl.dev/app/api-keys
-              </a>
-              . No key yet? <code className="text-mono-small">pnpm demo-data</code> fills the dashboard with fictional sample rounds.
+              Structured funding verification needs a configured model. You can discover real startups and public contact emails now in{" "}
+              <Link href="/signals" className="underline">
+                Signals
+              </Link>
+              , without a model or scraping credits.
             </p>
           )}
         </div>

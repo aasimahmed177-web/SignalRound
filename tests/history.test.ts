@@ -11,8 +11,8 @@ import { hostOf, normalizeCompanyKey, priorKey } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import type { HistoryPrior } from "@fireround/core/db/schema";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 
 import { getCompany } from "../lib/company";
@@ -109,8 +109,8 @@ describe("promotion", () => {
     expect(["publish", "flagged"]).toContain(out.disposition);
     expect(calls).toMatchObject({ search: 1, map: 1, extract: 1, verify: 1 });
     expect(calls.queries[0]).toBe('"Footprint" Seed $6 million 2022 "Index" funding');
-    // The map, the search, the page read at the rate card, and the read-back's 4.
-    expect(out.credits).toBeGreaterThan(4);
+    // Native reads add no credits; the injected reader's explicit usage remains accounted for.
+    expect(out.credits).toBe(4);
 
     const [row] = await historyRow(handle);
     expect(row).toMatchObject({

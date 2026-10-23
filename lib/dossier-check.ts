@@ -1,6 +1,6 @@
 // The dossier check at the store: everything the verifier needs about a company, read from our
 // own rows (the company, the rounds the feed lists, the Alexandria facts for its domain), then the
-// verifier itself with Firecrawl reading the pages and the configured model ruling on the claims.
+// verifier itself with NativeWebClient reading the pages and the configured model ruling on the claims.
 // packages/core/src/llm/dossier-verify.ts is the check; this file is what feeds it.
 
 import type {
@@ -23,8 +23,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { listRounds } from "./persist.ts";
 
 const { companies, enrichments } = schema;
@@ -120,7 +120,7 @@ export function dossierCheckAvailable(deps: CheckDeps = {}): boolean {
  */
 export async function checkDossier(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   companyId: string,
   dossier: CompanyDossier,
   deps: CheckDeps = {},

@@ -1,5 +1,5 @@
 // Score the publication audit against hand-checked rounds: does it catch the rows a person found
-// wrong, and leave the clean ones alone? Reads the live store and each round's pages; spends Firecrawl
+// wrong, and leave the clean ones alone? Reads the live store and each round's pages; spends NativeWebClient
 // credits (one per page) and one model call per round. Read only: nothing is written.
 //   node scripts/bench-publication-audit.ts <cases.json> [--overlay backup.json ...] [--only id,id]
 // cases.json: [{ "id": "...", "clean": true|false, "problems": ["field: what is wrong"] }]
@@ -10,10 +10,10 @@ import { readFileSync } from "node:fs";
 import { DEFAULT_TIERS, firecrawlReader, publicationAuditModel } from "@fireround/core";
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../lib/db.ts";
-import { getFirecrawl } from "../lib/firecrawl.ts";
 import type { RoundRow } from "../lib/persist.ts";
 import { auditRow, roundForAudit } from "../lib/publication-audit.ts";
 import { loadPublisherTiers } from "../lib/rules.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 type Case = { id: string; clean: boolean; problems: string[] };
 type Stored = Record<string, unknown>;
@@ -56,7 +56,7 @@ const handle = await openStore();
 const picked = publicationAuditModel();
 if (!picked) throw new Error("No model key: set AI_GATEWAY_API_KEY (or another provider key).");
 const model = picked;
-const read = firecrawlReader(getFirecrawl());
+const read = firecrawlReader(getWebClient());
 const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
 const tally = { errors: 0, caught: 0, held: 0, clean: 0, cleanHeld: 0, cleanChanged: 0, unread: 0 };
 const lines: string[] = [];

@@ -3,9 +3,9 @@
 // stated day outranks a borrowed one, the page's leads are the leads, non-investors leave, and a
 // page that recalls the round as history marks the record not news.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import type { FeedRecord } from "../records/schema.ts";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import { applyVerdict, judgePrompt, judgeRecords, primarySource, type Verdict } from "./judge.ts";
 
 const RATES = { date: "2026-09-02", perUsd: { EUR: 0.86, GBP: 0.74 } };
@@ -274,7 +274,7 @@ describe("judgeRecords", () => {
     expect(r.judged).toBe(1);
     expect(r.corrected).toBe(1);
     expect(r.failed).toBe(1);
-    expect(r.creditsEstimated).toBe(10);
+    expect(r.creditsEstimated).toBe(0);
     expect(r.records.map((x) => x.verification?.status)).toEqual(["corrected", "skipped", "skipped"]);
     expect(r.records[0].amount.as_written).toBeNull();
   });

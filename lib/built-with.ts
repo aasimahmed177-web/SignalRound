@@ -1,4 +1,4 @@
-// The Firecrawl primitives a record passed through, as reader-visible steps. Pure derivation for
+// The native web tools primitives a record passed through, as reader-visible steps. Pure derivation for
 // the Built with strip on the feed's expanded row and the company page; the component renders it.
 
 import { hostLabel, laneLabel } from "./format";
@@ -26,7 +26,7 @@ export interface BuiltWithInput {
  */
 function searchFact(query: string | null): string {
   const lane = laneLabel(query);
-  if (!lane || lane.label === "Search") return "found by Firecrawl search";
+  if (!lane || lane.label === "Search") return "found by native web tools search";
   if (lane.label === "Monitor") return "found by a monitor";
   if (lane.label.startsWith("Watch:")) return "found on a watched publisher";
   if (lane.label === "Corroboration") return "found while cross-checking another source";
@@ -61,18 +61,18 @@ export function builtWithSteps(row: BuiltWithInput, opts: { dossier?: boolean; x
     // The model's name is operator detail (Settings shows it); the reader needs how much it read.
     steps.push({ key: "verify", fact: `checked against ${readAgainst(row) ?? `${row.sources.length} sources`}` });
   } else {
-    steps.push({ key: "verify", fact: "checked against its page with Firecrawl" });
+    steps.push({ key: "verify", fact: "checked against its page with native web tools" });
   }
   // A homepage that failed the identity check wrote nothing, so there is no step to show for it.
   if (row.enrichment?.verified) steps.push({ key: "branding", fact: "logo and colour from the homepage" });
-  if (row.alexandria?.yc) steps.push({ key: "alexandria", fact: "founders and batch from Y Combinator via Alexandria" });
+  if (row.alexandria?.yc) steps.push({ key: "alexandria", fact: "founders and batch from Y Combinator from its public profile" });
   if (opts.xPeople && opts.xPeople > 0) {
     steps.push({
       key: "x",
       // The step's label is X's logomark, so the fact does not name X again.
-      fact: `posts from ${opts.xPeople} ${opts.xPeople === 1 ? "person" : "people"}, found with Firecrawl search`,
+      fact: `posts from ${opts.xPeople} ${opts.xPeople === 1 ? "person" : "people"}, found with native web tools search`,
     });
   }
-  if (opts.dossier) steps.push({ key: "agent", fact: "company research by the Firecrawl agent" });
+  if (opts.dossier) steps.push({ key: "agent", fact: "company research by the native web tools agent" });
   return steps;
 }

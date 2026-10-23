@@ -45,7 +45,7 @@ export function estimateBackfillCredits(plan: CoveragePlan, presets: Preset[], m
     x += one.x * months;
   }
   if (x > 0) lines.push({ label: "X accounts", low: x, high: x });
-  lines.push({ label: "SEC Form D (EDGAR, no Firecrawl credits)", low: 0, high: 0 });
+  lines.push({ label: "SEC Form D (EDGAR, no scraping credits)", low: 0, high: 0 });
   return {
     low: lines.reduce((n, l) => n + l.low, 0),
     high: lines.reduce((n, l) => n + l.high, 0),

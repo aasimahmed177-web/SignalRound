@@ -1,8 +1,8 @@
 import { type FeedRecord, normalizeCompanyKey } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
 import {

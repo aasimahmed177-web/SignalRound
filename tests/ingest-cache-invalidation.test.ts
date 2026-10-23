@@ -23,7 +23,7 @@ vi.mock("@fireround/core", async (original) => ({
   reconcileModel: () => undefined,
   judgeRecords: async () => ({ records: scenario.records }),
 }));
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({}) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({}) }));
 vi.mock("@/lib/settings", async (original) => ({ ...(await original<object>()), getCoverage: async () => ({ judge: true }) }));
 vi.mock("@/lib/intel", async (original) => ({
   ...(await original<object>()),

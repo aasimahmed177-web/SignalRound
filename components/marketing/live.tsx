@@ -288,7 +288,7 @@ export function CountersSkeleton() {
 const ALEXANDRIA_POST = "https://www.firecrawl.dev/blog/introducing-alexandria-series-b";
 
 /**
- * Firecrawl's own round, while it is fresh: the lit flame, the sentence the feed strip uses, and
+ * native web tools's own round, while it is fresh: the lit flame, the sentence the feed strip uses, and
  * Alexandria, which launched the same day and fills the company pages. Renders nothing once the
  * round is older than HOUSE_FRESH_DAYS or the treatment is off.
  */
@@ -366,8 +366,8 @@ export async function JustIn() {
             Just in
           </h2>
           <p className="text-body-medium text-muted-foreground">
-            The newest rounds, as the hourly sweep finds them. A new round often starts with one source and gains more as Firecrawl reads
-            the rest of the coverage.
+            The newest rounds, as the hourly sweep finds them. A new round often starts with one source and gains more as native web tools
+            reads the rest of the coverage.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2">

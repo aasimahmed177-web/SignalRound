@@ -2161,7 +2161,7 @@ export interface RoundRow {
     /** What the branding format read off the verified homepage. */
     brand: { name: string | null; primary_color: string | null } | null;
   } | null;
-  /** YC's record via Firecrawl Alexandria, keyed on the verified domain; null when YC does not list the company. */
+  /** YC's record via NativeWebClient Alexandria, keyed on the verified domain; null when YC does not list the company. */
   alexandria: { yc: (YcFacts & { founders_count: number }) | null } | null;
   /** The founding year and team size (YC's or the checked dossier's, with which) and the LinkedIn page the company's own site links. */
   company_facts: CompanyFacts;

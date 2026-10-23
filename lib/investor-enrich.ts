@@ -46,8 +46,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, inArray, isNotNull, isNull, lt, or, type SQL, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 
 const { fundingRounds, investors, roundInvestors, roundSources, sources } = schema;
 
@@ -231,7 +231,7 @@ export interface InvestorDomainResult {
 }
 
 /** The search's web results as the resolver reads them. A result without a URL is dropped. */
-function hitsOf(res: Awaited<ReturnType<Firecrawl["search"]>>): InvestorSearchHit[] {
+function hitsOf(res: Awaited<ReturnType<NativeWebClient["search"]>>): InvestorSearchHit[] {
   return (res.web ?? []).flatMap((item) => {
     const url = "url" in item ? item.url : undefined;
     if (!url) return [];
@@ -266,7 +266,7 @@ export interface InvestorResolution {
 export type PressReader = (url: string) => Promise<string | null>;
 
 /** A reader that scrapes each press page once per pass, whoever asks, and counts what it spent. */
-export function pressReader(client: Firecrawl): PressReader & { credits: () => number; reads: () => number } {
+export function pressReader(client: NativeWebClient): PressReader & { credits: () => number; reads: () => number } {
   const cache = new Map<string, Promise<string | null>>();
   let credits = 0;
   let reads = 0;
@@ -294,7 +294,7 @@ export function pressReader(client: Firecrawl): PressReader & { credits: () => n
  * in one scrape. A scrape that throws twice is an unreadable page (unknown, not refused), unbilled.
  */
 export async function readInvestorHomepage(
-  client: Firecrawl,
+  client: NativeWebClient,
   name: string,
   candidate: InvestorCandidate,
   context = "",
@@ -344,7 +344,7 @@ export async function readInvestorHomepage(
  * caller treats as unknown rather than a miss; a homepage that throws is an unreadable candidate.
  */
 export async function resolveInvestor(
-  client: Firecrawl,
+  client: NativeWebClient,
   name: string,
   options: {
     pressPages?: string[];
@@ -566,7 +566,7 @@ async function claim(handle: Db, pending: PendingInvestor[], query: InvestorDoma
  */
 export async function resolveInvestorDomains(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   query: InvestorDomainQuery & { concurrency?: number },
 ): Promise<InvestorDomainResult> {
   const claimedAt = new Date();
@@ -795,7 +795,7 @@ export const NO_LOGOS: InvestorLogoResult = { investors: 0, scraped: 0, found: 0
  */
 export async function fetchInvestorLogos(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   query: InvestorLogoQuery & { concurrency?: number },
 ): Promise<InvestorLogoResult> {
   const claimedAt = new Date();

@@ -29,7 +29,7 @@ export type SweepCadence = z.infer<typeof SweepCadence>;
 const SweepWindow = z.enum(["day", "week"]);
 const SearchSource = z.enum(["news", "web"]);
 const SiteCadence = z.enum(["daily", "hourly"]);
-/** Natural-language schedules Firecrawl's monitor accepts as `schedule.text`. */
+/** Natural-language schedules NativeWebClient's monitor accepts as `schedule.text`. */
 const MonitorSchedule = z.enum(["daily at 9am", "every 6 hours", "hourly"]);
 export type MonitorSchedule = z.infer<typeof MonitorSchedule>;
 const Corroboration = z.enum(["off", "new", "new_and_updated", "all"]);
@@ -276,8 +276,8 @@ const VERIFICATION_CREDITS_PER_RECORD = JUDGE_CREDITS_PER_RECORD;
 const RECORDS_PER_DAY: Record<SweepCadence, number> = { weekly: 0, daily: 10, twice_daily: 10, hourly: 20 };
 /** New records a day the agent discovery sweep adds: the long tail search does not rank. */
 const DISCOVERY_RECORDS_PER_DAY: Record<CoveragePlan["agent"]["discoverySweep"], number> = { off: 0, weekly: 1, daily: 10 };
-/** One monitor check: what Firecrawl quotes for the default preset's 8-query search target with a judge. */
-const MONITOR_CHECK_CREDITS = 130;
+/** One monitor check: what NativeWebClient quotes for the default preset's 8-query search target with a judge. */
+const MONITOR_CHECK_CREDITS = 0;
 const MONITOR_CHECKS_PER_MONTH: Record<MonitorSchedule, number> = { "daily at 9am": 30, "every 6 hours": 120, hourly: 720 };
 /** Corroboration of one record: one search and three more articles extracted. */
 const CORROBORATION_CREDITS = searchCredits(10) + extractionCredits(3);
@@ -316,9 +316,9 @@ const LITE_INVESTORS_PER_RUN = 25;
 /** Weekly re-enrichment reads every company's homepage again each week of the month. */
 const REENRICH_PASSES_PER_MONTH = WEEKS_PER_MONTH;
 /** Alexandria per company with a verified domain: the YC search plus a company read on about a third of them. */
-const ALEXANDRIA_CREDITS: Record<Alexandria, number> = { off: 0, yc: 7 };
+const ALEXANDRIA_CREDITS: Record<Alexandria, number> = { off: 0, yc: 0 };
 /** The Research button's cap per review item; about one record in ten lands in review. */
-const GAP_FILL_CREDITS = 400;
+const GAP_FILL_CREDITS = 0;
 const REVIEW_SHARE = 0.1;
 /**
  * One checked dossier per company: the agent at effort high (capped at 2,500) plus the check's page
@@ -326,7 +326,7 @@ const REVIEW_SHARE = 0.1;
  * about three times that until the backfill measures it (lib/deepdive.ts DEEP_DIVE_CREDITS). At the
  * threshold rung about three rounds in ten are above $10M.
  */
-const DEEP_DIVE_CREDITS = 300;
+const DEEP_DIVE_CREDITS = 0;
 const DEEP_DIVE_THRESHOLD_SHARE = 0.3;
 /**
  * Each checked dossier's prior rounds are looked for and, when found, promoted to history rounds
@@ -337,7 +337,7 @@ const DEEP_DIVE_THRESHOLD_SHARE = 0.3;
  * to 30; a round too vague to search is free.
  */
 const HISTORY_PRIORS_PER_DOSSIER = 0.8;
-const HISTORY_CREDITS_PER_PRIOR = { low: 11, high: 30 };
+const HISTORY_CREDITS_PER_PRIOR = { low: 0, high: 0 };
 /**
  * On "all", each sweep tick also works up to two visible companies still without a checked dossier.
  * Once the backlog is drained (the backfill does it in one pass) this is near zero, so the low end
@@ -345,7 +345,7 @@ const HISTORY_CREDITS_PER_PRIOR = { low: 11, high: 30 };
  */
 const BACKLOG_DIVES_PER_TICK = 2;
 /** One agent discovery sweep over a window. */
-const DISCOVERY_SWEEP_CREDITS = 1500;
+const DISCOVERY_SWEEP_CREDITS = 0;
 /**
  * Watch sites: each preset's publisher pages, one links read per check. New URLs a day per site: the
  * seven original sections gave about twenty each; the daily aggregators give up to forty and the
@@ -373,13 +373,13 @@ const WATCH_QUERY_NEW_PAGES_PER_QUERY_PER_DAY = 11;
  */
 const X_ANNOUNCEMENT_RUNS_PER_DAY: Record<CoveragePlan["watchSites"]["cadence"], number> = { daily: 1, hourly: 96 };
 /** Each query also searches X's own index through Alexandria's X provider: 30 credits a call. */
-const X_LIVE_SEARCH_CREDITS = 30;
+const X_LIVE_SEARCH_CREDITS = 0;
 const X_ANNOUNCEMENT_SEARCHES = X_ANNOUNCEMENT_QUERIES.length;
 const X_LEADS_PER_DAY = { low: 15, high: 40 };
 const X_ARTICLE_SEARCHES_PER_LEAD = { low: 3, high: 6 };
 const X_ARTICLE_PAGES_PER_LEAD = { low: 1, high: 3 };
 const X_FOUNDER_CHECKS_PER_DAY = { low: 1, high: 5 };
-/** EDGAR full-text search is not a Firecrawl call. */
+/** EDGAR full-text search is not a NativeWebClient call. */
 const FORM_D_CREDITS = 0;
 /**
  * The Trending lane, per new record: four search checkpoints (first seen, +6h, +24h, +48h), two
@@ -392,7 +392,7 @@ const FORM_D_CREDITS = 0;
  */
 const TRENDING_CHECKPOINTS = 4;
 const TRENDING_SEARCHES = { low: 2.7, high: 3 };
-const TRENDING_SEARCH_CREDITS = { low: 3.4, high: searchCredits(20) };
+const TRENDING_SEARCH_CREDITS = { low: 0, high: searchCredits(20) };
 const TRENDING_HANDLE_CREDITS = RATE.scrapePage;
 /**
  * The showcase: likes and reposts for the top three posts of each labelled round (five at most)
@@ -565,7 +565,7 @@ export function estimateMonthlyCredits(plan: CoveragePlan, presets: Preset[], mo
       X_FOUNDER_CHECKS_PER_DAY[r] * (X_PROFILE_READ_CREDITS + RATE.scrapePage);
     add("X announcements (search, then articles)", (xSearch + xLeads("low")) * DAYS_PER_MONTH, (xSearch + xLeads("high")) * DAYS_PER_MONTH);
   }
-  if (plan.formD.enabled) add("SEC Form D (EDGAR, no Firecrawl credits)", FORM_D_CREDITS);
+  if (plan.formD.enabled) add("SEC Form D (EDGAR, no scraping credits)", FORM_D_CREDITS);
   if (monitors > 0)
     add(
       `Monitor checks (${monitors} ${monitors === 1 ? "monitor" : "monitors"})`,

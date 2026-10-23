@@ -359,7 +359,7 @@ describe("reconcileRecords", () => {
     expect(r.judged).toBe(1);
     expect(r.corrected).toBe(1);
     expect(r.failed).toBe(1);
-    expect(r.creditsEstimated).toBe(3);
+    expect(r.creditsEstimated).toBe(0);
     expect(r.records.map((x) => x.verification?.status)).toEqual(["corrected", "skipped", "skipped"]);
     expect(r.records[0]?.announced_date).toBe("2026-09-04");
     expect(r.records[0]?.verification?.sources_seen).toBe(2);

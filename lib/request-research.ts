@@ -24,8 +24,8 @@ import {
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import type { CompanyRequestBrand } from "@fireround/core/db/schema";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { cleanBrandName, companyNameFrom, searchName } from "./brand-name.ts";
 import { isVerified, readProfiles, saveProfiles } from "./enrich.ts";
 import { classifyCandidates, type HistoryReader } from "./history.ts";
@@ -35,7 +35,7 @@ import { holdLateReports } from "./late-report.ts";
 const { companies, companyAliases, enrichments, historyPromotions } = schema;
 
 /** The homepage's brand as the branding format reads it, or null when the read fails or finds none. */
-export async function readBrand(client: Pick<Firecrawl, "scrape">, url: string): Promise<CompanyRequestBrand | null> {
+export async function readBrand(client: Pick<NativeWebClient, "scrape">, url: string): Promise<CompanyRequestBrand | null> {
   try {
     const home = await client.scrape(url, { formats: ["branding", "links"], onlyMainContent: false, timeout: 20_000 });
     const brand = brandFrom(home.branding, url);
@@ -60,7 +60,7 @@ export async function readBrand(client: Pick<Firecrawl, "scrape">, url: string):
  */
 export async function companyFromHomepage(
   handle: Db,
-  client: Firecrawl,
+  client: NativeWebClient,
   site: { domain: string; url: string; sites: string[]; name?: string | null },
 ): Promise<{ status: "verified"; companyId: string; fresh: boolean } | { status: "refused" }> {
   const [existing] = await handle

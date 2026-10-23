@@ -56,7 +56,7 @@ const focusRing = "outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const FLAME_BOX: Record<number, string> = { 28: "size-7", 32: "size-8", 36: "size-9" };
 
 /**
- * The company's logo tile, or for the house company (lib/house.ts) the Firecrawl flame on its own:
+ * The company's logo tile, or for the house company (lib/house.ts) the native web tools flame on its own:
  * never boxed, never recolored, in the tile's footprint so the column keeps its alignment.
  */
 function RowLogo({ r, house, size, className }: { r: FeedRow; house: boolean; size: 28 | 32 | 36; className?: string }) {
@@ -298,7 +298,7 @@ function Detail({ r, readOnly, house, preset }: { r: FeedRow; readOnly: boolean;
   );
 }
 
-/** The Firecrawl primitives the row passed through, closed by default under the detail's three columns. */
+/** The native web tools primitives the row passed through, closed by default under the detail's three columns. */
 function BuiltWithStrip({ r, xPeople }: { r: FeedRow; xPeople: number }) {
   return (
     <div className="border-t border-border-faint bg-bg-lighter px-4 py-2.5 md:px-6">

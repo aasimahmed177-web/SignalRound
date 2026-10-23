@@ -10,9 +10,9 @@
 // the section's own pagination and feed URLs, never an article. The section page's own links
 // are the list a reader sees. Same price as a map call.
 
-import type { Firecrawl } from "firecrawl";
 import { type Preset, type WatchQuery, watchQuery } from "../presets/types.ts";
 import { canonicalUrl, dateFromUrl, hostOf, isArticleUrl, isDirectoryTitle, registrableDomain } from "../records/normalize.ts";
+import type { NativeWebClient } from "../web/client.ts";
 import { RATE, searchCredits } from "./credits.ts";
 import type { ExtractTarget } from "./extract.ts";
 import type { ScreenedResult } from "./sweep.ts";
@@ -163,7 +163,7 @@ export interface WatchSiteResult {
  * Read one publisher section and return its unseen article links as extraction targets
  * with query `watch:<host>`. Order is the page's own (newest first on every publisher watched).
  */
-export async function watchSiteCandidates(client: Firecrawl, siteUrl: string, opts: WatchSiteOptions): Promise<WatchSiteResult> {
+export async function watchSiteCandidates(client: NativeWebClient, siteUrl: string, opts: WatchSiteOptions): Promise<WatchSiteResult> {
   const host = hostOf(siteUrl);
   const limit = opts.limit ?? WATCH_DEFAULT_LIMIT;
   const oldest = (opts.now ?? new Date()).getTime() - (opts.maxAgeDays ?? WATCH_MAX_AGE_DAYS) * 86_400_000;
@@ -208,7 +208,7 @@ export interface WatchQueryResult {
  * dating rules decide whether its round is this week's news.
  */
 export async function watchQueryCandidates(
-  client: Firecrawl,
+  client: NativeWebClient,
   input: string | WatchQuery,
   preset: Pick<Preset, "sources" | "excludeDomains">,
   opts: WatchSiteOptions,
@@ -305,7 +305,7 @@ function byHost(targets: ExtractTarget[]): Map<string, string[]> {
  * Every watch site of the preset, in order, then every stage-free search, marking each one's targets
  * seen before the next is read, so a page a section and a search both carry is extracted once.
  */
-export async function runWatchSites(client: Firecrawl, preset: Preset, opts: WatchRunOptions): Promise<WatchRunResult> {
+export async function runWatchSites(client: NativeWebClient, preset: Preset, opts: WatchRunOptions): Promise<WatchRunResult> {
   const sites: WatchSiteResult[] = [];
   const queries: WatchQueryResult[] = [];
   const candidates: ExtractTarget[] = [];

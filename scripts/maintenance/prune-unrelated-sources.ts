@@ -1,6 +1,6 @@
 // Take sources off stored rounds when the page is not about the round (docs/data-quality.md, "A source is about its round"):
 //   pnpm prune-unrelated-sources                          # dry run on stored data: each round, the links that would go and why
-//   pnpm prune-unrelated-sources -- --read-pages          # also read (one Firecrawl scrape each) the pages nothing stored ties to the company
+//   pnpm prune-unrelated-sources -- --read-pages          # also read (one NativeWebClient scrape each) the pages nothing stored ties to the company
 //   pnpm prune-unrelated-sources -- --read-pages --apply  # write: detach, record the sentence on kept roundups, remove orphaned sources
 //   pnpm prune-unrelated-sources -- --round <id>[,<id>]   # only those rounds
 //   --page-cache <file>  where page reads are kept (default data/prune-sources-pages.json), so a rerun or the apply spends nothing
@@ -11,9 +11,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../../lib/db.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { describeSourcePrune, type PageReader, pruneUnrelatedSources } from "../../lib/prune-sources.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
@@ -43,8 +43,8 @@ if (readPages) {
     },
   });
   const urls = [...wanted];
-  if (urls.length) console.error(`reading ${urls.length} page(s) with Firecrawl (about ${urls.length} credit(s))`);
-  const client = getFirecrawl();
+  if (urls.length) console.error(`reading ${urls.length} page(s) with NativeWebClient (about ${urls.length} credit(s))`);
+  const client = getWebClient();
   for (let i = 0; i < urls.length; i += 10) {
     await Promise.all(
       urls.slice(i, i + 10).map(async (url) => {

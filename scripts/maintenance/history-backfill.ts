@@ -18,7 +18,7 @@
 // search, the best pages), and a row that gained sources is read back with all of them in view, as the
 // verification lane does: the row publishes when its sources together confirm it, and stays flagged or
 // in review when they do not.
-// Needs FIRECRAWL_API_KEY and a model key for the read-back (the same as the history lane), and
+// Needs a model key for the read-back (the same as the native history lane), and
 // DATABASE_URL. Idempotent: a company already stored is not read again, a lead already on the ledger
 // is not queued twice, and a lead already worked is not worked again.
 
@@ -28,13 +28,13 @@ import { closeDb, schema } from "@fireround/core/db";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { corroborateModel, corroborateRecord } from "../../lib/corroborate.ts";
 import { openStore } from "../../lib/db.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { due, firecrawlHistoryReader, promotePrior, queueCompanyHistory } from "../../lib/history.ts";
 import { reconcileGrownRows } from "../../lib/reconcile.ts";
 import { applyRecordFixes, type RecordFix } from "../../lib/repair.ts";
 import { companyFromHomepage, readBrand } from "../../lib/request-research.ts";
 import { loadPublisherTiers } from "../../lib/rules.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 const { companies, fundingRounds, historyPromotions } = schema;
 
@@ -82,7 +82,7 @@ for (const { homepage, name } of plan.companies ?? []) {
     else adding.add(domain);
     continue;
   }
-  const client = getFirecrawl();
+  const client = getWebClient();
   const brand = stored ? null : await readBrand(client, homepage);
   const identity = await companyFromHomepage(handle, client, { domain, url: homepage, sites: brand?.sites ?? [], name });
   if (identity.status === "refused") {
@@ -115,7 +115,7 @@ console.log(
 );
 for (const fix of fixes) if ("company" in fix) touched.add(fix.company);
 
-const reader = apply ? firecrawlHistoryReader(getFirecrawl()) : null;
+const reader = apply ? firecrawlHistoryReader(getWebClient()) : null;
 let credits = 0;
 for (const companyId of touched) {
   if (!reader) {
@@ -179,7 +179,7 @@ if (corroborating) {
   console.log(`\nCorroboration: ${rows.length} flagged or review row(s)`);
   if (!apply) for (const r of rows) console.log(`  ${r.id} (${r.disposition}, confidence ${r.confidence})`);
   if (apply && rows.length > 0) {
-    const client = getFirecrawl();
+    const client = getWebClient();
     const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
     const grew: string[] = [];
     let spent = 0;

@@ -18,9 +18,9 @@ import {
 } from "@fireround/core";
 import { closeDb, getDb } from "@fireround/core/db";
 import { pageSnapshotReads, pageSnapshots } from "@fireround/core/db/schema";
+import type { NativeWebClient } from "@fireround/core/web";
 import { generateText, Output } from "ai";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { z } from "zod";
 import { staleForNews } from "../lib/deliverable.ts";
 import { dispositionFor } from "../lib/persist.ts";
@@ -140,7 +140,7 @@ async function inputFor(c: Case): Promise<{ markdown: string; json: unknown; met
   let markdown = authored ? (c.markdown ?? "") : (captured?.[c.id]?.markdown ?? "");
   let json = authored ? fixtureExtraction(c) : captured?.[c.id]?.json;
   let metadata = authored ? {} : (captured?.[c.id]?.metadata ?? {});
-  if (!markdown || !json) throw new Error(`No captured Firecrawl markdown and JSON for ${c.id}`);
+  if (!markdown || !json) throw new Error(`No captured NativeWebClient markdown and JSON for ${c.id}`);
   if (stored) {
     const db = await getDb();
     const [read] = await db
@@ -150,7 +150,7 @@ async function inputFor(c: Case): Promise<{ markdown: string; json: unknown; met
       .where(and(eq(pageSnapshotReads.sourceUrl, c.url), isNotNull(pageSnapshotReads.rawExtraction)))
       .orderBy(desc(pageSnapshotReads.readAt))
       .limit(1);
-    if (!read?.json) throw new Error(`No captured markdown and Firecrawl JSON for ${c.id}: ${c.url}`);
+    if (!read?.json) throw new Error(`No captured markdown and NativeWebClient JSON for ${c.id}: ${c.url}`);
     markdown = read.markdown;
     json = read.json;
     if (markdown !== captured?.[c.id]?.markdown) metadata = {};
@@ -255,7 +255,7 @@ for (const c of fixture.cases) {
   });
   if (!input) continue;
   const doc = { json: input.json, markdown: input.markdown, metadata: { title: c.id, ...input.metadata } };
-  const extraction = await extractRounds({ scrape: async () => doc } as unknown as Firecrawl, [{ url: c.url }], {
+  const extraction = await extractRounds({ scrape: async () => doc } as unknown as NativeWebClient, [{ url: c.url }], {
     now: authored ? new Date(`${c.expected.date ?? "2026-09-26"}T12:00:00Z`) : new Date("2026-09-27T12:00:00Z"),
   });
   if (!extraction.pages[0]?.ok) throw new Error(`${c.id}: extraction failed: ${extraction.pages[0]?.error}`);
@@ -351,7 +351,7 @@ if (axyaItems.length === 2) {
 }
 await closeDb();
 console.log(
-  `${fixture.cases.length} cases; extractor: ${model ? model.label : authored ? "authored fixture JSON" : legacy ? "legacy Firecrawl JSON" : "quote-required Firecrawl JSON"}; markdown: ${stored ? "production-copy snapshots" : authored ? "fixture excerpts" : "captured snapshots"}`,
+  `${fixture.cases.length} cases; extractor: ${model ? model.label : authored ? "authored fixture JSON" : legacy ? "legacy NativeWebClient JSON" : "quote-required NativeWebClient JSON"}; markdown: ${stored ? "production-copy snapshots" : authored ? "fixture excerpts" : "captured snapshots"}`,
 );
 console.log("Field             precision  recall  abstentions  tp/fp/fn/tn");
 for (const field of fields) {

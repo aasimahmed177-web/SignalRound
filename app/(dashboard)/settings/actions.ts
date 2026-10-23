@@ -9,7 +9,6 @@ import { requireDashboard } from "@/lib/dashboard-auth.server";
 import { db } from "@/lib/db";
 import { deleteDigestState, flushDeliveries, sendSampleDigest } from "@/lib/delivery";
 import type { DigestCadence } from "@/lib/digest";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { rescheduleMonitors } from "@/lib/monitor-schedule";
 import { publicOrigin } from "@/lib/origin";
 import {
@@ -26,6 +25,7 @@ import {
   setTargetExpected,
 } from "@/lib/settings";
 import { feedSubscribeCommand } from "@/lib/slack";
+import { getWebClient } from "@/lib/web-client";
 
 /**
  * The stored rung, for the Settings page. Guarded like the writes: an exported server function is
@@ -49,7 +49,7 @@ export async function setCoverage(setting: CoverageSetting): Promise<ActionResul
     // The rung decides whether the feed opens on Trending (lib/cached.ts cachedTrendingOn).
     updateTag(TAG_SETTINGS);
     const after = resolveCoverage(next).monitorSchedule;
-    if (after !== before) await rescheduleMonitors(handle, getFirecrawl(), after);
+    if (after !== before) await rescheduleMonitors(handle, getWebClient(), after);
   });
 }
 

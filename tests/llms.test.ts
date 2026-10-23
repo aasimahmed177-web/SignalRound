@@ -12,8 +12,8 @@ describe("llmsTxt", () => {
 
   test("follows the llms.txt shape: a title, a summary quote, then sections of links", () => {
     const lines = txt.split("\n");
-    expect(lines[0]).toBe("# Fireround");
-    expect(lines[2]).toMatch(/^> Fireround is an open-source startup funding feed built on Firecrawl\./);
+    expect(lines[0]).toBe("# SignalRound");
+    expect(lines[2]).toMatch(/^> SignalRound is an open-source startup funding feed built on native web tools\./);
     expect(txt).toMatch(/^## Pages$/m);
     expect(txt).toMatch(/^## API$/m);
     expect(txt).toMatch(/^## MCP server$/m);

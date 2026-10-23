@@ -8,10 +8,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { enqueueDeliveries } from "@/lib/delivery";
 import { invalidateEntityPages } from "@/lib/entity-invalidation";
-import { getFirecrawl } from "@/lib/firecrawl";
 import { recordRun } from "@/lib/persist";
 import { applyAudit, auditGateOn, auditRow, pendingAuditIds, roundForAudit } from "@/lib/publication-audit";
 import { loadPublisherTiers } from "@/lib/rules";
+import { getWebClient } from "@/lib/web-client";
 
 export async function publicationAuditWorkflow(runId: string, limit = 20): Promise<{ audited: number; passed: number; held: number }> {
   "use workflow";
@@ -41,7 +41,7 @@ async function auditStep(id: string): Promise<"passed" | "held" | "unread" | "mo
   const row = await roundForAudit(handle, id);
   if (!model || !row || row.disposition !== "review") return "moved";
   const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
-  const run = await auditRow(row, firecrawlReader(getFirecrawl()), model, tiers);
+  const run = await auditRow(row, firecrawlReader(getWebClient()), model, tiers);
   if (!run) {
     // Back of the queue, so a row whose pages cannot be read does not starve the rows behind it.
     await handle.update(schema.fundingRounds).set({ updatedAt: new Date() }).where(eq(schema.fundingRounds.id, id));

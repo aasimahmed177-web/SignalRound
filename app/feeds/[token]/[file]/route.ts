@@ -111,7 +111,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ token: stri
   const rows = listed.rows.filter((r) => acceptsCertainty(r, includeExpected));
   const feed = new Feed({
     title: `Fireround: ${presetName}`,
-    description: "Funding rounds reported on the open web, extracted with Firecrawl.",
+    description: "Funding rounds reported on the open web, extracted with NativeWebClient.",
     id: `${origin}/feeds/${preset}`,
     link: `${origin}/`,
     language: "en",

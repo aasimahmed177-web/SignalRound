@@ -1,3 +1,4 @@
+import { readPublicText } from "@fireround/core/web/transport";
 import { load } from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import type { SignalInput } from "./signals.ts";
@@ -59,6 +60,9 @@ export interface CollectedNativeSignal {
 }
 
 export interface NativeCollectorOptions {
+  items?: NativeFeedItem[];
+  query?: string;
+  signal?: AbortSignal;
   feeds?: string[];
   limit?: number;
   since?: Date;
@@ -158,6 +162,9 @@ export function parseNativeFeed(xml: string, feedUrl: string): NativeFeedItem[] 
 
 export function isFundingItem(item: NativeFeedItem): boolean {
   const title = cleanText(item.title);
+  if (/^(?:here are|these are|top\s+\d|the\s+\d)|\b(?:startups|companies)\s+(?:that|which|have)\s+(?:raised|secured|closed)\b/i.test(title))
+    return false;
+  if (/\b(?:how to|guide to|tips for|steps to)\s+(?:raise|raising|fundrais)/i.test(title)) return false;
   if (/\braises? the stakes\b/i.test(title) || /\bvaluation\b/i.test(title)) return false;
   const hasFinancialFact = FUNDING_AMOUNT.test(title) || FUNDING_STAGE.test(title) || FUNDING_NOUN.test(title);
   return hasFinancialFact && (FUNDING_ACTION.test(title) || /\bannounces?\b/i.test(title));
@@ -167,12 +174,19 @@ export function companyNameFromHeadline(headline: string): string | null {
   const title = cleanText(headline)
     .replace(/^(?:exclusive|startup funding news today|funding alert)\s*[:—-]\s*/i, "")
     .replace(/^(?:china|india|japan|france|germany|europe|africa|asia|canada|australia|brazil)[’']s\s+/i, "")
+    .replace(/^(?:(?:AI|fintech|robotics|biotech|healthtech|software|climate|cybersecurity)\s+)?startup\s+/i, "")
     .replace(/\s*[|—-]\s*(?:techcrunch|pr newswire).*$/i, "");
   const match = title.match(
     /^(.{2,100}?)\s+(?:announces?\b.*?\s+)?(?:raises?|raised|secures?|secured|closes?|closed|lands?|landed|bags?|bagged)\b/i,
   );
   const value = (match?.[1] ?? "").replace(/^["'“”]|["'“”]$/g, "").trim();
-  if (!value || /(?:^(?:a\b|an\b|the\b|former\b|ex[-\s]|startup\b)|\b(?:founder|exec|executive)\b)/i.test(value)) return null;
+  if (
+    !value ||
+    /(?:^(?:a\b|an\b|the\b|here\b|these\b|former\b|ex[-\s]|startup\b)|\b(?:founder|exec|executive|startups|companies|that|which)\b)/i.test(
+      value,
+    )
+  )
+    return null;
   return value;
 }
 
@@ -233,31 +247,37 @@ export function extractPublicEmails(content: string, sourceUrl: string, companyW
 async function boundedText(response: Response): Promise<string> {
   const length = Number(response.headers.get("content-length") ?? 0);
   if (length > MAX_BODY_BYTES) throw new Error(`response exceeds ${MAX_BODY_BYTES} bytes`);
-  const text = await response.text();
-  if (Buffer.byteLength(text) > MAX_BODY_BYTES) throw new Error(`response exceeds ${MAX_BODY_BYTES} bytes`);
-  return text;
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > MAX_BODY_BYTES) throw new Error(`response exceeds ${MAX_BODY_BYTES} bytes`);
+      chunks.push(chunk.value);
+    }
+    return Buffer.concat(chunks).toString("utf8");
+  } finally {
+    await reader.cancel();
+  }
 }
 
-async function readUrl(url: string, fetchImpl: typeof fetch, jinaFallback: boolean): Promise<ReadResult> {
-  try {
-    const response = await fetchImpl(url, {
-      redirect: "follow",
-      headers: { accept: "text/html,application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.1", "user-agent": USER_AGENT },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { text: await boundedText(response), method: "direct" };
-  } catch (error) {
-    if (!jinaFallback) throw error;
-    const readerUrl = `https://r.jina.ai/${url}`;
-    const response = await fetchImpl(readerUrl, {
-      redirect: "follow",
-      headers: { accept: "text/plain", "user-agent": USER_AGENT },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`Agent Reach reader returned HTTP ${response.status} for ${url}`);
-    return { text: await boundedText(response), method: "agent-reach-jina" };
+async function readUrl(url: string, fetchImpl: typeof fetch, _jinaFallback: boolean, signal?: AbortSignal): Promise<ReadResult> {
+  // Production always uses the pinned, public-address-only transport. fetchImpl is a test seam.
+  if (fetchImpl === fetch) {
+    const result = await readPublicText(url, { maxBytes: MAX_BODY_BYTES, timeoutMs: 15_000, signal });
+    return { text: result.text, method: "direct" };
   }
+  const response = await fetchImpl(url, {
+    redirect: "error",
+    headers: { accept: "text/html,application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.1", "user-agent": USER_AGENT },
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return { text: await boundedText(response), method: "direct" };
 }
 
 function contactPageUrls(homeHtml: string, website: string): string[] {
@@ -276,16 +296,17 @@ function contactPageUrls(homeHtml: string, website: string): string[] {
   return [...new Set(links)].slice(0, 6);
 }
 
-async function collectContacts(
+export async function collectContacts(
   website: string,
   fetchImpl: typeof fetch,
   jinaFallback: boolean,
+  signal?: AbortSignal,
 ): Promise<{ contacts: PublicContact[]; methods: string[] }> {
   const methods = new Set<string>();
   const contacts = new Map<string, PublicContact>();
   let home: ReadResult;
   try {
-    home = await readUrl(website, fetchImpl, jinaFallback);
+    home = await readUrl(website, fetchImpl, jinaFallback, signal);
   } catch {
     return { contacts: [], methods: [] };
   }
@@ -293,9 +314,10 @@ async function collectContacts(
   for (const contact of extractPublicEmails(home.text, website, website)) contacts.set(contact.email, contact);
   const pages = contactPageUrls(home.text, website);
   for (const page of pages) {
+    if (signal?.aborted) break;
     if (contacts.size >= 3) break;
     try {
-      const read = await readUrl(page, fetchImpl, jinaFallback);
+      const read = await readUrl(page, fetchImpl, jinaFallback, signal);
       methods.add(read.method);
       for (const contact of extractPublicEmails(read.text, page, website)) contacts.set(contact.email, contact);
     } catch {
@@ -306,16 +328,18 @@ async function collectContacts(
 }
 
 export async function collectNativeSignals(options: NativeCollectorOptions = {}): Promise<CollectedNativeSignal[]> {
+  const signal = options.signal ?? AbortSignal.timeout(90_000);
   const feeds = options.feeds?.length ? options.feeds : [...DEFAULT_NATIVE_FEEDS];
   const fetchImpl = options.fetchImpl ?? fetch;
   const limit = Math.max(1, Math.min(options.limit ?? 10, 50));
   const since = options.since ?? new Date(Date.now() - 7 * 86_400_000);
-  const jinaFallback = options.jinaFallback ?? true;
-  const items: NativeFeedItem[] = [];
-  for (const feed of feeds) {
+  const jinaFallback = options.jinaFallback ?? false;
+  const items: NativeFeedItem[] = [...(options.items ?? [])];
+  for (const feed of options.items ? [] : feeds) {
+    if (signal.aborted) break;
     options.onProgress?.(`Reading feed ${feed}`);
     try {
-      const read = await readUrl(feed, fetchImpl, jinaFallback);
+      const read = await readUrl(feed, fetchImpl, false, signal);
       items.push(...parseNativeFeed(read.text, feed));
     } catch (error) {
       options.onProgress?.(`Skipped ${feed}: ${error instanceof Error ? error.message : String(error)}`);
@@ -324,16 +348,21 @@ export async function collectNativeSignals(options: NativeCollectorOptions = {})
 
   const candidates = items
     .filter(isFundingItem)
+    .filter((item) => matchesNativeQuery(item, options.query ?? ""))
     .filter((item) => !item.publishedAt || new Date(item.publishedAt) >= since)
     .filter((item, index, all) => all.findIndex((candidate) => candidate.url === item.url) === index)
     .slice(0, limit * 3);
   const collected: CollectedNativeSignal[] = [];
   for (const item of candidates) {
+    if (signal.aborted) {
+      options.onProgress?.("Skipped remaining sources: the 90-second collection budget was reached. Retry for more results.");
+      break;
+    }
     if (collected.length >= limit) break;
     options.onProgress?.(`Inspecting ${item.title}`);
     let article: ReadResult;
     try {
-      article = await readUrl(item.url, fetchImpl, jinaFallback);
+      article = await readUrl(item.url, fetchImpl, jinaFallback, signal);
     } catch (error) {
       options.onProgress?.(`Skipped article: ${error instanceof Error ? error.message : String(error)}`);
       continue;
@@ -344,12 +373,13 @@ export async function collectNativeSignals(options: NativeCollectorOptions = {})
       continue;
     }
     const website = discoverCompanyWebsite(article.text, item.url, company);
-    const facts = fundingFacts(`${item.title} ${item.summary ?? ""} ${article.text.slice(0, 30_000)}`);
+    // Never attach a stage from a different paragraph (or an earlier round) to the headline amount.
+    const facts = fundingFacts(item.title);
     if (!facts.amountAsWritten && !facts.stageAsWritten) {
       options.onProgress?.("Skipped article: no funding amount or stage was found");
       continue;
     }
-    const contactResult = website ? await collectContacts(website, fetchImpl, jinaFallback) : { contacts: [], methods: [] };
+    const contactResult = website ? await collectContacts(website, fetchImpl, jinaFallback, signal) : { contacts: [], methods: [] };
     const methods = [...new Set([article.method, ...contactResult.methods])];
     collected.push({
       companyWebsite: website,
@@ -379,4 +409,16 @@ export async function collectNativeSignals(options: NativeCollectorOptions = {})
     });
   }
   return collected;
+}
+
+export function matchesNativeQuery(item: Pick<NativeFeedItem, "title" | "summary">, query: string): boolean {
+  const words =
+    query
+      .toLowerCase()
+      .match(/[a-z0-9]+/g)
+      ?.filter(
+        (word) => !["startup", "startups", "funding", "raised", "raises", "round", "rounds", "find", "recent", "latest"].includes(word),
+      ) ?? [];
+  const text = `${item.title} ${item.summary ?? ""}`.toLowerCase();
+  return words.every((word) => new RegExp(`\\b${word}\\b`).test(text));
 }

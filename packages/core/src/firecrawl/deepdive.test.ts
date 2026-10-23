@@ -2,8 +2,8 @@
 // leave unstated fields null rather than guess, and keeps customers and backers apart. The durable
 // pair (start, then poll in bounded steps) hands back a finished run or one still processing.
 
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
+import type { NativeWebClient as Firecrawl } from "../web/client.ts";
 import { awaitDeepDive, DEEP_DIVE_EFFORT, DEEP_DIVE_MAX_CREDITS, deepDivePrompt, startDeepDive } from "./deepdive.ts";
 
 describe("deepDivePrompt", () => {

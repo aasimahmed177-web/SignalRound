@@ -6,7 +6,7 @@ import { testDb } from "./helpers";
 
 vi.mock("@/lib/db", async () => ({ db: async () => (globalThis as { __db?: unknown }).__db }));
 vi.mock("@/lib/dossier-check", () => ({ dossierCheckAvailable: () => true }));
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({ cancelAgent: async () => true }) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({ cancelAgent: async () => true }) }));
 
 test("a company merged into another after it was queued is skipped, not dived", async () => {
   (globalThis as { __db?: unknown }).__db = await testDb();

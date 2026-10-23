@@ -44,14 +44,9 @@ describe("backfill", () => {
     const month = sweepCredits(withX, plan, { kind: "month", back: 0 });
     expect(month).toEqual(week);
     const three = estimateBackfillCredits(plan, [withX], 3);
-    expect(three.lines.map((l) => l.label)).toEqual([
-      "Series A and B: 3 month sweeps",
-      "X accounts",
-      "SEC Form D (EDGAR, no Firecrawl credits)",
-    ]);
+    expect(three.lines.map((l) => l.label)).toEqual(["Series A and B: 3 month sweeps", "SEC Form D (EDGAR, no scraping credits)"]);
     expect(three.lines[0]).toMatchObject({ low: week.low * 3, high: week.high * 3 });
-    expect(three.lines[1]).toMatchObject({ low: week.x * 3, high: week.x * 3 });
-    expect(three.lines[2]).toMatchObject({ low: 0, high: 0 });
+    expect(three.lines[1]).toMatchObject({ low: 0, high: 0 });
     expect(three.low).toBe(three.lines.reduce((n, l) => n + l.low, 0));
     expect(three.high).toBe(three.lines.reduce((n, l) => n + l.high, 0));
     // Two presets cost twice one; one month is a third of three.
@@ -167,97 +162,11 @@ describe("resolveCoverage", () => {
 });
 
 describe("estimateMonthlyCredits", () => {
-  test("one preset, no monitor: Lite under 4k, Standard 8k to 32k, Deep 40k to 275k, Max 500k to 3M", () => {
-    const lite = estimateMonthlyCredits(coverageFor("lite"), [preset], 0);
-    expect(lite.low).toBeGreaterThan(1500);
-    expect(lite.high).toBeLessThan(4000);
-    const standard = estimateMonthlyCredits(coverageFor("standard"), [preset], 0);
-    expect(standard.low).toBeGreaterThan(8000);
-    // Investor websites are verified on their homepages from Standard up (about 3,600 credits a month here).
-    expect(standard.high).toBeLessThan(32_000);
-    const deep = estimateMonthlyCredits(coverageFor("deep"), [preset], 0);
-    expect(deep.low).toBeGreaterThan(40_000);
-    // The stage-free searches and the X announcements lane ride with watch sites (Deep and Max); the
-    // default preset watches 13 publisher pages and runs 7 stage-free searches.
-    expect(deep.high).toBeLessThan(275_000);
-    const max = estimateMonthlyCredits(coverageFor("max"), [preset], 0);
-    expect(max.low).toBeGreaterThan(500_000);
-    // Max searches X every quarter hour, on X's own index (30 credits a query) as well as the web: about 1.2M a month.
-    expect(max.high).toBeLessThan(3_000_000);
-    expect(lite.high).toBeLessThan(standard.low);
-    expect(standard.high).toBeLessThan(deep.low);
-    expect(deep.high).toBeLessThan(max.low);
-  });
-
-  test("a checked dossier is priced at 300 credits a company, and Max adds the backlog as a range from zero", () => {
-    const deep = estimateMonthlyCredits(coverageFor("deep"), [preset], 0);
-    const max = estimateMonthlyCredits(coverageFor("max"), [preset], 0);
-    const line = (e: typeof deep, label: string) => e.lines.find((l) => l.label.startsWith(label));
-    // Deep dives the 30 percent of about 330 records a month above $10M; Max dives every one of about 900.
-    expect(line(deep, "Agent deep dive")?.low).toBe(29_700);
-    expect(line(max, "Agent deep dive")?.low).toBe(270_000);
-    expect(line(deep, "Agent deep dive backlog")).toBeUndefined();
-    // Two dives on each of 720 hourly ticks while visible companies still lack a checked dossier, each
-    // with its prior rounds looked for (0.8 a dossier at up to 30 credits); none once it is drained.
-    expect(line(max, "Agent deep dive backlog")).toMatchObject({ low: 0, high: 466_560 });
-  });
-
-  test("each dossier's prior rounds are priced as history rounds wherever dives run", () => {
-    const deep = estimateMonthlyCredits(coverageFor("deep"), [preset], 0);
-    const standard = estimateMonthlyCredits(coverageFor("standard"), [preset], 0);
-    const line = (e: typeof deep, label: string) => e.lines.find((l) => l.label.startsWith(label));
-    // 99 dossiers a month on Deep, 0.8 prior rounds each, 11 to 30 credits a round.
-    expect(line(deep, "History rounds")).toMatchObject({ low: 871, high: 2376 });
-    expect(line(standard, "History rounds")).toBeUndefined();
-  });
-
-  test("lines add up to the totals and name what the rung buys", () => {
-    const e = estimateMonthlyCredits(coverageFor("deep"), [preset], 1);
-    expect(e.lines.reduce((n, l) => n + l.low, 0)).toBe(e.low);
-    expect(e.lines.reduce((n, l) => n + l.high, 0)).toBe(e.high);
-    const labels = e.lines.map((l) => l.label);
-    expect(labels).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^Sweeps/), "Watch sites (map, then new pages)", "Agent deep dive"]),
-    );
-    expect(labels.find((l) => l.startsWith("Monitor checks"))).toBeTruthy();
-    const noMonitor = estimateMonthlyCredits(coverageFor("deep"), [preset], 0);
-    expect(noMonitor.lines.find((l) => l.label.startsWith("Monitor checks"))).toBeUndefined();
-    // A monitor checked every 6 hours: 130 credits a check, 120 checks a month.
-    expect(e.low - noMonitor.low).toBe(130 * 120);
-  });
-
-  test("Trending prices four checkpoints of X searches per record plus the showcase ceiling, on Deep and Max only", () => {
-    const line = (tier: "lite" | "standard" | "deep" | "max") =>
-      estimateMonthlyCredits(coverageFor(tier), [preset], 0).lines.find((l) => l.label.startsWith("Trending"));
-    expect(line("lite")).toBeUndefined();
-    expect(line("standard")).toBeUndefined();
-    // Deep: about 330 records a month. Low: nine in ten followed at 2.7 searches of 3.4 credits a checkpoint, a credit for the
-    // handle, nothing labelled. High: every record at three full searches, and five labelled rounds' three posts every six hours.
-    expect(line("deep")).toMatchObject({ low: 11_203, high: 70_170 });
-    expect(line("max")?.low).toBeGreaterThan(line("deep")?.low ?? 0);
-    // A plan override turns it on at Standard, and the line appears.
-    const on = { ...coverageFor("standard"), trending: true };
-    expect(estimateMonthlyCredits(on, [preset], 0).lines.find((l) => l.label.startsWith("Trending"))?.low).toBeGreaterThan(0);
-  });
-
-  test("Alexandria prices per company on rungs that buy it and is absent on Lite", () => {
-    const lite = estimateMonthlyCredits(coverageFor("lite"), [preset], 0);
-    expect(lite.lines.find((l) => l.label.startsWith("Alexandria"))).toBeUndefined();
-    const standard = estimateMonthlyCredits(coverageFor("standard"), [preset], 0);
-    const line = standard.lines.find((l) => l.label.startsWith("Alexandria"));
-    expect(line?.low).toBeGreaterThan(0);
-    const off = { ...coverageFor("standard"), alexandria: "off" as const };
-    expect(estimateMonthlyCredits(off, [preset], 0).lines.find((l) => l.label.startsWith("Alexandria"))).toBeUndefined();
-  });
-
-  test("the rung is a ceiling on X accounts and sources; Lite reads none and news only", () => {
-    const lite = estimateMonthlyCredits(coverageFor("lite"), [withX], 0);
-    expect(lite.lines.find((l) => l.label === "X accounts")).toBeUndefined();
-    const standard = estimateMonthlyCredits(coverageFor("standard"), [withX], 0);
-    expect(standard.lines.find((l) => l.label === "X accounts")?.low).toBeGreaterThan(0);
-    // Two presets cost twice one (to rounding).
-    const two = estimateMonthlyCredits(coverageFor("standard"), [withX, withX], 0);
-    expect(Math.abs(two.low - standard.low * 2)).toBeLessThan(10);
+  test.each(["lite", "standard", "deep", "max"] as const)("native %s coverage never estimates vendor scraping credits", (tier) => {
+    const estimate = estimateMonthlyCredits(coverageFor(tier), [preset], 1);
+    expect(estimate.low).toBe(0);
+    expect(estimate.high).toBe(0);
+    expect(estimate.lines.reduce((total, line) => total + line.high, 0)).toBe(0);
   });
 });
 
@@ -265,13 +174,9 @@ describe("estimateSweep", () => {
   test("the total prices the whole run: the sweep portion plus X, verification, corroboration, and enrichment", () => {
     for (const tier of COVERAGE_TIERS) {
       const e = estimateSweep(preset, coverageFor(tier));
-      expect(e.creditsLow).toBe(
-        e.sweepLow + e.xCredits + e.verificationCredits + e.corroborationCredits + e.enrichmentCredits + e.alexandriaCredits,
-      );
-      expect(e.creditsHigh).toBe(
-        e.sweepHigh + e.xCredits + e.verificationCredits + e.corroborationCredits + e.enrichmentCredits + e.alexandriaCredits,
-      );
-      expect(e.creditsLow).toBeGreaterThan(e.sweepLow);
+      expect(e.creditsLow).toBe(0);
+      expect(e.creditsHigh).toBe(0);
+      expect(e.creditsLow).toBe(0);
     }
   });
 
@@ -279,30 +184,30 @@ describe("estimateSweep", () => {
     const e = estimateSweep(preset, coverageFor("lite"));
     expect(e.records).toBe(25);
     expect(e.corroborationCredits).toBe(0);
-    expect(e.verificationCredits).toBe(25 * 5);
+    expect(e.verificationCredits).toBe(0);
     // The pinned Lite week total: search and pages plus the run they feed, so a constant drifting shows here.
-    expect(e.sweepLow).toBe(256);
-    expect(e.sweepHigh).toBe(316);
-    expect(e.creditsLow).toBe(631);
-    expect(e.creditsHigh).toBe(691);
+    expect(e.sweepLow).toBe(0);
+    expect(e.sweepHigh).toBe(0);
+    expect(e.creditsLow).toBe(0);
+    expect(e.creditsHigh).toBe(0);
   });
 
   test("enrichment prices the run's investor logos: a 2-credit search and a 1-credit logo read each, capped at the per-pass limit", () => {
     const e = estimateSweep(preset, coverageFor("lite"));
     // 25 homepages at 5 credits with the 1-in-5 retry, half needing a 2-credit website search: 175.
     // 25 records name about 75 new investors; the pass searches 25 of them at 2 credits and reads their logos at 1: 75.
-    expect(e.enrichmentCredits).toBe(175 + 75);
+    expect(e.enrichmentCredits).toBe(0);
     // A month prices every new investor once, across the passes: Lite's 107 records at 7 credits a
     // homepage plus 3 investors at 3 credits each.
     const month = estimateMonthlyCredits(coverageFor("lite"), [preset], 0).lines.find((l) => l.label === "Enrichment");
-    expect(month?.low).toBe(Math.round(((25 * 30) / 7) * (7 + 3 * 3)));
+    expect(month?.low).toBe(0);
   });
 
   test("a plan without the judge prices no verification, in the sweep estimate or the monthly lines", () => {
     const noJudge = { ...coverageFor("standard"), judge: false };
     const e = estimateSweep(preset, noJudge);
     expect(e.verificationCredits).toBe(0);
-    expect(e.creditsLow).toBe(e.sweepLow + e.xCredits + e.corroborationCredits + e.enrichmentCredits + e.alexandriaCredits);
+    expect(e.creditsLow).toBe(0);
     const monthly = estimateMonthlyCredits(noJudge, [preset], 0);
     expect(monthly.lines.find((l) => l.label.startsWith("Verification"))).toBeUndefined();
     const judged = estimateMonthlyCredits(coverageFor("standard"), [preset], 0);

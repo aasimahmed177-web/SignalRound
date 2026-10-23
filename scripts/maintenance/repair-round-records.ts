@@ -3,23 +3,23 @@
 // fingerprints of renamed companies, and, with --web, find published rounds' announcements on the
 // company's site or a newswire and read verified homepages' own one-line descriptions.
 //   pnpm repair-round-records                              # dry run over every published round, store only
-//   pnpm repair-round-records -- --web --limit 20          # dry run, reading the web (Firecrawl credits)
+//   pnpm repair-round-records -- --web --limit 20          # dry run, reading the web (NativeWebClient credits)
 //   pnpm repair-round-records -- --ids a,b --show <id>     # these rounds; print one round's API row before and after
 //   pnpm repair-round-records -- --web --apply             # back up every row it touches, then write
 //   --backup-dir <dir>   where the JSON backup goes (default data/backups)
 //   --json <file>        write the plan as JSON
-// The web steps need FIRECRAWL_API_KEY and no model key: a page's reading is Firecrawl's extraction.
+// Web reads use native transport; structured extraction needs a configured model key.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_TIERS } from "@fireround/core";
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../../lib/db.ts";
-import { getFirecrawl } from "../../lib/firecrawl.ts";
 import { publicRound } from "../../lib/public-view.ts";
 import { applyRepair, planRepair, previewRow, repairBackup, repairRows } from "../../lib/round-record-repair.ts";
 import { loadPublisherTiers } from "../../lib/rules.ts";
 import { invalidateScriptEntityPages } from "../../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../../lib/web-client.ts";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -34,7 +34,7 @@ const show = flag("--show");
 
 const handle = await openStore();
 const tiers = { ...DEFAULT_TIERS, ...(await loadPublisherTiers()) };
-const client = web ? getFirecrawl() : null;
+const client = web ? getWebClient() : null;
 const rows = await repairRows(handle, { ids, limit });
 const plan = await planRepair(handle, rows, { client, tiers });
 

@@ -25,8 +25,8 @@ import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { and, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { staleForNews } from "./deliverable.ts";
-import { getFirecrawl } from "./firecrawl.ts";
 import { REREPORT_CORROBORATED_WINDOW_DAYS, SAME_STAGE_WINDOW_DAYS, seriesLetter } from "./persist.ts";
+import { getWebClient } from "./web-client.ts";
 
 const { fundingRounds, enrichments, historyPromotions, deliveries, sources, roundSources, companies } = schema;
 
@@ -81,12 +81,12 @@ export async function findOriginalAnnouncement(
   stage: string,
   reportedOn?: string,
 ): Promise<OriginalAnnouncement | null> {
-  const client = getFirecrawl();
+  const client = getWebClient();
   const result = await client.search(`"${company}" ${stage} funding`, { sources: ["web", "news"], limit: 10, highlights: true });
   const candidates = [...(result.web ?? []), ...(result.news ?? [])]
     .map((s) => ({
-      url: "url" in s ? s.url : "metadata" in s ? s.metadata?.sourceURL : undefined,
-      title: "title" in s ? s.title : "metadata" in s ? s.metadata?.title : undefined,
+      url: s.url,
+      title: s.title ?? s.metadata?.title,
     }))
     .filter((s): s is { url: string; title: string } =>
       Boolean(s.url && s.title && isArticleUrl(s.url) && s.title.toLowerCase().includes(stage.toLowerCase())),
@@ -318,7 +318,7 @@ export async function holdLateReports(
         .select({ name: companies.name, domain: companies.domain })
         .from(companies)
         .where(eq(companies.id, companyId));
-      if (!company || (!process.env.FIRECRAWL_API_KEY && !options.searchOriginal)) continue;
+      if (!company) continue;
       const original = await (options.searchOriginal ?? findOriginalAnnouncement)(
         company.name,
         company.domain,

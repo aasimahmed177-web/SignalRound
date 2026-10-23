@@ -13,11 +13,10 @@
 // Fixing bad rows (ids are the investor page's slug, /investors/<id>; comma-separated, quote ids with spaces):
 //   pnpm investor-domains -- --clear hsr,archetype        # domain and logo back to null, no search, not re-searched on its own
 //   pnpm investor-domains -- --recheck hsr,archetype      # a fresh search for these ids, the new answer replaces the old
-// The dry run reads the store and makes no Firecrawl call, so it needs no API key; --clear never calls Firecrawl.
+// The dry run reads the store and makes no NativeWebClient call, so it needs no API key; --clear never calls NativeWebClient.
 
 import { closeDb } from "@fireround/core/db";
 import { openStore } from "../lib/db.ts";
-import { getFirecrawl } from "../lib/firecrawl.ts";
 import {
   clearInvestorDomains,
   fetchInvestorLogos,
@@ -29,6 +28,7 @@ import {
   resolveInvestorDomains,
 } from "../lib/investor-enrich.ts";
 import { invalidateScriptEntityPages } from "../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 function arg(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
@@ -111,7 +111,7 @@ const printLogos = (outcomes: InvestorLogoOutcome[]) => {
   for (const o of outcomes)
     console.log(`${fmt(o.name, 36)} ${fmt(`logo ${o.outcome}`, 11)} ${fmt(o.domain, 26)} ${o.logo_url ?? o.detail ?? ""}`);
 };
-const client = getFirecrawl();
+const client = getWebClient();
 let spent = 0;
 
 if (!logosOnly) {

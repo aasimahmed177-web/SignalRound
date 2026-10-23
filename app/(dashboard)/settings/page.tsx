@@ -15,7 +15,6 @@ import { Panel } from "@/components/ui/stat";
 import { isPublicDemo } from "@/lib/access";
 import { db } from "@/lib/db";
 import { deliveryCounts } from "@/lib/delivery";
-import { firecrawlKey } from "@/lib/firecrawl";
 import { isLoopbackOrigin, publicOrigin } from "@/lib/origin";
 import { listPresets } from "@/lib/presets";
 import { listFeedTokens, listMonitors, listTargets, type TargetRow } from "@/lib/settings";
@@ -97,7 +96,6 @@ async function SettingsBody({ searchParams }: { searchParams: Promise<Search> })
   };
   // The forms and lists show names; the slug is what they send and store.
   const presetNames = presets.map((p) => ({ slug: p.slug, name: p.name }));
-  const hasKey = firecrawlKey() !== null;
   const reconciler = reconcileProviderFor();
   const dossierChecker = dossierVerifyProviderFor();
   return (
@@ -105,15 +103,13 @@ async function SettingsBody({ searchParams }: { searchParams: Promise<Search> })
       <CoveragePanel setting={coverage} presets={presets} monitors={monitors.length} />
       <Panel title="Environment" code="KEYS">
         <dl className="-my-2.5 divide-y divide-border-faint">
-          <EnvRow label="Firecrawl key">
-            {hasKey ? "set (FIRECRAWL_API_KEY)" : <span className="text-crimson-ink">missing: set FIRECRAWL_API_KEY</span>}
-          </EnvRow>
+          <EnvRow label="Web collection">Native HTTP reader and live search. No scraping-service key or credits required.</EnvRow>
           <EnvRow label="Verification">
             {reconciler ? (
               `reconcile: ${reconciler.modelId} via ${reconciler.provider}, every source read together`
             ) : (
               <span title="Set AI_GATEWAY_API_KEY (or an OpenAI, OpenRouter, or Anthropic key) to read each record against all of its sources with a model.">
-                judge: Firecrawl reads the primary page (no model key set)
+                Not configured: discovery and public emails work; structured verification requires a model key.
               </span>
             )}
           </EnvRow>
@@ -127,18 +123,19 @@ async function SettingsBody({ searchParams }: { searchParams: Promise<Search> })
             )}
           </EnvRow>
           <EnvRow label="Database">{process.env.DATABASE_URL ? "Postgres (DATABASE_URL)" : "embedded PGlite under ./data"}</EnvRow>
-          <EnvRow label="Webhook signature">
-            {process.env.FIRECRAWL_WEBHOOK_SECRET
-              ? "verified (FIRECRAWL_WEBHOOK_SECRET)"
-              : "not set: monitor webhooks are refused in production"}
+          <EnvRow label="Search provider">
+            {process.env.SEARXNG_URL
+              ? "Configured SearXNG"
+              : process.env.AGENT_REACH_MCPORTER
+                ? "Agent Reach / mcporter"
+                : "Direct web search"}
           </EnvRow>
-          <EnvRow label="Webhook bearer">{process.env.WEBHOOK_BEARER_TOKEN ? "required on every monitor webhook" : "not set"}</EnvRow>
           <EnvRow label="Dashboard password">
             {process.env.DASHBOARD_PASSWORD ? (
               "set: Basic auth on the dashboard and /api/v1"
             ) : (
               <span className={process.env.NODE_ENV === "production" ? "text-crimson-ink" : undefined}>
-                not set: anyone who reaches this URL can run sweeps and spend credits (DASHBOARD_PASSWORD)
+                not set: anyone who reaches this URL can run searches and use configured models (DASHBOARD_PASSWORD)
               </span>
             )}
           </EnvRow>

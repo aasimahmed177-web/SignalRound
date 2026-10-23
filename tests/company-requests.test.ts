@@ -9,7 +9,7 @@ const started = vi.hoisted(() => vi.fn(async () => undefined));
 const scrape = vi.hoisted(() => vi.fn());
 const bot = vi.hoisted(() => vi.fn());
 vi.mock("workflow/api", () => ({ start: started }));
-vi.mock("@/lib/firecrawl", () => ({ getFirecrawl: () => ({ scrape }) }));
+vi.mock("@/lib/web-client", () => ({ getWebClient: () => ({ scrape }) }));
 vi.mock("botid/server", () => ({ checkBotId: bot }));
 // Every public hostname resolves to a public address, so no test touches DNS; a test that passes its
 // own resolver still gets it.

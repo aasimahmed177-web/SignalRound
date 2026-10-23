@@ -30,7 +30,7 @@ export default function PrivacyPage() {
     <LegalPage
       eyebrow="Privacy"
       title="What we store, and for how long."
-      intro="Fireround is a public funding feed run by Firecrawl. You can read it, query the API, and subscribe to its feeds without an account. This page lists everything the site keeps about the people who use it."
+      intro="SignalRound is a self-hosted funding intelligence app. Access and integrations depend on the operator's configuration. This page describes the data the app handles."
       updated="September 29, 2026"
     >
       <LegalSection id="reading" title="Reading the site">
@@ -103,14 +103,14 @@ export default function PrivacyPage() {
 
       <LegalSection id="processors" title="Who else handles it">
         <ul>
-          <li>Vercel hosts the site and keeps the request logs and analytics.</li>
+          <li>Your configured hosting provider handles requests and may retain request logs.</li>
           {productAnalytics && <li>PostHog receives the product analytics events.</li>}
-          <li>PlanetScale hosts the database.</li>
+          <li>Records are stored in the local database or your configured Postgres provider.</li>
           <li>Slack receives the posts for the channels you connect.</li>
           {email && <li>Resend sends the email digests.</li>}
           <li>
-            Firecrawl reads the public web pages the feed is built from. None of the data on this page is sent to it
-            {requests ? ", except a company website you submit for research" : ""}.
+            Native tools read public pages directly. Configured search providers receive search queries, and configured model providers
+            receive source text for structured extraction and verification. No hosted scraping provider is used.
           </li>
         </ul>
         <p>We do not sell any of it, and we do not use it for advertising.</p>

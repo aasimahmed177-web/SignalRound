@@ -8,8 +8,8 @@ import { schema } from "@fireround/core/db";
 import { and, eq } from "drizzle-orm";
 import { alexandriaBatch, pendingAlexandria } from "../lib/alexandria.ts";
 import { openStore } from "../lib/db.ts";
-import { getFirecrawl } from "../lib/firecrawl.ts";
 import { invalidateScriptEntityPages } from "../lib/script-cache-invalidation.ts";
+import { getWebClient } from "../lib/web-client.ts";
 
 const { enrichments } = schema;
 
@@ -22,7 +22,7 @@ const limit = Number(arg("--limit", "20"));
 /** Credits the run may spend before it stops; 0 means no cap. */
 const maxCredits = Number(arg("--max-credits", "0"));
 const handle = await openStore();
-const client = getFirecrawl();
+const client = getWebClient();
 
 const fmt = (s: string, n: number) => s.padEnd(n).slice(0, n);
 

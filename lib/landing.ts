@@ -18,10 +18,10 @@ export const REPO_URL = "https://github.com/aasimahmed177-web/SignalRound";
 export const DEPLOY_URL =
   "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Faasimahmed177-web%2FSignalRound&env=DASHBOARD_PASSWORD%2CCRON_SECRET%2CSIGNAL_INGEST_KEY&envDescription=Your%20dashboard%20password%2C%20cron%20secret%2C%20and%20a%20dedicated%20bearer%20key%20for%20signal%20ingestion&stores=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D";
 
-export const API_KEYS_URL = "https://www.firecrawl.dev/app/api-keys";
+export const API_KEYS_URL = "/settings";
 
-/** Fireround's page in Firecrawl Alexandria, where ChatGPT, Claude, and other agents query this feed through Firecrawl. */
-export const ALEXANDRIA_URL = "https://www.firecrawl.dev/alexandria/fireround";
+/** Fireround's page in NativeWebClient Alexandria, where ChatGPT, Claude, and other agents query this feed through NativeWebClient. */
+export const ALEXANDRIA_URL = "/api/mcp";
 
 /** The README's quick start, with the comment on the key line cut to fit a phone. */
 export const QUICK_START = [

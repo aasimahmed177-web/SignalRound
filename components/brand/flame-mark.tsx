@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { FLAME_INNER_PATH, FLAME_INNER_TRANSFORM, FLAME_OUTER_TRANSFORM, FLAME_REST_PATH, FLAME_VIEW_BOX } from "./flame-geometry";
 
-// The lit Firecrawl flame: the marketing site's 15-frame SMIL morph of the outline, which is what makes
+// The lit native web tools flame: the marketing site's 15-frame SMIL morph of the outline, which is what makes
 // it look lit rather than an icon with a pulse on it. The resting path ships with this module so a mark
 // always draws a correct flame; the frames load on their own chunk and the mark starts moving when they
 // land. Geometry and frames are extracted from the served site header, never redrawn (flame-geometry.ts).

@@ -29,8 +29,8 @@ import {
 } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient } from "@fireround/core/web";
 import { and, eq, ne, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { dispositionFor, keptSector, listRounds, type RoundRow, recordRun, sourceClaims, syncRoundInvestors } from "./persist.ts";
 import { autoPromotionEligible, investorDomainsForRound, visibilityEvidence } from "./round-verification.ts";
 import { loadPublisherTiers } from "./rules.ts";
@@ -471,7 +471,7 @@ export type ResearchOutcome =
  * leaves the queue on its own if it now qualifies. Every run lands in Runs, failures included.
  * The Research button and the auto gap-fill step both run this.
  */
-export async function researchRound(handle: Db, client: Firecrawl, id: string, opts: { now?: Date } = {}): Promise<ResearchOutcome> {
+export async function researchRound(handle: Db, client: NativeWebClient, id: string, opts: { now?: Date } = {}): Promise<ResearchOutcome> {
   const { rows } = await listRounds(handle, { ids: [id], includeReview: true, limit: 1 });
   const row = rows[0];
   if (!row) throw new Error("Record not found.");

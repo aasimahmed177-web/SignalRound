@@ -1,4 +1,4 @@
-import type { Firecrawl } from "firecrawl";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { describe, expect, test } from "vitest";
 import { corroborateRecord } from "../lib/corroborate";
 import { DIGEST_CAP, digestDue, digestHtml, digestSubject, digestText, parseDigestState } from "../lib/digest";

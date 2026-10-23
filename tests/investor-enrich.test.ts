@@ -6,8 +6,8 @@
 // claimed, isolated, and paid for once like the search.
 
 import { schema } from "@fireround/core/db";
+import type { NativeWebClient as Firecrawl } from "@fireround/core/web";
 import { eq, sql } from "drizzle-orm";
-import type { Firecrawl } from "firecrawl";
 import { describe, expect, test } from "vitest";
 import {
   clearInvestorDomains,
@@ -194,8 +194,8 @@ describe("resolveInvestorDomains", () => {
     expect(calls[0].options).toEqual({ limit: 10, highlights: false });
     // One homepage verdict each for the two that verified, and Beta's round's press page read for links.
     expect(scrapes.map((s) => s.url).sort()).toEqual(["https://oldfund.com", "https://reuters.com/acme", "https://www.acmevc.com"]);
-    // Four searches (8), two verdicts (10), one press page (1).
-    expect(r).toMatchObject({ investors: 5, searched: 4, resolved: 2, skipped: 1, errors: 1, credits: 19, logos: null });
+    // Native searches, verdict reads, and the press page use no hosted scraping credits.
+    expect(r).toMatchObject({ investors: 5, searched: 4, resolved: 2, skipped: 1, errors: 1, credits: 0, logos: null });
     expect(await row(db, "acme")).toMatchObject({
       domain: "acmevc.com",
       kind: "venture_capital",
@@ -327,7 +327,7 @@ describe("resolveInvestorDomains", () => {
     ]);
     // No homepage verdict and no press page: only the chained branding reads of what resolved.
     expect(scrapes.map((s) => s.url).sort()).toEqual(["https://acmevc.com", "https://oldfund.com"]);
-    expect(r).toMatchObject({ searched: 3, resolved: 2, credits: 6, logos: { found: 2, credits: 2 } });
+    expect(r).toMatchObject({ searched: 3, resolved: 2, credits: 0, logos: { found: 2, credits: 0 } });
     expect(await row(db, "acme")).toMatchObject({ domain: "acmevc.com", logoUrl: "https://acmevc.com/logo.svg", kind: null });
   });
 
@@ -380,7 +380,7 @@ describe("resolveInvestorDomains", () => {
       "Beta Capital investor official website",
     ]);
     // Four searches and the round's press page, read once for both.
-    expect(r).toMatchObject({ searched: 4, resolved: 0, credits: 9 });
+    expect(r).toMatchObject({ searched: 4, resolved: 0, credits: 0 });
     expect(await row(db, "acme")).toMatchObject({ domain: null });
     // And a hit replaces it.
     const hitAgain = fakeClient({ "Acme Ventures": [{ url: "https://acme.ventures/", title: "Acme Ventures" }] });
@@ -399,7 +399,7 @@ describe("resolveInvestorDomains", () => {
     expect(r.outcomes.find((o) => o.id === "old")).toMatchObject({ outcome: "error" });
     // Four searches, one verdict each for Acme and Old Fund, and Beta's press page were billed
     // (Flaky's search threw), and the others' writes landed.
-    expect(r).toMatchObject({ searched: 4, resolved: 1, errors: 2, credits: 19 });
+    expect(r).toMatchObject({ searched: 4, resolved: 1, errors: 2, credits: 0 });
     expect(await row(db, "acme")).toMatchObject({ domain: "acmevc.com" });
     expect(await row(db, "old")).toMatchObject({ domain: null, domainCheckedAt: null });
   });
@@ -451,8 +451,8 @@ describe("resolveInvestorDomains", () => {
   test("the dry run counts searches and credits without a call", async () => {
     const { db } = await seed();
     const plan = planInvestorDomains(await pendingInvestorDomains(db, { limit: 100 }));
-    // Usually a search and a verdict each (7); at most two searches, four verdicts, two press pages (26).
-    expect(plan).toEqual({ investors: 5, searches: 4, skipped: 1, people: 0, credits: 28, maxCredits: 104 });
+    // The bounded read plan remains visible; native collection has no scraping-credit charge.
+    expect(plan).toEqual({ investors: 5, searches: 4, skipped: 1, people: 0, credits: 0, maxCredits: 0 });
   });
 
   test("skipPeople leaves bare person-shaped names unsearched and pending, and the plan says what that saves", async () => {
@@ -460,11 +460,11 @@ describe("resolveInvestorDomains", () => {
     const acmeRound = (await db.select().from(roundInvestors).where(eq(roundInvestors.investorId, "acme")))[0];
     await db.insert(investors).values({ id: "jane doe", name: "Jane Doe" });
     await db.insert(roundInvestors).values({ roundId: acmeRound.roundId, investorId: "jane doe", role: "participant" });
-    expect(planInvestorDomains(await pendingInvestorDomains(db, { limit: 100 }))).toMatchObject({ searches: 5, people: 1, credits: 35 });
+    expect(planInvestorDomains(await pendingInvestorDomains(db, { limit: 100 }))).toMatchObject({ searches: 5, people: 1, credits: 0 });
     expect(planInvestorDomains(await pendingInvestorDomains(db, { limit: 100, skipPeople: true }))).toMatchObject({
       searches: 4,
       people: 0,
-      credits: 28,
+      credits: 0,
     });
     const { client, calls } = fakeClient(FIXTURES);
     await resolveInvestorDomains(db, client, { limit: 100, skipPeople: true });
@@ -513,11 +513,11 @@ describe("investor logos", () => {
     const { db } = await seed();
     await resolveInvestorDomains(db, fakeClient(FIXTURES, DOWN).client, { limit: 25, logos: false });
     const plan = planInvestorLogos(await pendingInvestorLogos(db, { limit: 25 }));
-    expect(plan).toEqual({ investors: 2, scrapes: 2, credits: 2 });
+    expect(plan).toEqual({ investors: 2, scrapes: 2, credits: 0 });
     const { client, scrapes } = fakeClient({}, { "https://acmevc.com": LOGO_PAGES["https://acmevc.com"] });
     const r = await fetchInvestorLogos(db, client, { limit: 25 });
     expect(scrapes.map((s) => s.url).sort()).toEqual(["https://acmevc.com", "https://oldfund.com"]);
-    expect(r).toMatchObject({ investors: 2, scraped: 2, found: 1, errors: 0, credits: 2 });
+    expect(r).toMatchObject({ investors: 2, scraped: 2, found: 1, errors: 0, credits: 0 });
     expect(r.outcomes.find((o) => o.id === "old")).toMatchObject({ outcome: "miss", logo_url: null });
     expect(await row(db, "old")).toMatchObject({ logoUrl: null });
     expect((await row(db, "old")).logoCheckedAt).toBeInstanceOf(Date);
@@ -539,9 +539,8 @@ describe("investor logos", () => {
     const { db } = await seed();
     const { client } = fakeClient(FIXTURES, { ...PAGES, "https://oldfund.com": new Error("timeout") });
     const r = await resolveInvestorDomains(db, client, { limit: 25 });
-    // Old Fund's homepage threw, so its snippet stood in (and its second search ran): Acme 7, Beta 4,
-    // Old Fund 4, the press page 1.
-    expect(r).toMatchObject({ resolved: 2, credits: 16 });
+    // Old Fund's homepage threw, so its snippet stood in and its second search ran.
+    expect(r).toMatchObject({ resolved: 2, credits: 0 });
     // The chained logo read throws too; it is not billed, and the domain it was for stays.
     expect(r.logos).toMatchObject({ investors: 1, scraped: 0, found: 0, errors: 1, credits: 0 });
     expect(r.logos?.outcomes.find((o) => o.id === "old")).toMatchObject({ outcome: "error", detail: "timeout" });
@@ -560,17 +559,17 @@ describe("investor logos", () => {
       sql`create trigger refuse_logo before update of logo_url on investors for each row when (new.id = 'acme') execute function refuse_logo()`,
     );
     const r = await fetchInvestorLogos(db, fakeClient({}, LOGO_PAGES).client, { limit: 25 });
-    expect(r).toMatchObject({ scraped: 2, found: 1, errors: 1, credits: 2 });
+    expect(r).toMatchObject({ scraped: 2, found: 1, errors: 1, credits: 0 });
     expect(await row(db, "acme")).toMatchObject({ logoUrl: null, logoCheckedAt: null });
     expect(await row(db, "old")).toMatchObject({ logoUrl: "https://oldfund.com/icon.png" });
   });
 
-  test("credits are what the scrape reports it used, else the rate card's one a page", async () => {
+  test("explicit historical usage is retained, while native reads default to zero credits", async () => {
     const { db } = await seed();
     await resolveInvestorDomains(db, fakeClient(FIXTURES, DOWN).client, { limit: 25, logos: false });
     const pages = { ...LOGO_PAGES, "https://acmevc.com": { branding: { logo: "/logo.svg" }, metadata: { creditsUsed: 3 } } };
     const r = await fetchInvestorLogos(db, fakeClient({}, pages).client, { limit: 25 });
-    expect(r.credits).toBe(3 + 1);
+    expect(r.credits).toBe(3);
   });
 
   test("overlapping passes claim rows first, so no homepage is read twice", async () => {

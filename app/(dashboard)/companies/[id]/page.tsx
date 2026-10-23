@@ -526,16 +526,7 @@ async function CompanyBody({ params }: { params: Promise<{ id: string }> }) {
             )}
             {house && (
               <p className="border-t border-border-faint pt-2.5 text-body-small text-muted-foreground">
-                Fireround runs on{" "}
-                <a
-                  href="https://firecrawl.dev"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-foreground underline decoration-black-alpha-32 underline-offset-2 hover:decoration-current"
-                >
-                  Firecrawl
-                </a>
-                : search, scrape, JSON extraction, and branding, all on this company's API.
+                SignalRound uses native web search and page reading. Structured research uses your configured model provider.
               </p>
             )}
           </div>

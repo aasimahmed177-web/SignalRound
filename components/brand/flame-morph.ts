@@ -1,4 +1,4 @@
-// The Firecrawl flame, lit: the 15-frame SMIL morph the marketing site runs.
+// The NativeWebClient flame, lit: the 15-frame SMIL morph the marketing site runs.
 // Generated, not authored (see flame-geometry.ts for the extraction note).
 //
 // This module is imported dynamically, never statically. It is 6.8kB gzip of

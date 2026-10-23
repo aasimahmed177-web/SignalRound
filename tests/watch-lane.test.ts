@@ -10,6 +10,8 @@ import type { ExtractedItem, FeedRecord } from "@fireround/core";
 import { schema } from "@fireround/core/db";
 import { describe, expect, test, vi } from "vitest";
 
+vi.mock("workflow/api", () => ({ start: vi.fn(async () => ({ runId: "test-workflow" })) }));
+
 const read = vi.hoisted(() => ({ records: [] as FeedRecord[][], events: [] as string[] }));
 
 vi.mock("@fireround/core", async (original) => {
@@ -107,8 +109,8 @@ vi.mock("@fireround/core", async (original) => {
   };
 });
 
-vi.mock("@/lib/firecrawl", () => ({
-  getFirecrawl: () => ({ getCreditUsage: async () => ({ remainingCredits: 1000 }) }),
+vi.mock("@/lib/web-client", () => ({
+  getWebClient: () => ({ getCreditUsage: async () => ({ remainingCredits: 1000 }) }),
 }));
 
 vi.mock("@/lib/delivery", () => ({
