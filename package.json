@@ -78,7 +78,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "convex": "^1.46.0",
-    "drizzle-orm": "1.0.0-rc.4",
+    "drizzle-orm": "1.0.0-rc.5-5935859",
     "fast-xml-parser": "^5.11.2",
     "feed": "^6.0.0",
     "geist": "^1.7.2",
