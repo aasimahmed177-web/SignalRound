@@ -26,9 +26,7 @@ async function getJson(url: string) {
 
 const articles = new Map<string, string>();
 for (const search of SEARCHES) {
-  const results = await getJson(
-    `https://inc42.com/wp-json/wp/v2/search?search=${encodeURIComponent(search)}&per_page=100`,
-  );
+  const results = await getJson(`https://inc42.com/wp-json/wp/v2/search?search=${encodeURIComponent(search)}&per_page=100`);
   for (const result of results) {
     if (/Indian Startups Raised|Startup Funding Of The Week/i.test(result.title)) {
       articles.set(result.url, clean(result.title.replace(/&#\d+;|&\w+;/g, " ")));

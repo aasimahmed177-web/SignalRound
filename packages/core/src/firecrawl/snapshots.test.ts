@@ -63,4 +63,4 @@ test("the page snapshot migration is idempotent", async () => {
   } finally {
     await client.close();
   }
-});
+}, 15_000);

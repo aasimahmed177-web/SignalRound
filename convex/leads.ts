@@ -1,5 +1,5 @@
-import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 const stage = v.union(v.literal("pre_seed"), v.literal("seed"), v.literal("series_a"), v.literal("series_b"));
 const contactType = v.union(
@@ -54,7 +54,10 @@ export const upsert = internalMutation({
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
     const domain = normalizedDomain(args.company.website);
-    const existing = await ctx.db.query("companies").withIndex("by_domain", (q) => q.eq("domain", domain)).unique();
+    const existing = await ctx.db
+      .query("companies")
+      .withIndex("by_domain", (q) => q.eq("domain", domain))
+      .unique();
     const companyValues = {
       ...args.company,
       normalizedName: args.company.name.trim().toLowerCase(),
@@ -64,12 +67,14 @@ export const upsert = internalMutation({
       outreachStatus: (args.contacts.length ? "qualified" : "needs_contact") as "qualified" | "needs_contact",
       updatedAt: now,
     };
-    const companyId = existing
-      ? (await ctx.db.patch(existing._id, companyValues), existing._id)
-      : await ctx.db.insert("companies", companyValues);
+    const companyId = existing ? existing._id : await ctx.db.insert("companies", companyValues);
+    if (existing) await ctx.db.patch(existing._id, companyValues);
 
     const roundKey = [domain, args.round.stage, args.round.announcedOn, args.round.amountAsWritten.toLowerCase()].join("|");
-    const oldRound = await ctx.db.query("fundingRounds").withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", roundKey)).unique();
+    const oldRound = await ctx.db
+      .query("fundingRounds")
+      .withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", roundKey))
+      .unique();
     const roundValues = { ...args.round, companyId, dedupeKey: roundKey, updatedAt: now };
     if (oldRound) await ctx.db.patch(oldRound._id, roundValues);
     else await ctx.db.insert("fundingRounds", { ...roundValues, createdAt: now });
@@ -77,7 +82,10 @@ export const upsert = internalMutation({
     for (const contact of args.contacts) {
       const email = contact.email.trim().toLowerCase();
       const contactKey = `${domain}|${email}`;
-      const oldContact = await ctx.db.query("contacts").withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", contactKey)).unique();
+      const oldContact = await ctx.db
+        .query("contacts")
+        .withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", contactKey))
+        .unique();
       const contactValues = {
         ...contact,
         email,
@@ -109,7 +117,10 @@ export const stats = internalQuery({
       contacts: contacts.length,
       rounds: rounds.length,
       byStage: Object.fromEntries(
-        ["pre_seed", "seed", "series_a", "series_b"].map((value) => [value, companies.filter((company) => company.latestStage === value).length]),
+        ["pre_seed", "seed", "series_a", "series_b"].map((value) => [
+          value,
+          companies.filter((company) => company.latestStage === value).length,
+        ]),
       ),
     };
   },
@@ -118,12 +129,21 @@ export const stats = internalQuery({
 export const list = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const companies = await ctx.db.query("companies").order("desc").take(Math.min(args.limit ?? 100, 500));
+    const companies = await ctx.db
+      .query("companies")
+      .order("desc")
+      .take(Math.min(args.limit ?? 100, 500));
     return Promise.all(
       companies.map(async (company) => ({
         ...company,
-        rounds: await ctx.db.query("fundingRounds").withIndex("by_company", (q) => q.eq("companyId", company._id)).collect(),
-        contacts: await ctx.db.query("contacts").withIndex("by_company", (q) => q.eq("companyId", company._id)).collect(),
+        rounds: await ctx.db
+          .query("fundingRounds")
+          .withIndex("by_company", (q) => q.eq("companyId", company._id))
+          .collect(),
+        contacts: await ctx.db
+          .query("contacts")
+          .withIndex("by_company", (q) => q.eq("companyId", company._id))
+          .collect(),
       })),
     );
   },

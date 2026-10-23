@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/.next", "!**/drizzle/**/snapshot.json", "!**/data"]
+    "includes": ["**", "!**/node_modules", "!**/.next", "!**/drizzle/**/snapshot.json", "!**/convex/_generated", "!**/data"]
   },
   "formatter": {
     "enabled": true,

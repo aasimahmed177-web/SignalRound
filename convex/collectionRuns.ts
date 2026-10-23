@@ -1,5 +1,5 @@
-import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 export const start = internalMutation({
   args: { scope: v.string(), targetContacts: v.number() },
@@ -43,5 +43,10 @@ export const update = internalMutation({
 
 export const current = internalQuery({
   args: {},
-  handler: (ctx) => ctx.db.query("collectionRuns").withIndex("by_status", (q) => q.eq("status", "running")).order("desc").first(),
+  handler: (ctx) =>
+    ctx.db
+      .query("collectionRuns")
+      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .order("desc")
+      .first(),
 });

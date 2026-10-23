@@ -20,26 +20,86 @@ const OUTPUT = process.argv[3] ?? "data/india-funding-leads-resolved.json";
 const LIMIT = Number(process.env.RESOLVE_LIMIT ?? 100);
 const CONCURRENCY = Number(process.env.RESOLVE_CONCURRENCY ?? 6);
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/141 Safari/537.36";
-const PATHS = ["/", "/contact", "/contact-us", "/about", "/about-us", "/support", "/help", "/privacy", "/privacy-policy", "/privacypolicy", "/terms", "/termsofuse", "/terms-and-conditions", "/info/privacy-policy", "/info/terms-of-service"];
+const PATHS = [
+  "/",
+  "/contact",
+  "/contact-us",
+  "/about",
+  "/about-us",
+  "/support",
+  "/help",
+  "/privacy",
+  "/privacy-policy",
+  "/privacypolicy",
+  "/terms",
+  "/termsofuse",
+  "/terms-and-conditions",
+  "/info/privacy-policy",
+  "/info/terms-of-service",
+];
 const WEBSITE_OVERRIDES = existsSync("data/company-website-overrides.json")
-  ? JSON.parse(readFileSync("data/company-website-overrides.json", "utf8")) as Record<string, string>
+  ? (JSON.parse(readFileSync("data/company-website-overrides.json", "utf8")) as Record<string, string>)
   : {};
 const EMAIL_DOMAIN_ALIASES = existsSync("data/company-email-domain-aliases.json")
-  ? JSON.parse(readFileSync("data/company-email-domain-aliases.json", "utf8")) as Record<string, string[]>
+  ? (JSON.parse(readFileSync("data/company-email-domain-aliases.json", "utf8")) as Record<string, string[]>)
   : {};
 const BLOCKED_HOSTS = [
-  "bing.com", "google.com", "duckduckgo.com", "linkedin.com", "facebook.com", "instagram.com", "youtube.com",
-  "x.com", "twitter.com", "crunchbase.com", "tracxn.com", "inc42.com", "yourstory.com", "entrackr.com",
-  "economictimes.com", "moneycontrol.com", "business-standard.com", "vccircle.com", "pitchbook.com", "medium.com",
-  "wikipedia.org", "play.google.com", "apps.apple.com", "zaubacorp.com", "tofler.in", "thecompanycheck.com",
+  "bing.com",
+  "google.com",
+  "duckduckgo.com",
+  "linkedin.com",
+  "facebook.com",
+  "instagram.com",
+  "youtube.com",
+  "x.com",
+  "twitter.com",
+  "crunchbase.com",
+  "tracxn.com",
+  "inc42.com",
+  "yourstory.com",
+  "entrackr.com",
+  "economictimes.com",
+  "moneycontrol.com",
+  "business-standard.com",
+  "vccircle.com",
+  "pitchbook.com",
+  "medium.com",
+  "wikipedia.org",
+  "play.google.com",
+  "apps.apple.com",
+  "zaubacorp.com",
+  "tofler.in",
+  "thecompanycheck.com",
 ];
-const GENERIC_NAME_TOKENS = new Set(["ai", "app", "apps", "india", "labs", "technologies", "technology", "solutions", "private", "limited", "pvt", "company"]);
+const GENERIC_NAME_TOKENS = new Set([
+  "ai",
+  "app",
+  "apps",
+  "india",
+  "labs",
+  "technologies",
+  "technology",
+  "solutions",
+  "private",
+  "limited",
+  "pvt",
+  "company",
+]);
 
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
-const tokens = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((token) => token.length > 1 && !GENERIC_NAME_TOKENS.has(token));
+const tokens = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter((token) => token.length > 1 && !GENERIC_NAME_TOKENS.has(token));
 const normalized = (value: string) => tokens(value).join("");
 const host = (value: string) => {
-  try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 };
 const rootDomain = (hostname: string) => {
   const parts = hostname.split(".");
@@ -53,7 +113,11 @@ async function fetchText(url: string, timeout = 12_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetch(url, { headers: { "user-agent": USER_AGENT, accept: "text/html,application/xhtml+xml" }, redirect: "follow", signal: controller.signal });
+    const response = await fetch(url, {
+      headers: { "user-agent": USER_AGENT, accept: "text/html,application/xhtml+xml" },
+      redirect: "follow",
+      signal: controller.signal,
+    });
     if (!response.ok) return null;
     const type = response.headers.get("content-type") ?? "";
     if (!type.includes("text/html") && !type.includes("text/plain")) return null;
@@ -82,14 +146,18 @@ function unwrapBing(href: string) {
     const encoded = url.searchParams.get("u");
     if (url.hostname.endsWith("bing.com") && encoded?.startsWith("a1")) return Buffer.from(encoded.slice(2), "base64url").toString("utf8");
     return href;
-  } catch { return href; }
+  } catch {
+    return href;
+  }
 }
 
 function unwrapDuckDuckGo(href: string) {
   try {
     const url = new URL(href, "https://duckduckgo.com");
     return url.searchParams.get("uddg") ?? url.toString();
-  } catch { return href; }
+  } catch {
+    return href;
+  }
 }
 
 function scoreResult(candidate: Candidate, url: string, title: string, snippet: string) {
@@ -118,10 +186,20 @@ async function findWebsite(candidate: Candidate) {
     if (page) return { url: new URL(page.url).origin + "/", seedHtml: page.html };
   }
   const guessedStem = normalized(candidate.name);
-  const statedTldHost = candidate.name.toLowerCase().match(/\.([a-z]{2,4})$/) ? candidate.name.toLowerCase().replace(/[^a-z0-9.]/g, "") : "";
-  const guessedHosts = [...new Set([
-    statedTldHost, `${guessedStem}.in`, `${guessedStem}.ai`, `${guessedStem}.com`, `${guessedStem}.co`, `${guessedStem}.app`, `${guessedStem}.io`,
-  ])].filter(Boolean);
+  const statedTldHost = candidate.name.toLowerCase().match(/\.([a-z]{2,4})$/)
+    ? candidate.name.toLowerCase().replace(/[^a-z0-9.]/g, "")
+    : "";
+  const guessedHosts = [
+    ...new Set([
+      statedTldHost,
+      `${guessedStem}.in`,
+      `${guessedStem}.ai`,
+      `${guessedStem}.com`,
+      `${guessedStem}.co`,
+      `${guessedStem}.app`,
+      `${guessedStem}.io`,
+    ]),
+  ].filter(Boolean);
   const guessedPages = await Promise.all(guessedHosts.map((guessedHost) => fetchText(`https://${guessedHost}/`, 4_000)));
   for (const page of guessedPages) {
     if (!page) continue;
@@ -132,10 +210,12 @@ async function findWebsite(candidate: Candidate) {
   if (process.env.RESOLVE_DIRECT_ONLY === "1") return null;
   const queries = [`"${candidate.name}" startup India official`, `"${candidate.name}" ${candidate.sector} contact`];
   const results: { url: string; title: string; snippet: string; score: number }[] = [];
-  const searchPages = await Promise.all(queries.flatMap((query) => [
-    fetchText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&count=10`, 7_000).then((page) => ({ engine: "bing", page })),
-    fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, 7_000).then((page) => ({ engine: "duck", page })),
-  ]));
+  const searchPages = await Promise.all(
+    queries.flatMap((query) => [
+      fetchText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&count=10`, 7_000).then((page) => ({ engine: "bing", page })),
+      fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, 7_000).then((page) => ({ engine: "duck", page })),
+    ]),
+  );
   for (const search of searchPages) {
     const page = search.page;
     if (!page) continue;
@@ -171,13 +251,18 @@ async function findWebsite(candidate: Candidate) {
 
 const EMAIL_RE = /[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9.-]{1,253}\.[a-z]{2,63}/gi;
 function validEmail(email: string, websiteHost: string) {
-  const value = email.toLowerCase().replace(/^[^a-z0-9]+/, "").replace(/[),.;:]+$/, "");
+  const value = email
+    .toLowerCase()
+    .replace(/^[^a-z0-9]+/, "")
+    .replace(/[),.;:]+$/, "");
   if (/example\.|test@|noreply|no-reply|sentry|wixpress|cloudflare|wordpress|godaddy/.test(value)) return false;
   const emailHost = value.split("@")[1];
   const websiteRoot = rootDomain(websiteHost);
-  return rootDomain(emailHost) === websiteRoot
-    || (EMAIL_DOMAIN_ALIASES[websiteRoot] ?? []).includes(rootDomain(emailHost))
-    || /@(gmail|outlook|hotmail|yahoo)\.(com|in)$/.test(value);
+  return (
+    rootDomain(emailHost) === websiteRoot ||
+    (EMAIL_DOMAIN_ALIASES[websiteRoot] ?? []).includes(rootDomain(emailHost)) ||
+    /@(gmail|outlook|hotmail|yahoo)\.(com|in)$/.test(value)
+  );
 }
 
 function contactType(email: string) {
@@ -196,20 +281,43 @@ async function inspectWebsite(website: string, seedHtml: string) {
   const pages: { url: string; html: string }[] = [{ url: website, html: seedHtml }];
   const root = new URL(website).origin;
   const $ = cheerio.load(seedHtml);
-  const discovered = $("a[href]").map((_i, element) => $(element).attr("href") ?? "").get().filter((href) => /contact|about|privacy|terms/i.test(href));
-  const urls = [...new Set([...PATHS.slice(1).map((path) => `${root}${path}`), ...discovered.map((href) => { try { return new URL(href, root).toString(); } catch { return ""; } })])].filter((url) => url && host(url) === websiteHost).slice(0, 8);
+  const discovered = $("a[href]")
+    .map((_i, element) => $(element).attr("href") ?? "")
+    .get()
+    .filter((href) => /contact|about|privacy|terms/i.test(href));
+  const urls = [
+    ...new Set([
+      ...PATHS.slice(1).map((path) => `${root}${path}`),
+      ...discovered.map((href) => {
+        try {
+          return new URL(href, root).toString();
+        } catch {
+          return "";
+        }
+      }),
+    ]),
+  ]
+    .filter((url) => url && host(url) === websiteHost)
+    .slice(0, 8);
   const fetched = await Promise.all(urls.map((url) => fetchText(url, 5_000)));
   for (const page of fetched) if (page) pages.push(page);
   const contacts = new Map<string, string>();
   for (const page of pages) {
     const decoded = page.html.replace(/&#64;|&#x40;|\[at\]|\(at\)/gi, "@").replace(/&#46;|&#x2e;|\[dot\]|\(dot\)/gi, ".");
     for (const match of decoded.match(EMAIL_RE) ?? []) {
-      const email = match.toLowerCase().replace(/^[^a-z0-9]+/, "").replace(/[),.;:]+$/, "");
+      const email = match
+        .toLowerCase()
+        .replace(/^[^a-z0-9]+/, "")
+        .replace(/[),.;:]+$/, "");
       if (validEmail(email, websiteHost)) contacts.set(email, page.url);
     }
   }
   const home = cheerio.load(seedHtml);
-  const description = clean(home('meta[name="description"]').attr("content") ?? home('meta[property="og:description"]').attr("content") ?? home("h1").first().text()).slice(0, 360);
+  const description = clean(
+    home('meta[name="description"]').attr("content") ??
+      home('meta[property="og:description"]').attr("content") ??
+      home("h1").first().text(),
+  ).slice(0, 360);
   const title = clean(home("title").text()).slice(0, 160);
   return { contacts, description, title, sourceUrls: [...new Set(pages.map((page) => page.url))] };
 }
@@ -227,7 +335,10 @@ function lead(candidate: Candidate, website: string, inspection: Awaited<ReturnT
   const rawAmountText = candidate.amountAsWritten.replace(/\*/g, "").trim();
   const amountText = rawAmountText === "–" || rawAmountText === "-" ? "Undisclosed" : rawAmountText;
   const investorText = candidate.investors.length ? ` Investors listed include ${candidate.investors.slice(0, 3).join(", ")}.` : "";
-  const siteDetail = inspection.description || inspection.title || `${candidate.name} operates in ${candidate.sector}${candidate.subsector ? ` / ${candidate.subsector}` : ""}.`;
+  const siteDetail =
+    inspection.description ||
+    inspection.title ||
+    `${candidate.name} operates in ${candidate.sector}${candidate.subsector ? ` / ${candidate.subsector}` : ""}.`;
   return {
     company: {
       name: candidate.name,
@@ -237,7 +348,9 @@ function lead(candidate: Candidate, website: string, inspection: Awaited<ReturnT
       operatingStatus: "active",
       personalizationHooks: [
         `${candidate.name} announced a ${amountText || "new"} ${candidate.stageAsWritten} on ${candidate.announcedOn}.`,
-        candidate.investors.length ? `The round included ${candidate.investors.slice(0, 3).join(", ")}.` : `The ${candidate.stageAsWritten} was reported by Inc42.`,
+        candidate.investors.length
+          ? `The round included ${candidate.investors.slice(0, 3).join(", ")}.`
+          : `The ${candidate.stageAsWritten} was reported by Inc42.`,
         siteDetail,
       ],
       relevanceNotes: `Freshly funded Indian ${candidate.sector.toLowerCase()} company; outreach can reference its ${candidate.stageAsWritten} and current ${candidate.subsector || candidate.businessModel} focus.`,
@@ -261,8 +374,13 @@ function lead(candidate: Candidate, website: string, inspection: Awaited<ReturnT
 }
 
 const candidates = JSON.parse(readFileSync(INPUT, "utf8")) as Candidate[];
-const priorFiles = ["data/india-funding-leads.json", "data/india-funding-leads-batch-2.json", "data/india-funding-leads-batch-3.json", OUTPUT];
-const prior = priorFiles.flatMap((file) => existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : []);
+const priorFiles = [
+  "data/india-funding-leads.json",
+  "data/india-funding-leads-batch-2.json",
+  "data/india-funding-leads-batch-3.json",
+  OUTPUT,
+];
+const prior = priorFiles.flatMap((file) => (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : []));
 const seenNames = new Set(prior.map((item: any) => item.company.name.toLowerCase()));
 if (existsSync("data/india-funding-rejections.json")) {
   for (const name of JSON.parse(readFileSync("data/india-funding-rejections.json", "utf8"))) seenNames.add(String(name).toLowerCase());
@@ -292,7 +410,9 @@ async function worker() {
     output.push(lead(candidate, found.url, inspection));
     writeFileSync(OUTPUT, `${JSON.stringify(output, null, 2)}\n`);
     completed += 1;
-    console.log(`[${output.length}/${LIMIT}] ${candidate.name} -> ${found.url} (${inspection.contacts.size} email${inspection.contacts.size === 1 ? "" : "s"})`);
+    console.log(
+      `[${output.length}/${LIMIT}] ${candidate.name} -> ${found.url} (${inspection.contacts.size} email${inspection.contacts.size === 1 ? "" : "s"})`,
+    );
   }
 }
 

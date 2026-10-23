@@ -7,10 +7,12 @@ import { type FeedRecord, settleDate, wireReleaseDay } from "@fireround/core";
 import type { Db } from "@fireround/core/db";
 import { schema } from "@fireround/core/db";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { keepsStoredDay, mergeDuplicateRounds, neverLater, persistRecords } from "../lib/persist";
 import { applyRecordFixes, type RecordFix } from "../lib/repair";
 import { record, testDb } from "./helpers";
+
+afterEach(() => vi.useRealTimers());
 
 const usd = (m: number, day: string) => ({
   value: m,
@@ -239,6 +241,8 @@ describe("a wire release announcing the round today dates it", () => {
   });
 
   test("Supabase: a history row misdated to a 2023 page day folds into the release's round as news on the release's day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
     const db = await testDb();
     const release = { url: RELEASE, host: "prnewswire.com", published: "2026-10-02" };
     await persistRecords(

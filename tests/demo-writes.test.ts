@@ -42,6 +42,7 @@ import * as companyActions from "../app/(dashboard)/companies/actions";
 import * as presetActions from "../app/(dashboard)/presets/actions";
 import * as reviewActions from "../app/(dashboard)/review/actions";
 import { POST as researchPost } from "../app/(dashboard)/review/research/route";
+import * as scraperActions from "../app/(dashboard)/scraper/actions";
 import * as searchActions from "../app/(dashboard)/search/actions";
 import * as settingsActions from "../app/(dashboard)/settings/actions";
 import * as signalActions from "../app/(dashboard)/signals/actions";
@@ -55,6 +56,7 @@ const MODULES = {
   "companies/actions": companyActions,
   "presets/actions": presetActions,
   "review/actions": reviewActions,
+  "scraper/actions": scraperActions,
   "search/actions": searchActions,
   "settings/actions": settingsActions,
   "signals/actions": signalActions,
@@ -66,6 +68,7 @@ const SWEPT_FILES = [
   "app/(dashboard)/companies/actions.ts",
   "app/(dashboard)/presets/actions.ts",
   "app/(dashboard)/review/actions.ts",
+  "app/(dashboard)/scraper/actions.ts",
   "app/(dashboard)/search/actions.ts",
   "app/(dashboard)/settings/actions.ts",
   "app/(dashboard)/signals/actions.ts",

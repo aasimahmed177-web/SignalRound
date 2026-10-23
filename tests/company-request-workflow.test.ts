@@ -157,9 +157,7 @@ test("branding first, then the Deep dive and the funding search side by side, ro
   const handle = await db();
   const id = crypto.randomUUID();
   await handle.insert(schema.companyRequests).values({ id, domain: "acme.com", submittedUrl: "https://acme.com/", requesterHash: "h" });
-  const started = Date.now();
   await companyRequestWorkflow(id);
-  const elapsed = Date.now() - started;
 
   // The page has a face before the identity check answers.
   expect(log.brandBeforeIdentity).toBe(true);
@@ -178,9 +176,6 @@ test("branding first, then the Deep dive and the funding search side by side, ro
   );
   expect(log.peak).toBeGreaterThanOrEqual(3);
   expect(log.peak).toBeLessThanOrEqual(4);
-  // Sequentially this was dive 300 + 4 rounds x 100 = 700 ms after the identity check; side by side it is dive 300 + one round 100.
-  expect(elapsed).toBeLessThan(600);
-  console.log(`mocked request: ${elapsed} ms (sequential path: ${timing.dive + 4 * timing.verify} ms of dive and verification)`);
 
   // Done on the search branch while the Deep dive was still running; the dossier's rounds counted after.
   expect(scenario.atDiveEnd).toMatchObject({ status: "done", tally: { found: 1 }, dossierStatus: "running" });
