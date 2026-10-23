@@ -1,10 +1,37 @@
 "use server";
 
+import { analyzeFunnelUrl } from "@fireround/core/funnel";
 import { auditFunnel, NativeWebClient, readDiscussion } from "@fireround/core/web";
 import { attempt } from "@/lib/action-result";
 import { auditRenderedPage } from "@/lib/browser-audit";
 import { requireDashboard } from "@/lib/dashboard-auth.server";
+import { runQuestionnaireDryRun } from "@/lib/questionnaire-replay";
 import { extractWithScrapling } from "@/lib/scrapling-extract";
+
+export async function analyzeFunnelUrlAction(input: string) {
+  return attempt(async () => {
+    await requireDashboard();
+    return analyzeFunnelUrl(input);
+  });
+}
+
+export async function runQuestionnaireReplayAction(planText: string) {
+  return attempt(async () => {
+    await requireDashboard();
+    if (typeof planText !== "string" || !planText.trim() || planText.length > 100_000)
+      throw new Error("Provide a replay plan under 100 KB");
+    let plan: unknown;
+    try {
+      plan = JSON.parse(planText);
+    } catch {
+      throw new Error("Replay plan must be valid JSON");
+    }
+    const report = await runQuestionnaireDryRun(plan);
+    // Redaction deliberately builds null-prototype JSON objects. Normalize the
+    // already-checked report into plain JSON before crossing the Server Action boundary.
+    return JSON.parse(JSON.stringify(report)) as unknown;
+  });
+}
 
 export async function runWebTool(mode: string, input: string, limit: number, allowExternalSharing = false, selector = "") {
   return attempt(async () => {

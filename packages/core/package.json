@@ -9,6 +9,7 @@
     "./client": "./src/client.ts",
     "./web": "./src/web/client.ts",
     "./web/transport": "./src/web/transport.ts",
+    "./funnel": "./src/funnel/index.ts",
     "./company-newsrooms": "./src/firecrawl/company-newsrooms.ts",
     "./db": "./src/db/index.ts",
     "./db/schema": "./src/db/schema.ts",

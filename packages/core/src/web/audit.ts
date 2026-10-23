@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { load } from "cheerio";
+import { analyzeFunnelUrl, inspectEventSnippets, redactSnippetText } from "../funnel/url-analysis.ts";
 import { httpUrl, parseHtmlPage } from "./page.ts";
 import { readPublicText } from "./transport.ts";
 
@@ -27,7 +28,7 @@ export function sourceClues(text: string, sourceURL: string) {
             kind,
             sourceURL,
             offset: match.index,
-            evidence: text.slice(Math.max(0, match.index - 80), match.index + 220),
+            evidence: redactSnippetText(text.slice(Math.max(0, match.index - 80), match.index + 220)),
             certainty: "source-reference-only",
           },
         ]
@@ -38,6 +39,7 @@ export function sourceClues(text: string, sourceURL: string) {
 export function inspectFunnelHtml(html: string, url: string) {
   const $ = load(html);
   const doc = parseHtmlPage(html, url, false);
+  const eventSnippets = inspectEventSnippets(html, url);
   const links = $("a[href]")
     .toArray()
     .slice(0, 300)
@@ -47,6 +49,7 @@ export function inspectFunnelHtml(html: string, url: string) {
     });
   return {
     url,
+    urlAnalysis: analyzeFunnelUrl(url),
     title: doc.metadata?.title ?? "",
     markdown: doc.markdown?.slice(0, 100_000) ?? "",
     contentHash: hash(html),
@@ -121,9 +124,9 @@ export function inspectFunnelHtml(html: string, url: string) {
         const text = $(el).text();
         return { index, contentHash: hash(text), characters: text.length, clues: sourceClues(text, `${url}#inline-script-${index}`) };
       }),
-    declaredEvents: [...html.matchAll(/(?:fbq|gtag)\s*\(\s*["'](?:track|trackCustom|event)["']\s*,\s*["']([^"']+)["']/g)]
-      .slice(0, 100)
-      .map((m) => m[1]),
+    eventSnippets,
+    declaredEvents: [...new Set(eventSnippets.map((event) => event.event))],
+    userDataParameterNames: [...new Set(eventSnippets.flatMap((event) => event.parameterNames))],
     limitations: [
       "Static HTML only; JavaScript-rendered fields may be absent.",
       "Scripts are inspected as text, never executed. Event firing and backend behavior are unknown.",
@@ -146,7 +149,13 @@ export async function auditFunnel(rawUrls: string[], limit = 5, read = readPubli
     ),
   ];
   const pages: Array<ReturnType<typeof inspectFunnelHtml> & { requestedURL: string }> = [];
-  const assets: Array<{ url: string; contentHash: string; characters: number; clues: ReturnType<typeof sourceClues> }> = [];
+  const assets: Array<{
+    url: string;
+    contentHash: string;
+    characters: number;
+    clues: ReturnType<typeof sourceClues>;
+    eventSnippets: ReturnType<typeof inspectEventSnippets>;
+  }> = [];
   const errors: Array<{ url: string; error: string }> = [];
   const seenAssets = new Set<string>();
   const signal = AbortSignal.timeout(60_000);
@@ -169,6 +178,7 @@ export async function auditFunnel(rawUrls: string[], limit = 5, read = readPubli
             contentHash: hash(script.text),
             characters: script.text.length,
             clues: sourceClues(script.text, script.url),
+            eventSnippets: inspectEventSnippets(script.text, script.url),
           });
         } catch (error) {
           errors.push({ url: src, error: error instanceof Error ? error.message : String(error) });

@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest";
+import { analyzeFunnelUrl } from "../funnel/url-analysis.ts";
 import { auditFunnel, inspectFunnelHtml } from "./audit.ts";
 import { readDiscussion } from "./discussion.ts";
 
@@ -19,6 +20,18 @@ test("captures funnel evidence without prefilled values or claiming event execut
   expect(result.declaredEvents).toEqual(["Lead"]);
   expect(result.inlineScripts[0]?.clues[0]?.certainty).toBe("source-reference-only");
   expect(result.embeds).toContainEqual(expect.objectContaining({ kind: "track", url: "https://site.example/captions.vtt" }));
+});
+test("reports URL attribution and declared event parameter names without parameter values", () => {
+  const result = inspectFunnelHtml(
+    `<script>fbq('track', 'Lead', {email: 'person@example.com', value: 10});</script>`,
+    "https://example.com/quiz",
+  );
+  const url = analyzeFunnelUrl("https://example.com/quiz?utm_source=meta&fbclid=click&email=person%40example.com");
+  expect(url.attributionKeys).toEqual(["utm_source", "fbclid"]);
+  expect(url.identityKeys).toEqual(["email"]);
+  expect(result.declaredEvents).toEqual(["Lead"]);
+  expect(result.userDataParameterNames).toEqual(expect.arrayContaining(["email", "value"]));
+  expect(JSON.stringify(result)).not.toContain("person@example.com");
 });
 test("audit only fetches supplied pages and same-origin script files; never forms or linked pages", async () => {
   const read = vi.fn(async (url: string) => ({

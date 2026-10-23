@@ -20,6 +20,21 @@ not proof that the live Tally questionnaire fully hydrates. POST, fetch/XHR,
 WebSockets and media remain blocked. Classification is a narrow known-host list,
 not a general priority scheduler.
 
+The questionnaire lab on `/scraper` accepts a declarative plan and replays up to
+eight matched synthetic profiles in fresh browser contexts. It can fill, select,
+check, advance safe client-side controls and observe score selectors. GET/HEAD
+hydration is pinned to approved origins; non-GET/HEAD requests, submit controls,
+WebSockets, downloads and consequential destinations remain blocked. GET cannot
+be proven side-effect-free, so targets must still be authorized. Computed scores come
+only from rules supplied in the plan. The lab is usable before the transmission
+boundary, but it is not yet an authorized live-submission executor.
+
+URL analysis reports attribution, click-ID, identity, experiment and session key
+names while redacting values. Passive audits now identify declared Meta, Google,
+TikTok and dataLayer events, sanitized source snippets, snippet hashes and visible
+parameter names. These are `declared-in-source` observations, not proof of runtime
+invocation, transmission, platform acknowledgement or backend persistence.
+
 ## Foundation modules, not live execution permissions
 
 - `packages/core/src/browser/policy.ts`: strict authorization manifests, exact
@@ -43,8 +58,8 @@ not a general priority scheduler.
 | --- | --- |
 | Phase 0: safety and evidence | Wire policy into a trusted executor, atomic budgets, complete fixture suite, artifact/export review |
 | Phase 1: discovery | Advertiser/ad collection, destination clustering and deduplication |
-| Phase 2: questionnaires | Safe application-data reads, full dynamic field/option extraction, conditional branches |
-| Phase 3: replay | Declarative journey runner, scoped approvals, state isolation and repeatable replay |
+| Phase 2: questionnaires | Import discovered fields/options into the plan editor and map conditional branches automatically |
+| Phase 3: replay | Dry replay and fresh-profile isolation exist; live synthetic transmission still needs exact request/body approval and atomic budgets |
 | Phase 4: events | Runtime instrumentation, vendor payload decoding, step-linked evidence without overstating delivery |
 | Phase 5: experiments | Matched profiles, frozen experiment state, causal diffs and validated scoring rules |
 | Phase 6: reporting | Authorized media/transcripts, variant comparison and evidence-linked reports |
