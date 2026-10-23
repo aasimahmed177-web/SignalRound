@@ -8,7 +8,7 @@ const categories: Array<[FunnelParameterCategory, RegExp]> = [
     /^(?:utm_(?:source|medium|campaign|term|content|id)|campaign(?:_id|_name)?|ad(?:set)?(?:_id|_name)?|placement|site_source_name)$/i,
   ],
   ["click-id", /^(?:fbclid|gclid|dclid|msclkid|ttclid|twclid|li_fat_id|gbraid|wbraid|fbc|fbp)$/i],
-  ["identity", /^(?:email|e-mail|phone|mobile|first_?name|last_?name|full_?name|address|external_?id|user_?id)$/i],
+  ["identity", /^(?:utm_)?(?:email|e-mail|phone|mobile|name|first_?name|last_?name|full_?name|address|external_?id|user_?id)$/i],
   ["experiment", /^(?:experiment|variant|variation|ab(?:_test)?|split|bucket|test_?id)$/i],
   ["session", /^(?:session|session_?id|visit_?id|visitor_?id|token|code|state|lead_?id)$/i],
 ];

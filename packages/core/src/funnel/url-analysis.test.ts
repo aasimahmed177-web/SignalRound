@@ -20,6 +20,10 @@ describe("funnel URL analysis", () => {
   it.each([
     ["utm_content", "attribution"],
     ["gclid", "click-id"],
+    ["name", "identity"],
+    ["utm_name", "identity"],
+    ["utm_email", "identity"],
+    ["utm_phone", "identity"],
     ["external_id", "identity"],
     ["variant", "experiment"],
     ["session_id", "session"],
