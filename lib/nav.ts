@@ -1,5 +1,18 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, Bell, Building2, ClipboardCheck, Landmark, LayoutGrid, Newspaper, Radar, Rows3, Settings } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  Briefcase,
+  Building2,
+  ClipboardCheck,
+  Landmark,
+  LayoutGrid,
+  Newspaper,
+  Radar,
+  Rows3,
+  Settings,
+  UserRoundSearch,
+} from "lucide-react";
 import type { Viewer } from "@/lib/access";
 
 export interface NavItem {
@@ -41,6 +54,18 @@ export const NAV: NavItem[] = [
     description: "Raw observations from every source, held outside the feed until they are verified.",
   },
   { href: "/scraper", label: "Web tools", icon: Radar, description: "Scrape, map, crawl and search without scraping credits." },
+  {
+    href: "/jobs",
+    label: "Jobs",
+    icon: Briefcase,
+    description: "Open roles from funded startups' own job boards and logged-out job-site searches.",
+  },
+  {
+    href: "/leads",
+    label: "Leads",
+    icon: UserRoundSearch,
+    description: "Freshly funded startups, their founders, and the emails they print on public pages.",
+  },
 ];
 
 /** The sidebar's order: the two directories read the feed, so they sit right under it. */
@@ -48,6 +73,8 @@ const DISPLAY_ORDER = [
   "/overview",
   "/feed",
   "/signals",
+  "/jobs",
+  "/leads",
   "/scraper",
   "/companies",
   "/investors",
@@ -74,7 +101,7 @@ export function navItemsFor(hrefs: string[] | undefined): NavItem[] {
  * the landing page took `/`, which no section uses.
  */
 export function visibleNav(v: Viewer): NavItem[] {
-  const hidden = v.demo && !v.admin ? ["/signals", "/scraper", "/presets", "/review", "/settings", "/runs"] : [];
+  const hidden = v.demo && !v.admin ? ["/signals", "/jobs", "/leads", "/scraper", "/presets", "/review", "/settings", "/runs"] : [];
   return hidden.length ? NAV_DISPLAY.filter((n) => !hidden.includes(n.href)) : NAV_DISPLAY;
 }
 

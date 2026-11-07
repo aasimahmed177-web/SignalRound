@@ -1,26 +1,19 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { latestStage, mergeRound, nextOutreachStatus, normalizedDomain, postedEmail, roundKey } from "./rules";
+import { contactType, stage } from "./validators";
 
-const stage = v.union(v.literal("pre_seed"), v.literal("seed"), v.literal("series_a"), v.literal("series_b"));
-const contactType = v.union(
-  v.literal("hello"),
-  v.literal("sales"),
-  v.literal("business"),
-  v.literal("info"),
-  v.literal("contact"),
-  v.literal("media"),
-  v.literal("other_role"),
-);
-
-function normalizedDomain(website: string) {
-  return new URL(website).hostname.toLowerCase().replace(/^www\./, "");
-}
+/** An address with the page that prints it and the text on that page that shows it. */
+const sourcedEmail = v.object({ email: v.string(), sourceUrl: v.string(), quote: v.string() });
 
 export const upsert = internalMutation({
   args: {
     company: v.object({
       name: v.string(),
       website: v.string(),
+      /** Defaults to "India", what every earlier import was. */
+      country: v.optional(v.string()),
       headquarters: v.optional(v.string()),
       category: v.string(),
       description: v.string(),
@@ -48,12 +41,33 @@ export const upsert = internalMutation({
         email: v.string(),
         contactType,
         sourceUrl: v.string(),
+        quote: v.string(),
       }),
+    ),
+    founders: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          role: v.string(),
+          sourceUrl: v.string(),
+          quote: v.optional(v.string()),
+          linkedinUrl: v.optional(v.string()),
+          emails: v.optional(v.array(sourcedEmail)),
+        }),
+      ),
     ),
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
     const domain = normalizedDomain(args.company.website);
+
+    // Only addresses whose quote shows them are saved; anything else is dropped, never stored as verified.
+    const contacts = args.contacts.filter(postedEmail);
+    const founders = (args.founders ?? [])
+      .map((founder) => ({ ...founder, emails: (founder.emails ?? []).filter(postedEmail) }))
+      .filter((founder) => founder.emails.length);
+    const hasContacts = contacts.length > 0 || founders.length > 0;
+
     const existing = await ctx.db
       .query("companies")
       .withIndex("by_domain", (q) => q.eq("domain", domain))
@@ -62,24 +76,64 @@ export const upsert = internalMutation({
       ...args.company,
       normalizedName: args.company.name.trim().toLowerCase(),
       domain,
-      country: "India" as const,
-      latestStage: args.round.stage,
-      outreachStatus: (args.contacts.length ? "qualified" : "needs_contact") as "qualified" | "needs_contact",
+      country: args.company.country ?? "India",
       updatedAt: now,
     };
-    const companyId = existing ? existing._id : await ctx.db.insert("companies", companyValues);
-    if (existing) await ctx.db.patch(existing._id, companyValues);
+    let companyId: Id<"companies">;
+    if (existing) {
+      companyId = existing._id;
+      // A re-import never resets outreach progress (contacted, replied, not_a_fit).
+      await ctx.db.patch(companyId, { ...companyValues, outreachStatus: nextOutreachStatus(existing.outreachStatus, hasContacts) });
+    } else {
+      companyId = await ctx.db.insert("companies", {
+        ...companyValues,
+        latestStage: args.round.stage,
+        outreachStatus: nextOutreachStatus(null, hasContacts),
+      });
+    }
 
-    const roundKey = [domain, args.round.stage, args.round.announcedOn, args.round.amountAsWritten.toLowerCase()].join("|");
-    const oldRound = await ctx.db
+    // One round per stage per company. Rows stored under the old domain|stage|date|amount key are found by stage.
+    const dedupeKey = roundKey(domain, args.round.stage);
+    const companyRounds = await ctx.db
       .query("fundingRounds")
-      .withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", roundKey))
-      .unique();
-    const roundValues = { ...args.round, companyId, dedupeKey: roundKey, updatedAt: now };
-    if (oldRound) await ctx.db.patch(oldRound._id, roundValues);
-    else await ctx.db.insert("fundingRounds", { ...roundValues, createdAt: now });
+      .withIndex("by_company", (q) => q.eq("companyId", companyId))
+      .collect();
+    const oldRound =
+      companyRounds.find((round) => round.dedupeKey === dedupeKey) ?? companyRounds.find((round) => round.stage === args.round.stage);
+    let saved: { stage: typeof args.round.stage; announcedOn: string } = args.round;
+    if (oldRound) {
+      const { _id, _creationTime, ...roundValues } = mergeRound(oldRound, { ...oldRound, ...args.round });
+      await ctx.db.patch(oldRound._id, { ...roundValues, dedupeKey, updatedAt: now });
+      saved = roundValues;
+    } else {
+      await ctx.db.insert("fundingRounds", { ...args.round, companyId, dedupeKey, createdAt: now, updatedAt: now });
+    }
+    // The company's stage is its latest-dated round's, not the last one imported.
+    const stageNow = latestStage([...companyRounds.filter((round) => round !== oldRound), saved]) ?? args.round.stage;
+    if ((existing?.latestStage ?? args.round.stage) !== stageNow) await ctx.db.patch(companyId, { latestStage: stageNow });
 
-    for (const contact of args.contacts) {
+    // Only people with a publicly posted email are saved.
+    const personIds = new Map<string, Id<"people">>();
+    for (const founder of founders) {
+      const { emails: _emails, ...person } = founder;
+      const personKey = `${domain}|${founder.name.trim().toLowerCase()}`;
+      const oldPerson = await ctx.db
+        .query("people")
+        .withIndex("by_dedupe_key", (q) => q.eq("dedupeKey", personKey))
+        .unique();
+      const personValues = { ...person, companyId, dedupeKey: personKey, updatedAt: now };
+      if (oldPerson) await ctx.db.patch(oldPerson._id, personValues);
+      personIds.set(founder.name, oldPerson ? oldPerson._id : await ctx.db.insert("people", { ...personValues, createdAt: now }));
+    }
+    const founderContacts = founders.flatMap((founder) =>
+      founder.emails.map((email) => ({
+        ...email,
+        contactType: "founder_personal" as const,
+        personId: personIds.get(founder.name),
+      })),
+    );
+
+    for (const contact of [...contacts, ...founderContacts]) {
       const email = contact.email.trim().toLowerCase();
       const contactKey = `${domain}|${email}`;
       const oldContact = await ctx.db
@@ -91,6 +145,7 @@ export const upsert = internalMutation({
         email,
         companyId,
         dedupeKey: contactKey,
+        // Every saved contact passed postedEmail: its quote, from sourceUrl, shows the address.
         publicListingVerified: true,
         deliverabilityStatus: "not_tested" as const,
         updatedAt: now,
@@ -98,7 +153,13 @@ export const upsert = internalMutation({
       if (oldContact) await ctx.db.patch(oldContact._id, contactValues);
       else await ctx.db.insert("contacts", { ...contactValues, createdAt: now });
     }
-    return { companyId, domain, contactCount: args.contacts.length };
+    return {
+      companyId,
+      domain,
+      contactCount: contacts.length + founderContacts.length,
+      founderCount: personIds.size,
+      skippedContacts: args.contacts.length - contacts.length,
+    };
   },
 });
 
@@ -117,7 +178,7 @@ export const stats = internalQuery({
       contacts: contacts.length,
       rounds: rounds.length,
       byStage: Object.fromEntries(
-        ["pre_seed", "seed", "series_a", "series_b"].map((value) => [
+        ["pre_seed", "seed", "series_a", "series_b", "series_c"].map((value) => [
           value,
           companies.filter((company) => company.latestStage === value).length,
         ]),
@@ -142,6 +203,10 @@ export const list = internalQuery({
           .collect(),
         contacts: await ctx.db
           .query("contacts")
+          .withIndex("by_company", (q) => q.eq("companyId", company._id))
+          .collect(),
+        people: await ctx.db
+          .query("people")
           .withIndex("by_company", (q) => q.eq("companyId", company._id))
           .collect(),
       })),

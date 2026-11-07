@@ -1,0 +1,78 @@
+<title>SignalRound Gauntlet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column ledger — bar at top, one row per piece, round log underneath. */
+:root{
+  --bg:#f5f6f4; --panel:#ffffff; --fg:#17201b; --muted:#5d6a62; --line:#dde2dd;
+  --accent:#1f6f54; --win:#1f7a3f; --lose:#b2412f; --wait:#8a7a2f;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121714;--panel:#18201b;--fg:#e4ebe6;--muted:#93a198;--line:#2a342e;--accent:#5cc49a;--win:#62c987;--lose:#ec7d69;--wait:#d6c070;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121714;--panel:#18201b;--fg:#e4ebe6;--muted:#93a198;--line:#2a342e;--accent:#5cc49a;--win:#62c987;--lose:#ec7d69;--wait:#d6c070;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+main{max-width:860px;margin:0 auto;display:grid;gap:28px}
+h1{font-size:26px;margin:0;text-wrap:balance;font-weight:600}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:500}
+p{margin:0;max-width:65ch}
+.sub{color:var(--muted);margin-top:6px}
+.bar{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:8px}
+.bar code,.mono{font-family:var(--mono);font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+.pill{display:inline-block;font:500 12px var(--mono);padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.won{color:var(--win)} .lost{color:var(--lose)} .run{color:var(--wait)} .todo{color:var(--muted)}
+.log{display:grid;gap:10px}
+.log div{border-left:2px solid var(--line);padding-left:12px}
+.log b{font-weight:600}
+.stamp{color:var(--muted);font:12px var(--mono)}
+</style>
+<main>
+  <header>
+    <h1>SignalRound Gauntlet</h1>
+    <p class="sub">Logged-out lead engine: marketing jobs with emails, funded companies with founder emails, custom outreach. Each piece loops until a harsh critic picks ours blind over the bar.</p>
+    <p class="stamp" id="updated">Updated 7 Nov 2026 · piece 4 next</p>
+  </header>
+
+  <section class="bar">
+    <h2>Current bar · piece 1</h2>
+    <p>Google, logged out, past week: <code>site:linkedin.com/posts "hiring" "digital marketing" "@gmail.com"</code></p>
+    <p>Usable results: <b>10 posts</b> (pages 2–3 were off-topic). Only <b>3 of 10</b> show a full email in the snippet.</p>
+    <p class="sub">To win: more past-7-day marketing hiring posts, full email read from the post itself, exact post date, role, company, location, zero garbled emails.</p>
+  </section>
+
+  <section>
+    <h2>Pieces</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Piece</th><th>Bar</th><th>Round</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>LinkedIn hiring posts with emails</td><td>Google site:linkedin.com/posts, past week (10 posts)</td><td>1</td><td><span class="pill won">won · committed 19ff532</span></td></tr>
+        <tr><td>Marketing jobs: email vs apply link</td><td>hiring.cafe: 2,662 jobs / 868 companies in 7 days, 0 emails</td><td>1</td><td><span class="pill won">won · committed bc56ccc</span></td></tr>
+        <tr><td>Funded companies + founder emails</td><td>Entrackr Nov 2–7: 28 startups, no founders or emails</td><td>1</td><td><span class="pill won">won · committed 3c81f9c</span></td></tr>
+        <tr><td>Custom outreach emails + Jobs page</td><td>hiring.cafe + YC (pages); Hunter.io / Lemlist (drafts)</td><td>pages 1 · drafts 4+</td><td><span class="pill won">pages won · e6e50ae</span> <span class="pill won">drafts won · 4b747d5</span></td></tr>
+        <tr><td>Help-desk emails out of the email pile</td><td>Tests on real bad examples</td><td>1</td><td><span class="pill won">done · e6e50ae (412 → 363)</span></td></tr>
+        <tr><td>Bug sweep: jobs, storage/Convex, rules</td><td>3 Fable reviewers → Opus fixers</td><td>1</td><td><span class="pill won">22 fixed · e6e50ae</span> <span class="pill won">7 more fixed · 6373919</span></td></tr>
+        <tr><td>Industry tag per funded company</td><td>Inc42 / Entrackr article categories</td><td>1</td><td><span class="pill won">won · 79cd86a</span></td></tr>
+        <tr><td>Funded + hiring marketing now</td><td>YC marketing jobs page</td><td>5</td><td><span class="pill lost">lost 5 · loop stopped</span> <span class="pill won">fixes · 6373919</span></td></tr>
+        <tr><td>Fit-ranked marketing shortlist</td><td>LinkedIn logged-out search, top 25</td><td>2</td><td><span class="pill won">won · 79cd86a</span></td></tr>
+        <tr><td>Reddit/X hiring posts with emails</td><td>old.reddit.com r/forhire search</td><td>1</td><td><span class="pill won">won · 79cd86a (thin: Reddit walls logged-out search)</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Round log</h2>
+    <div class="log" id="log">
+      <div><b>Outreach drafts: ours won blind in round 2</b> (after losing 4). Each draft quotes the funding article or the job listing, uses the case study that fits the buyer, and ends with the required call ask. Strict filters mean only 15 drafts from 416 leads; the rest were skipped for weak fit, a bad inbox or a wrong website.</div>
+      <div><b>Funded + hiring: loop stopped after 5 losses.</b> Startups funded this week rarely post fresh marketing roles yet. 10 of 11 roles found predate the round, and the one "new" role was a repost. Every email checked was verbatim (0 made up). Final fixes: detect reposts, website must match the funding article, CEO emails printed on contact pages, and 7 held-back review bugs.</div>
+      <div><b>Extra uses.</b> Industry tag won in round 1 (gap: 3 companies labelled from the wrong website). Ranked shortlist won in round 2 after location became a hard filter; LinkedIn's apply buttons all require sign-in. Reddit posts won with only 1 row, because Reddit blocks most logged-out search. Funded-and-hiring lost twice to YC's marketing jobs (too few marketing roles, no founder emails) and is rebuilding.</div>
+      <div><b>Posted emails only.</b> Contacts are saved only with an email posted on a public page (committed e574a8f). Founders or companies without one are dropped, and no verifier is used. Fable 5.1 picked 4 more uses, now building.</div>
+      <div><b>Piece 3, round 1: ours won blind.</b> 75 startups funded pre-seed to Series C across countries. 65 have founder names and 36 have a usable public inbox. The critic checked 18 emails on their source pages: all 18 were there verbatim, and none were guessed. Entrackr had 28 rounds with no founders, emails or websites. Gaps: 4 of 13 sampled founders were the wrong person (an investor or customer exec named in the article), and 1 website was wrong. Only 1 personal founder email was found.</div>
+      <div><b>Piece 2, round 1: ours won blind.</b> 412 marketing jobs with an email and 2,874 with an apply link, all from Nov 1–7, across India, UK, Pakistan, Nigeria, USA and more. The critic checked 14 sources: 14/14 emails verbatim, and 0 of the links it checked were dead. hiring.cafe had 2,663 jobs and 0 emails. Gaps: about 35 emails are help or accessibility inboxes, not CV inboxes. Most apply links point to Indeed/LinkedIn rather than the employer.</div>
+      <div><b>Piece 1, round 1: ours won blind.</b> 53 marketing hiring posts from the past 7 days, each with an email. The critic fetched all 53 logged out: 53/53 emails verbatim in the post, 0 duplicates, 0 wrong. Google's list had 10 snippets, 3 full emails, no dates. Gap carried into piece 2: 50 of 53 posts were from Nov 1–2, none from Nov 5–7; 14 posts missing a location.</div>
+      <div><b>Recon.</b> Public LinkedIn post pages open logged out with full text, email and exact date. Agent Reach (Exa) finds such posts but ranks old ones first. Post IDs encode the post time, so recency is checkable without fetching. Convex schema has companies, fundingRounds (pre-seed to Series B), contacts (role inboxes only), collectionRuns. No jobs or people tables yet.</div>
+    </div>
+  </section>
+</main>

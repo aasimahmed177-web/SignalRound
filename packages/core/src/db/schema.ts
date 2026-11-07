@@ -939,3 +939,94 @@ export const pageVerdicts = pgTable(
   // url: persist and the money repair read a page's stored kind when no tier names its host.
   (t) => [index("page_verdicts_created_idx").on(t.createdAt), index("page_verdicts_url_idx").on(t.url)],
 );
+
+/**
+ * Open roles read from a company's own job board (Greenhouse, Lever, Ashby, Workable, SmartRecruiters,
+ * Recruitee, BambooHR) or from a logged-out job-site search (JobSpy). Every row keeps the posting URL it
+ * was read from. A board scan that no longer returns a posting marks it closed rather than deleting it.
+ */
+export const jobPostings = pgTable(
+  "job_postings",
+  {
+    id: text("id").primaryKey(),
+    /** greenhouse | lever | ashby | workable | smartrecruiters | recruitee | bamboohr | jobspy-<site> | a worker's channel */
+    source: text("source").notNull(),
+    /** The posting's id in its source; unique per source. */
+    externalId: text("external_id").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    company: text("company").notNull(),
+    companyWebsite: text("company_website"),
+    /** The public board the posting came from; scans close postings this board stopped listing. */
+    boardUrl: text("board_url"),
+    /** The funding observation that led us to this company, when there was one. */
+    signalId: text("signal_id").references(() => signalObservations.id, { onDelete: "set null" }),
+    location: text("location"),
+    remote: boolean("remote"),
+    department: text("department"),
+    employmentType: text("employment_type"),
+    salary: text("salary"),
+    description: text("description"),
+    postedAt: timestamp("posted_at", { withTimezone: true }),
+    /** open | closed */
+    status: text("status").notNull().default("open"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("job_postings_source_external_idx").on(t.source, t.externalId),
+    index("job_postings_status_seen_idx").on(t.status, t.lastSeenAt),
+    index("job_postings_board_idx").on(t.boardUrl),
+    index("job_postings_signal_idx").on(t.signalId),
+    // listJobs: the source filter and its distinct-source list, and the newest-first order of a status.
+    index("job_postings_source_idx").on(t.source),
+    index("job_postings_open_posted_idx").on(t.status, sql`(coalesce(${t.postedAt}, ${t.firstSeenAt})) DESC`),
+  ],
+);
+
+/** People a funding observation names (founders, CEO), each cited to the public page that names them. */
+export const signalPeople = pgTable(
+  "signal_people",
+  {
+    id: text("id").primaryKey(),
+    signalId: text("signal_id")
+      .notNull()
+      .references(() => signalObservations.id, { onDelete: "cascade" }),
+    company: text("company").notNull(),
+    companyWebsite: text("company_website"),
+    name: text("name").notNull(),
+    /** As the source writes it: "Co-founder and CEO". */
+    role: text("role"),
+    sourceUrl: text("source_url").notNull(),
+    /** The sentence or line on sourceUrl that names them. */
+    quote: text("quote"),
+    /** Only a profile a public page links; never searched for or guessed. */
+    linkedinUrl: text("linkedin_url"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("signal_people_signal_name_idx").on(t.signalId, t.name)],
+);
+
+/** Public emails found verbatim on a page (never pattern-built), with the page and the text that shows them. */
+export const signalEmails = pgTable(
+  "signal_emails",
+  {
+    id: text("id").primaryKey(),
+    signalId: text("signal_id")
+      .notNull()
+      .references(() => signalObservations.id, { onDelete: "cascade" }),
+    /** Set for a founder's own address. */
+    personId: text("person_id").references(() => signalPeople.id, { onDelete: "set null" }),
+    email: text("email").notNull(),
+    /** founder_personal | company_inbox */
+    kind: text("kind").notNull(),
+    /** founders | general | sales | press | careers | support | person | other */
+    inbox: text("inbox"),
+    sourceUrl: text("source_url").notNull(),
+    quote: text("quote").notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("signal_emails_signal_email_idx").on(t.signalId, t.email), index("signal_emails_person_idx").on(t.personId)],
+);

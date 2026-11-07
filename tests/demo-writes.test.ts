@@ -39,6 +39,7 @@ vi.mock("@/lib/web-client", () => ({
 vi.mock("@/lib/directory", () => ({ searchDirectory: async () => ({ companies: [], investors: [] }) }));
 
 import * as companyActions from "../app/(dashboard)/companies/actions";
+import * as jobActions from "../app/(dashboard)/jobs/actions";
 import * as presetActions from "../app/(dashboard)/presets/actions";
 import * as reviewActions from "../app/(dashboard)/review/actions";
 import { POST as researchPost } from "../app/(dashboard)/review/research/route";
@@ -54,6 +55,7 @@ import { GET as slackCallback } from "../app/api/slack/oauth/callback/route";
 const MODULES = {
   "app/actions": rootActions,
   "companies/actions": companyActions,
+  "jobs/actions": jobActions,
   "presets/actions": presetActions,
   "review/actions": reviewActions,
   "scraper/actions": scraperActions,
@@ -72,6 +74,7 @@ const SWEPT_FILES = [
   "app/(dashboard)/search/actions.ts",
   "app/(dashboard)/settings/actions.ts",
   "app/(dashboard)/signals/actions.ts",
+  "app/(dashboard)/jobs/actions.ts",
   "app/(slack)/slack/actions.ts",
 ];
 
@@ -123,6 +126,7 @@ const ROUTE_GUARDS: Record<string, Record<string, string>> = {
   },
   "app/api/v1/runs/route.ts": { GET: "public read, rate limited", OPTIONS: "CORS preflight, no data" },
   "app/api/v1/signals/route.ts": { POST: "SIGNAL_INGEST_KEY bearer", OPTIONS: "preflight, no data" },
+  "app/api/v1/jobs/route.ts": { GET: "SIGNAL_INGEST_KEY bearer", POST: "SIGNAL_INGEST_KEY bearer", OPTIONS: "preflight, no data" },
   "app/api/webhooks/firecrawl/route.ts": { POST: "retired: always 410, no writes" },
   "app/api/cron/native-monitors/route.ts": { GET: "CRON_SECRET bearer" },
   "app/api/webhooks/slack/route.ts": { POST: "SLACK_SIGNING_SECRET signature and five-minute timestamp window" },

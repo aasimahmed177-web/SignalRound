@@ -16,6 +16,8 @@ describe("NAV", () => {
       "/investors",
       "/signals",
       "/scraper",
+      "/jobs",
+      "/leads",
     ]);
   });
 
@@ -28,6 +30,8 @@ describe("NAV", () => {
       "/overview",
       "/feed",
       "/signals",
+      "/jobs",
+      "/leads",
       "/scraper",
       "/companies",
       "/investors",

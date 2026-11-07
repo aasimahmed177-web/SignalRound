@@ -72,6 +72,17 @@ Funding extraction, company research, dossiers and verification require one of `
 
 Delete and recreate old hosted monitors in Presets. Native monitors run through `/api/cron/native-monitors`; self-hosted production scheduling requires `CRON_SECRET`. Run only one process against an embedded PGlite store—use the UI while the app is running, not a second `--apply` collector process.
 
+## Jobs at funded startups
+
+The **Jobs** page and `pnpm collect:jobs` read open roles straight from each funded startup's own job
+board (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee, BambooHR), found from links on
+its website. Optional JobSpy search adds LinkedIn, Indeed, Naukri and Glassdoor results without logging
+in. Setup and commands: [workers/jobs/README.md](workers/jobs/README.md).
+
+```bash
+pnpm collect:jobs -- --limit 25 --apply
+```
+
 ## Ingest from another Agent Reach channel
 
 Set a dedicated secret in `.env`:

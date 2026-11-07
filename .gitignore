@@ -47,3 +47,11 @@ data/
 
 # Bench reports are derived from the golden set; the set is the artifact
 evals/reports/
+
+# Python workers (JobSpy etc.)
+workers/.venv/
+__pycache__/
+
+# Gauntlet run outputs and captured benchmarks hold scraped contact data
+evals/runs/
+evals/bars/
